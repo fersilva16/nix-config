@@ -61,7 +61,7 @@
 
       luks.devices."lvm" = {
         # TODO: change device
-        device = "/dev/sda1";
+        device = "/dev/disk/by-label/lvm";
         preLVM = true;
         allowDiscards = true;
       };
@@ -111,13 +111,13 @@
 
   # TODO: change filesystems
   fileSystems."/" = {
-    device = "/dev/sda1";
+    device = "/dev/disk/by-label/lvm";
     fsType = "btrfs";
     options = ["subvol=root"];
   };
 
   fileSystems."/home" = {
-    device = "/dev/sda1";
+    device = "/dev/disk/by-label/lvm";
     fsType = "btrfs";
     options = ["subvol=home"];
   };
