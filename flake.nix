@@ -6,7 +6,7 @@
 
     nur.url = "github:nix-community/NUR";
 
-    hardware.url ={
+    hardware = {
       url = "github:nixos/nixos-hardware";
       inputs.nixpkgs.follows = "nixpkgs";
     };
