@@ -3,7 +3,11 @@
     hardware.nixosModules.dell-g3-3779
   ];
 
-  networking.hostName = "g3";
+  networking = {
+    hostName = "g3";
+
+    useDHCP = false;
+  };
 
   nixpkgs.config.allowUnfree = true;
 
@@ -42,7 +46,36 @@
 
       efi.canTouchEfiVariables = true;
     };
+
+    initrd = {
+      # TODO: change availableKernelModules
+      availableKernelModules = [
+        "ata_piix"
+        "ohci_pci"
+        "sd_mod"
+        "sr_mod"
+      ];
+
+      # TODO: change kernelModules
+      kernelModules = ["dm-snapshot"];
+
+      luks.devices."lvm" = {
+        # TODO: change device
+        device = "/dev/sda1";
+        preLVM = true;
+        allowDiscards = true;
+      };
+    };
+
+    resumeDevice = "/swapfile";
   };
+
+  swapDevices = [
+    {
+      device = "/swapfile";
+      size = 6144;
+    }
+  ];
 
   environment = {
     loginShellInit = ''
@@ -74,5 +107,23 @@
       twitter-color-emoji
       fira-code
     ];
+  };
+
+  # TODO: change filesystems
+  fileSystems."/" = {
+    device = "/dev/sda1";
+    fsType = "btrfs";
+    options = ["subvol=root"];
+  };
+
+  fileSystems."/home" = {
+    device = "/dev/sda1";
+    fsType = "btrfs";
+    options = ["subvol=home"];
+  };
+
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/boot";
+    fsType = "vfat";
   };
 }
