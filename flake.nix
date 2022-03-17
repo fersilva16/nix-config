@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    nur.url = "github:nix-community/NUR";
+    # nur.url = "github:nix-community/NUR";
 
     hardware = {
       url = "github:nixos/nixos-hardware";
@@ -17,11 +17,11 @@
     };
   };
 
-  outputs = { self, nur, nixpkgs, home-manager, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, ... }@inputs:
     let
       overlays = [
         self.overlay
-        nur.overlay
+        # nur.overlay
       ];
     in
       {
