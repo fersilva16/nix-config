@@ -17,7 +17,7 @@
     };
   };
 
-  outputs = { self, nur, ... }@inputs:
+  outputs = { self, nur, nixpkgs, home-manager, ... }@inputs:
     let
       overlays = [
         self.overlay
