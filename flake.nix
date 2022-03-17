@@ -27,11 +27,13 @@
       {
         nixosConfigurations = {
           g3 = nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
             modules = [
               ./hosts/g3.nix
               { inherit overlays; }
               ./users/fernando/system.nix
             ];
+            specialArgs = { inherit inputs; };
           };
         };
 
