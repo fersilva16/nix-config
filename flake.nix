@@ -23,17 +23,18 @@
         self.overlay
         nur.overlay
       ];
+      system = "x86_64-linux";
     in
       {
         nixosConfigurations = {
           g3 = nixpkgs.lib.nixosSystem {
-            system = "x86_64-linux";
+            inherit system;
+            specialArgs = { inherit inputs system; };
             modules = [
               ./hosts/g3.nix
               { inherit overlays; }
               ./users/fernando/system.nix
             ];
-            specialArgs = { inherit inputs; };
           };
         };
 
