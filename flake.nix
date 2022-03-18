@@ -25,48 +25,16 @@
         nur.overlay
       ];
 
-      system = "x86_64-linux";
-      hostname = "g3";
+      lib = import ./lib { inherit inputs overlays; };
     in
       {
-        inherit overlays;
-
         nixosConfigurations = {
-          g3 = nixpkgs.lib.nixosSystem {
-            inherit system;
-            specialArgs = {
-              inherit inputs system hostname;
-            };
-
-            modules = [
-              ./hosts/g3.nix
-              ./users/fernando/system.nix
-            ];
+          g3 = lib.makeHost {
+            hostname = "g3";
+            users = [ "fernando" ];
           };
         };
 
-        homeConfigurations = {
-          "fernando@g3" = home-manager.lib.homeManagerConfiguration {
-            inherit system;
-
-            username = "fernando";
-            homeDirectory = "/home/fernando";
-
-            configuration = ./users/fernando/home.nix;
-
-            extraModules = [
-              {
-                nixpkgs = {
-                  inherit overlays;
-                  config.allowUnfree = true;
-                };
-              }
-            ];
-
-            extraSpecialArgs = {
-              inherit inputs system hostname;
-            };
-          };
-        };
+        homeConfigurations = {};
       };
 }

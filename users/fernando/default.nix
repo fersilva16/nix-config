@@ -2,9 +2,9 @@
   users.users.fernando = {
     isNormalUser = true;
     extraGroups = [
+      "wheel"
       "networkmanager"
       "video"
-      "wheel"
       "docker"
     ];
     # TODO: change the password
