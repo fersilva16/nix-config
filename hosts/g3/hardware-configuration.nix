@@ -8,20 +8,22 @@
     availableKernelModules = [ "ata_piix" "ohci_pci" "sd_mod" "sr_mod" ];
     kernelModules = [ "dm-snapshot" ];
 
-    luks.devices."lvm" = {
-      device = "/dev/disk/by-label/lvm";
-      preLVM = true;
-      allowDiscards = true;
-    };
+    luks.devices."lvm".device = "/dev/disk/by-label/lvm";
+
+    # luks.devices."lvm" = {
+    #   device = "/dev/disk/by-label/lvm";
+    #   preLVM = true;
+    #   allowDiscards = true;
+    # };
   };
 
-  boot.resumeDevice = "/swapfile";
-  swapDevices = [
-    {
-      device = "/swapfile";
-      size = 6144;
-    }
-  ];
+  # boot.resumeDevice = "/swapfile";
+  # swapDevices = [
+  #   {
+  #     device = "/swapfile";
+  #     size = 6144;
+  #   }
+  # ];
 
   fileSystems = {
     "/" = {
