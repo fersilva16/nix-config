@@ -20,7 +20,6 @@
   outputs = { self, nixpkgs, nur, home-manager, ... }@inputs:
     let
       overlays = [
-        self.overlay
         nur.overlay
       ];
       system = "x86_64-linux";
