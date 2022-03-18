@@ -1,4 +1,4 @@
-{ hardware, pkgs, ... }: {
+{ hardware, pkgs, overlays, ... }: {
   imports = [
     hardware.nixosModules.dell-g3-3779
   ];
@@ -9,7 +9,10 @@
     useDHCP = false;
   };
 
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs = {
+    inherit overlays;
+    config.allowUnfree = true;
+  };
 
   nix = {
     package = pkgs.nixFlakes;
