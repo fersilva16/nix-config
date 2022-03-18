@@ -1,9 +1,9 @@
-{ inputs, overlays ? [] }:
+{ inputs, overlays ? [  ] }:
 let
   inherit (inputs.nixpkgs) lib;
 in
 {
-  makeHost = { hostname, system ? "x86_64-linux", users ? [] }:
+  makeHost = { hostname, system ? "x86_64-linux", users ? [  ] }:
     lib.nixosSystem {
       inherit system;
 
