@@ -9,7 +9,7 @@
     kernelModules = [  ];
 
     luks.devices."lvm" = {
-      device = "/dev/sda1";
+      device = "/dev/nvme0n1p1";
       preLVM = true;
       allowDiscards = true;
     };
