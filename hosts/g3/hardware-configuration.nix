@@ -7,6 +7,7 @@
   boot.initrd = {
     availableKernelModules = [ "nvme" ];
     kernelModules = [  ];
+    supportedFilesystems = [ "btrfs" ];
 
     luks.devices."lvm" = {
       device = "/dev/nvme0n1p1";
@@ -25,13 +26,13 @@
 
   fileSystems = {
     "/" = {
-      device = "/dev/disk/by-label/luks";
+      device = "/dev/disk/by-label/root";
       fsType = "btrfs";
       options = [ "subvol=root" ];
     };
 
     "/home" = {
-      device = "/dev/disk/by-label/luks";
+      device = "/dev/disk/by-label/root";
       fsType = "btrfs";
       options = [ "subvol=home" ];
     };
