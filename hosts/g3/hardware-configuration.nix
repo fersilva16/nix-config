@@ -25,13 +25,13 @@
 
   fileSystems = {
     "/" = {
-      device = "/dev/disk/by-label/lvm";
+      device = "/dev/disk/by-label/luks";
       fsType = "btrfs";
       options = [ "subvol=root" ];
     };
 
     "/home" = {
-      device = "/dev/disk/by-label/lvm";
+      device = "/dev/disk/by-label/luks";
       fsType = "btrfs";
       options = [ "subvol=home" ];
     };
