@@ -5,7 +5,7 @@
   ];
 
   boot.initrd = {
-    availableKernelModules = [ "ata_piix" "ohci_pci" "sd_mod" "sr_mod" ];
+    availableKernelModules = [ "nvme" ];
     kernelModules = [  ];
 
     luks.devices."lvm" = {
