@@ -10,7 +10,7 @@
     supportedFilesystems = [ "btrfs" ];
 
     luks.devices."lvm" = {
-      device = "/dev/nvme0n1p1";
+      device = "/dev/nvme0n1p2";
       preLVM = true;
       allowDiscards = true;
     };
