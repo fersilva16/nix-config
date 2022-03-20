@@ -6,11 +6,11 @@ in
   imports = [
     dell-g3-3779
 
-    ./common
-    ./common/boot
-    ./common/nix
-    ./common/xmonad
-    ./common/fonts
+    ../common
+    ../common/boot
+    ../common/nix
+    ../common/xmonad
+    ../common/fonts
 
     ./audio
     ./networking
