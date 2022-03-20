@@ -19,7 +19,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nur, home-manager, ... }@inputs:
+  outputs = { self, nixpkgs, nur, home-manager, utils, ... }@inputs:
     let
       overlays = [
         nur.overlay
@@ -41,9 +41,9 @@
             hostname = "g3";
           };
         };
-      } // inputs.utils.lib.eachDefaultSystem (system:
+      } // utils.lib.eachDefaultSystem (system:
         let
-          pkgs = import inputs.nixpkgs { inherit system overlays; };
+          pkgs = import nixpkgs { inherit system overlays; };
         in
         {
           packages = pkgs;
