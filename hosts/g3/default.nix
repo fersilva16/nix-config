@@ -12,7 +12,6 @@ in
   system.stateVersion = "21.11";
 
   boot = {
-    supportedFilesystems = [ "btrfs" ];
     loader = {
       timeout = 10;
       efi.canTouchEfiVariables = true;
