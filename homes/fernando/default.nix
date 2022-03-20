@@ -1,7 +1,8 @@
 { ... }:
 {
   imports = [
-    ./xmonad
     ./git
+    ./qutebrowser
+    ./xmonad
   ];
 }
