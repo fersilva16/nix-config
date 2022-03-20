@@ -41,5 +41,9 @@
             hostname = "g3";
           };
         };
+
+        devShell = pkgs.mkShell {
+          buildInputs = with pkgs; [ nixfmt rnix-lsp home-manager git ];
+        };
       };
 }
