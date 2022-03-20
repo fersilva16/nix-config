@@ -6,27 +6,17 @@ in
   imports = [
     dell-g3-3779
 
+    ./common
+    ./common/boot
+    ./common/nix
+    ./common/xmonad
+    ./common/fonts
+
+    ./audio
+    ./networking
+
     ./hardware-configuration.nix
   ];
-
-  system.stateVersion = "21.11";
-
-  boot = {
-    loader = {
-      timeout = 10;
-      efi.canTouchEfiVariables = true;
-      systemd-boot = {
-        enable = true;
-        consoleMode = "max";
-        editor = false;
-      };
-    };
-  };
-
-  networking = {
-    networkmanager.enable = true;
-    useDHCP = false;
-  };
 
   time.timeZone = "America/Sao_Paulo";
 
@@ -35,14 +25,6 @@ in
   console = {
     earlySetup = true;
     keyMap = "br-abnt2";
-  };
-
-  sound.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
   };
 
   hardware.bluetooth.enable = true;
@@ -55,44 +37,5 @@ in
     localBinInPath = true;
   };
 
-  nix = {
-    package = pkgs.nixFlakes;
-    gc = {
-      automatic = true;
-      options = "--delete-older-than 15d";
-    };
-    settings = {
-      trusted-users = [ "root" "@wheel" ];
-      auto-optimise-store = true;
-    };
-    extraOptions = ''
-      experimental-features = nix-command flakes
-    '';
-  };
-
   hardware.opengl.enable = true;
-
-  services.xserver = {
-    enable = true;
-    displayManager.startx.enable = true;
-    windowManager.xmonad = {
-      enable = true;
-      enableContribAndExtras = true;
-      extraPackages = haskellPackages: with haskellPackages; [
-        xmonad
-        xmonad-contrib
-        xmonad-extras
-        xmobar
-      ];
-    };
-  };
-
-  fonts = {
-    enableDefaultFonts = true;
-    fonts = with pkgs; [
-      noto-fonts
-      twitter-color-emoji
-      fira-code
-    ];
-  };
 }

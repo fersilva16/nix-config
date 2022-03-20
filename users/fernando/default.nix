@@ -1,6 +1,7 @@
-{ ... }: {
+{ pkgs, ... }: {
   users.users.fernando = {
     isNormalUser = true;
+    shell = pkgs.fish;
     extraGroups = [
       "wheel"
       "networkmanager"

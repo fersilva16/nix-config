@@ -35,6 +35,11 @@
           };
         };
 
-        homeConfigurations = {};
+        homeConfigurations = {
+          "fernando@g3" = lib.makeHome {
+            username = "fernando";
+            hostname = "g3";
+          };
+        };
       };
 }
