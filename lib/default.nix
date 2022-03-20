@@ -20,7 +20,7 @@ in
             config.allowUnfree = true;
           };
         }
-      ] ++ lib.forEach users (user: ../users/${user});
+      ] ++ nixpkgs.lib.forEach users (user: ../users/${user});
     };
 
   makeHome = { username, system ? "x86_64-linux", hostname }:
