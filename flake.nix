@@ -41,9 +41,15 @@
             hostname = "g3";
           };
         };
+      } // inputs.utils.lib.eachDefaultSystem (system:
+        let
+          pkgs = import inputs.nixpkgs { inherit system overlays; };
+        in
+        {
+          packages = pkgs;
 
-        devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ nixfmt rnix-lsp home-manager git ];
-        };
-      };
+          devShell = pkgs.mkShell {
+            buildInputs = with pkgs; [ nixfmt rnix-lsp home-manager git ];
+          };
+        });
 }
