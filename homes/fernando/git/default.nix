@@ -23,7 +23,7 @@
     userName = "Fernando Silva";
   };
 
-  program.gh = {
+  programs.gh = {
     enable = true;
     settings.git_protocol = "ssh";
   };
