@@ -2,6 +2,8 @@
 {
   services.xserver = {
     enable = true;
+    layout = "br-abnt2";
+
     displayManager.startx.enable = true;
 
     windowManager.xmonad = {
