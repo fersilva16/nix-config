@@ -4,7 +4,11 @@
     enable = true;
     layout = "br-abnt2";
 
-    displayManager.startx.enable = true;
+    displayManager = {
+      defaultSession = "none+xmonad";
+      startx.enable = true;
+    };
+
 
     windowManager.xmonad = {
       enable = true;
