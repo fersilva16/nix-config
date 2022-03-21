@@ -1,7 +1,8 @@
-{ ... }:
+{ pkgs, ... }:
 {
   programs.git = {
     enable = true;
+    package = pkgs.gitAndTools.gitFull;
 
     aliases = {
       b = "branch";
@@ -16,7 +17,14 @@
 
     # TODO: setup signing
 
+    pull.rebase = false;
+
     userEmail = "fernandonsilva16@gmail.com";
     userName = "Fernando Silva";
+  };
+
+  program.gh = {
+    enable = true;
+    settings.git_protocol = "ssh";
   };
 }
