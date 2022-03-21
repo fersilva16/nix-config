@@ -2,6 +2,7 @@
 {
   imports = [
     ./alacritty
+    ./firefox
     ./fish
     ./git
     ./qutebrowser
