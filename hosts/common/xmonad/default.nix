@@ -2,7 +2,7 @@
 {
   services.xserver = {
     enable = true;
-    layout = "br-abnt2";
+    layout = "br";
 
     displayManager = {
       defaultSession = "none+xmonad";
