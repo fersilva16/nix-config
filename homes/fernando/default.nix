@@ -9,5 +9,6 @@
     ./qutebrowser
     ./starship
     ./xmonad
+    ./ytmdesktop
   ];
 }

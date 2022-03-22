@@ -1,0 +1,6 @@
+{ ... }:
+{
+  programs.ytmdesktop = {
+    enable = true;
+  };
+}
