@@ -5,6 +5,7 @@
     ./firefox
     ./fish
     ./git
+    ./google-chrome
     ./obsidian
     ./qutebrowser
     ./starship
