@@ -4,6 +4,7 @@
     ./alacritty
     ./bat
     ./bottom
+    ./broot
     ./chromium
     ./emacs
     ./exa
