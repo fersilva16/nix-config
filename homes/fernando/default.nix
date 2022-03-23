@@ -2,10 +2,10 @@
 {
   imports = [
     ./alacritty
+    ./chromium
     ./firefox
     ./fish
     ./git
-    ./google-chrome
     ./nyxt
     ./obsidian
     ./qutebrowser
