@@ -2,6 +2,7 @@
 {
   imports = [
     ./alacritty
+    ./bat
     ./chromium
     ./firefox
     ./fish
