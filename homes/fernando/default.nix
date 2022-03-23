@@ -7,6 +7,7 @@
     ./fish
     ./git
     ./nyxt
+    ./obs
     ./obsidian
     ./qutebrowser
     ./starship
