@@ -5,6 +5,8 @@
     ./bat
     ./bottom
     ./chromium
+    ./emacs
+    ./exa
     ./firefox
     ./fish
     ./git

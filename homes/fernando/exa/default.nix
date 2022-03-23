@@ -1,0 +1,6 @@
+{ ... }:
+{
+  programs.exa = {
+    enable = true;
+  };
+}
