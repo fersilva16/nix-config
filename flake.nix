@@ -25,7 +25,7 @@
         nur.overlay
       ];
 
-      lib = nixpkgs.callPackages ./lib { inherit inputs overlays; };
+      lib = import ./lib { inherit inputs overlays; };
     in
       {
         nixosConfigurations = {
