@@ -10,6 +10,7 @@
     ./exa
     ./firefox
     ./fish
+    ./fzf
     ./git
     ./nyxt
     ./obs
