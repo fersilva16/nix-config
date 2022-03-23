@@ -4,10 +4,11 @@
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
-  boot.kernelModules = [ "kvm-intel" ];
+  # boot.kernelModules = [ "kvm-intel" ];
 
   boot.initrd = {
-    availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
+    availableKernelModules = [ "nvme" ]
+    # availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
     kernelModules = [  ];
     supportedFilesystems = [ "btrfs" ];
 
