@@ -1,0 +1,6 @@
+{ ... }:
+{
+  home.packages = [
+    pkgs.nyxt
+  ];
+}

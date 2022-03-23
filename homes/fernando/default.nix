@@ -6,6 +6,7 @@
     ./fish
     ./git
     ./google-chrome
+    ./nyxt
     ./obsidian
     ./qutebrowser
     ./starship
