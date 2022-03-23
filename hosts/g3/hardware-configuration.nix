@@ -7,7 +7,7 @@
   # boot.kernelModules = [ "kvm-intel" ];
 
   boot.initrd = {
-    availableKernelModules = [ "nvme" ]
+    availableKernelModules = [ "nvme" ];
     # availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
     kernelModules = [  ];
     supportedFilesystems = [ "btrfs" ];
