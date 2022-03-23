@@ -13,6 +13,7 @@ in
     ../common/fonts
 
     ./audio
+    ./fingerprint
     ./networking
 
     ./hardware-configuration.nix
