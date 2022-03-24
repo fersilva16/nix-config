@@ -9,7 +9,7 @@ in
     ../common
     ../common/boot
     ../common/nix
-    ../common/xmonad
+    ../common/xserver
     ../common/fonts
 
     ./audio
