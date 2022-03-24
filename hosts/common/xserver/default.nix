@@ -6,6 +6,8 @@
     xkbVariant = "abnt2,";
 
     displayManager = {
+      defaultSession = "xsession";
+
       session = [
         {
           name = "xsession";
@@ -15,10 +17,6 @@
       ];
 
       startx.enable = true;
-    };
-
-    desktopManager = {
-      default = "xsession";
     };
 
     # Not sure if I need xmonad here when I'm using xsession
