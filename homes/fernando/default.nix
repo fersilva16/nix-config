@@ -1,6 +1,8 @@
-{ ... }:
+{ inputs, ... }:
 {
   imports = [
+    inputs.doom-emacs.hmModule
+
     ./alacritty
     ./bat
     ./bottom

@@ -17,12 +17,21 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    emacs-overlay.url = "github:nix-community/emacs-overlay";
+
+    doom-emacs = {
+      url = "github:nix-community/nix-doom-emacs";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.emacs-overlay.follows = "emacs-overlay";
+    };
   };
 
-  outputs = { self, nixpkgs, nur, home-manager, utils, ... }@inputs:
+  outputs = { self, nixpkgs, nur, home-manager, utils, emacs-overlay, ... }@inputs:
     let
       overlays = [
         nur.overlay
+        emacs-overlay.overlay
       ];
 
       lib = import ./lib { inherit inputs overlays; };
