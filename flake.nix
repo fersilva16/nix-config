@@ -61,7 +61,12 @@
           packages = pkgs;
 
           devShell = pkgs.mkShell {
-            buildInputs = with pkgs; [ nixfmt rnix-lsp home-manager git ];
+            buildInputs = [
+              pkgs.nixfmt
+              pkgs.rnix-lsp
+              pkgs.home-manager
+              pkgs.git
+            ];
           };
         });
 }
