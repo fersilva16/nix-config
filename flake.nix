@@ -30,9 +30,9 @@
     };
   };
 
-  outputs = { self, nixpkgs, nur, home-manager, utils, emacs-overlay, ... }@inputs:
+  outputs = { self, nixpkgs, utils, ... }@inputs:
     let
-      overlays = [
+      overlays = with inputs; [
         nur.overlay
         emacs-overlay.overlay
       ];
@@ -61,12 +61,7 @@
           packages = pkgs;
 
           devShell = pkgs.mkShell {
-            buildInputs = [
-              pkgs.nixfmt
-              pkgs.rnix-lsp
-              pkgs.home-manager
-              pkgs.git
-            ];
+            buildInputs = with pkgs; [ nixfmt rnix-lsp home-manager git ];
           };
         });
 }
