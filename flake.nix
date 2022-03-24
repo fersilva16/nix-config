@@ -2,7 +2,10 @@
   description = "My NixOS configuration";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    # Temporary fork for nvidia-vaapi fix (#165064)
+    nixpkgs.url = "github:fersilva16/nixpkgs/nixos-unstable";
+
+    # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nur.url = "github:nix-community/NUR";
 
