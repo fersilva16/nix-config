@@ -39,4 +39,7 @@ in
   };
 
   hardware.opengl.enable = true;
+
+  # TODO: remove that later?
+  hardware.bumblebee.enable = false;
 }
