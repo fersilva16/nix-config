@@ -1,6 +1,6 @@
-{ ... }:
+{ pkgs, ... }:
 {
-  programs.ytmdesktop = {
-    enable = true;
-  };
+  home.packages = [
+    pkgs.ytmdesktop
+  ];
 }
