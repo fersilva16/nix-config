@@ -4,11 +4,10 @@
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
-  #boot.kernelModules = [ "kvm-intel" ];
+  boot.kernelModules = [ "kvm-intel" ];
 
   boot.initrd = {
-    availableKernelModules = [ "nvme" ];
-    #availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
+    availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
     kernelModules = [  ];
     supportedFilesystems = [ "btrfs" ];
 
@@ -19,8 +18,8 @@
     };
   };
 
-  #powerManagement.cpuFreqGovernor = lib.mkDefault "powersave";
-  #hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+  powerManagement.cpuFreqGovernor = lib.mkDefault "powersave";
+  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   boot.resumeDevice = "/swapfile";
   swapDevices = [

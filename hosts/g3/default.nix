@@ -38,5 +38,5 @@ in
     localBinInPath = true;
   };
 
-  # hardware.opengl.enable = true;
+  hardware.opengl.enable = true;
 }
