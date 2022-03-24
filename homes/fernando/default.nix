@@ -20,6 +20,7 @@
     ./obsidian
     ./qutebrowser
     ./starship
+    ./xmobar
     ./xmonad
     ./ytmdesktop
   ];
