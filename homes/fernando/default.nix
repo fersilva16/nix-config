@@ -12,6 +12,7 @@
     ./exa
     ./firefox
     ./fish
+    ./flameshot
     ./fzf
     ./git
     ./nyxt
