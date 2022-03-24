@@ -38,8 +38,5 @@ in
     localBinInPath = true;
   };
 
-  hardware.opengl.enable = true;
-
-  # TODO: remove that later?
-  hardware.bumblebee.enable = false;
+  # hardware.opengl.enable = true;
 }
