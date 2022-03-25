@@ -5,6 +5,8 @@
     layout = "br,us";
     xkbVariant = "abnt2,";
 
+    videoDrivers = [ "intel" "nvidia" ];
+
     displayManager = {
       defaultSession = "xsession";
 
@@ -16,7 +18,7 @@
         }
       ];
 
-      startx.enable = true;
+      # startx.enable = true;
     };
 
     # Not sure if I need xmonad here when I'm using xsession
