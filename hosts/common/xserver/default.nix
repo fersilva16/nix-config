@@ -5,7 +5,7 @@
     layout = "br,us";
     xkbVariant = "abnt2,";
 
-    videoDrivers = [ "intel" "nvidia" ];
+    # videoDrivers = [ "intel" "nvidia" ];
 
     displayManager = {
       defaultSession = "xsession";
