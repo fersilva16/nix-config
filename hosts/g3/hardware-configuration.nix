@@ -1,4 +1,7 @@
 { modulesPath, lib, config, ... }:
+let
+  fsDefaultOptions = [ "compress=lzo" "noatime" "discard" "ssd" "autodefrag" "space_cache" ];
+in
 {
   imports = [
     (modulesPath + "/installer/scan/not-detected.nix")
@@ -33,19 +36,19 @@
     "/" = {
       device = "/dev/disk/by-label/root";
       fsType = "btrfs";
-      options = [ "subvol=root" ];
+      options = [ "subvol=root" ] ++ fsDefaultOptions;
     };
 
     "/home" = {
       device = "/dev/disk/by-label/root";
       fsType = "btrfs";
-      options = [ "subvol=home" ];
+      options = [ "subvol=home" "nosuid" ] ++ fsDefaultOptions;
     };
 
     "/nix" = {
       device = "/dev/disk/by-label/root";
       fsType = "btrfs";
-      options = [ "subvol=nix" ];
+      options = [ "subvol=nix" ] ++ fsDefaultOptions;
     };
 
     "/boot" = {
