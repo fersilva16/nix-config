@@ -2,10 +2,7 @@
   description = "My NixOS configuration";
 
   inputs = {
-    # Temporary fork for nvidia-vaapi fix (#165064)
-    nixpkgs.url = "github:fersilva16/nixpkgs/nixos-unstable";
-
-    # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     nur.url = "github:nix-community/NUR";
 
@@ -32,7 +29,10 @@
 
   outputs = { self, nixpkgs, utils, ... }@inputs:
     let
+      overlay = import ./overlays;
+
       overlays = with inputs; [
+        overlay
         nur.overlay
         emacs-overlay.overlay
       ];
@@ -40,6 +40,8 @@
       lib = import ./lib { inherit inputs overlays; };
     in
       {
+        inherit overlay overlays;
+
         nixosConfigurations = {
           g3 = lib.makeHost {
             hostname = "g3";
