@@ -27,7 +27,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, utils, ... }@inputs:
+  outputs = inputs@{ self, nixpkgs, utils }:
     let
       overlay = import ./overlays;
 
