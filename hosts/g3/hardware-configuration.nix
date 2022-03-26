@@ -21,10 +21,10 @@
   powerManagement.cpuFreqGovernor = lib.mkDefault "powersave";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-  boot.resumeDevice = "/swapfile";
+  boot.resumeDevice = "/var/swapfile";
   swapDevices = [
     {
-      device = "/swapfile";
+      device = "/var/swapfile";
       size = 18432;
     }
   ];
