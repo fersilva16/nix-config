@@ -42,6 +42,12 @@
       options = [ "subvol=home" ];
     };
 
+    "/nix" = {
+      device = "/dev/disk/by-label/root";
+      fsType = "btrfs";
+      options = [ "subvol=nix" ];
+    };
+
     "/boot" = {
       device = "/dev/disk/by-label/boot";
       fsType = "vfat";
