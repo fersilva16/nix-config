@@ -7,29 +7,19 @@
 
     # videoDrivers = [ "intel" "nvidia" ];
 
-    displayManager = {
-      defaultSession = "none+terminal";
+    # displayManager = {
+    #   defaultSession = "xsession";
 
-      session = [
-        {
-          manage = "window";
-          name = "terminal";
-          start = "";
-        }
-      ];
+    #   session = [
+    #     {
+    #       name = "xsession";
+    #       manage = "desktop";
+    #       start = ''exec $HOME/.xsession'';
+    #     }
+    #   ];
 
-      # defaultSession = "xsession";
-
-      # session = [
-      #   {
-      #     name = "xsession";
-      #     manage = "desktop";
-      #     start = ''exec $HOME/.xsession'';
-      #   }
-      # ];
-
-      # startx.enable = true;
-    };
+    #   startx.enable = true;
+    # };
 
     # Not sure if I need xmonad here when I'm using xsession
     # windowManager.xmonad = {
