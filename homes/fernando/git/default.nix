@@ -15,6 +15,8 @@
       init.defaultBranch = "main";
 
       pull.rebase = false;
+
+      credential.helper = "cache --timeout=7200";
     };
 
     # TODO: setup signing
