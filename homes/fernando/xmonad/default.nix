@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 {
   xsession = {
     enable = true;
@@ -9,4 +9,6 @@
       config = ./config.hs;
     };
   };
+
+  home.packages = with pkgs; [ dmenu ];
 }
