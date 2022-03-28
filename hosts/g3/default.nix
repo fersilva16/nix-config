@@ -20,7 +20,7 @@ in
   ];
 
   environment.systemPackages = with pkgs; [
-    lspci
+    usbutils
   ];
 
   time.timeZone = "America/Sao_Paulo";
