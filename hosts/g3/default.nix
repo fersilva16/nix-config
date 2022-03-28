@@ -19,6 +19,10 @@ in
     ./hardware-configuration.nix
   ];
 
+  environment.systemPackages = with pkgs; [
+    lspci
+  ];
+
   time.timeZone = "America/Sao_Paulo";
 
   i18n.defaultLocale = pkgs.lib.mkDefault "en_US.UTF-8";
