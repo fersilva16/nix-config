@@ -21,6 +21,7 @@ in
 
   environment.systemPackages = with pkgs; [
     usbutils
+    pciutils
   ];
 
   time.timeZone = "America/Sao_Paulo";
