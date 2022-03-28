@@ -8,6 +8,7 @@ in
 
     ../common
     ../common/boot
+    ../common/docker
     ../common/nix
     ../common/xserver
     ../common/fonts
