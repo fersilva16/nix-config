@@ -8,6 +8,7 @@
     ./bottom
     ./broot
     ./chromium
+    ./discord
     ./emacs
     ./exa
     ./firefox
