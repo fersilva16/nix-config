@@ -8,7 +8,6 @@
     ./bottom
     ./broot
     ./chromium
-    ./discord
     ./emacs
     ./exa
     ./firefox
@@ -16,18 +15,19 @@
     ./flameshot
     ./fzf
     ./git
-    ./nyxt
     ./obs
-    ./obsidian
     ./qutebrowser
     ./starship
     ./xmobar
     ./xmonad
-    ./ytmdesktop
   ];
 
   home.packages = with pkgs; [
+    discord
     neofetch
+    nyxt
+    obsidian
+    ytmdesktop
   ];
 
   home.file."home-config" = {
