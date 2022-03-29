@@ -5,6 +5,7 @@
 
   hardware.nvidia.modesetting.enable = true;
   hardware.nvidia.prime = {
+    offload.enable = lib.mkForce false;
     sync.enable = true;
 
     nvidiaBusId = "PCI:1:0:0";
