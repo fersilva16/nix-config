@@ -1,4 +1,4 @@
-{ inputs, config, ... }:
+{ inputs, config, pkgs, ... }:
 {
   imports = [
     inputs.doom-emacs.hmModule
@@ -24,6 +24,10 @@
     ./xmobar
     ./xmonad
     ./ytmdesktop
+  ];
+
+  home.packages = with pkgs; [
+    neofetch
   ];
 
   home.file."home-config" = {
