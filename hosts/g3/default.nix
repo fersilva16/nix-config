@@ -50,5 +50,10 @@ in
     };
   };
 
+  services.xserver.displayManager.autoLogin = {
+    enable = true;
+    user = "fernando";
+  };
+
   hardware.opengl.enable = true;
 }
