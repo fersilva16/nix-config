@@ -43,6 +43,11 @@ in
     '';
     homeBinInPath = true;
     localBinInPath = true;
+
+    etc."nixos" = {
+      target = "nixos";
+      source = "/nix-config";
+    };
   };
 
   hardware.opengl.enable = true;

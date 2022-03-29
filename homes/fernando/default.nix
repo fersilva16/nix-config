@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, config, ... }:
 {
   imports = [
     inputs.doom-emacs.hmModule
@@ -25,4 +25,9 @@
     ./xmonad
     ./ytmdesktop
   ];
+
+  home.file."home-config" = {
+    target = ".config/nixpkgs";
+    source = config.lib.file.mkOutOfStoreSymliknk "/nix-config";
+  };
 }
