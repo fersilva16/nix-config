@@ -18,6 +18,7 @@
 import XMonad
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Run
+import Graphics.X11.ExtraTypes.XF86
 import Data.Monoid
 import System.Exit
 
@@ -156,6 +157,11 @@ myKeys conf@(XConfig {XMonad.modMask = modm}) = M.fromList $
 
     -- Restart xmonad
     , ((modm              , xK_q     ), spawn "xmonad --recompile; xmonad --restart")
+
+    -- Audio control
+    , ((0, xF86XK_AudioRaiseVolume   ), spawn "amixer sset Master 10%+")
+    , ((0, xF86XK_AudioLowerVolume   ), spawn "amixer sset Master 10%-")
+    , ((0, xF86XK_AudioMute          ), spawn "amixer sset Master toggle")
     ]
     ++
 
