@@ -16,6 +16,7 @@ in
     ./audio
     ./fingerprint
     ./networking
+    ./nvidia
 
     ./hardware-configuration.nix
   ];
