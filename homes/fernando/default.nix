@@ -28,6 +28,6 @@
 
   home.file."home-config" = {
     target = ".config/nixpkgs";
-    source = config.lib.file.mkOutOfStoreSymliknk "/nix-config";
+    source = config.lib.file.mkOutOfStoreSymlink "/nix-config";
   };
 }
