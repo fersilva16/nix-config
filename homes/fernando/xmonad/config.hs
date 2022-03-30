@@ -16,11 +16,14 @@
 --
 
 import XMonad
+import XMonad.Hooks.DynamicLog (dynamicLogWithPP, wrap, xmobarPP, xmobarColor, shorten)
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Run
 import Graphics.X11.ExtraTypes.XF86
 import Data.Monoid
 import System.Exit
+
+import Colors.DoomOne
 
 import qualified XMonad.StackSet as W
 import qualified Data.Map        as M
@@ -306,7 +309,8 @@ myStartupHook = return ()
 -- Run xmonad with the settings you specify. No need to modify this.
 --
 main = do
-  xmproc <- spawnPipe "xmobar -x 0 /home/fernando/.config/xmobar/.xmobarrc"
+  xmproc0 <- spawnPipe "xmobar -x 0 $HOME/.config/xmobar/.xmobarrc"
+  xmproc1 <- spawnPipe "xmobar -x 1 $HOME/.config/xmobar/.xmobarrc"
   xmonad $ docks defaults
 
 -- A structure containing your configuration settings, overriding
@@ -335,6 +339,30 @@ defaults = defaultConfig {
         layoutHook         = myLayout,
         manageHook         = myManageHook,
         handleEventHook    = myEventHook,
-        logHook            = myLogHook,
+        logHook            = dynamicLogWithPP $ xmobarPP
+              -- XMOBAR SETTINGS
+              { ppOutput = \x -> hPutStrLn xmproc0 x   -- xmobar on monitor 1
+                              >> hPutStrLn xmproc1 x   -- xmobar on monitor 2
+                -- Current workspace
+              , ppCurrent = xmobarColor color06 "" . wrap
+                            ("<box type=Bottom width=2 mb=2 color=" ++ color06 ++ ">") "</box>"
+                -- Visible but not current workspace
+              , ppVisible = xmobarColor color06 ""
+                -- Hidden workspace
+              , ppHidden = xmobarColor color05 "" . wrap
+                           ("<box type=Top width=2 mt=2 color=" ++ color05 ++ ">") "</box>"
+                -- Hidden workspaces (no windows)
+              , ppHiddenNoWindows = xmobarColor color05 ""
+                -- Title of active window
+              , ppTitle = xmobarColor color16 "" . shorten 60
+                -- Separator character
+              , ppSep =  "<fc=" ++ color09 ++ "> <fn=1>|</fn> </fc>"
+                -- Urgent workspace
+              , ppUrgent = xmobarColor color02 "" . wrap "!" "!"
+                -- Adding # of windows on current workspace to the bar
+                -- , ppExtras  = [10]
+                -- order of things in xmobar
+              , ppOrder  = \(ws:l:t:ex) -> [ws,l]++ex++[t]
+              }
         startupHook        = myStartupHook
     }

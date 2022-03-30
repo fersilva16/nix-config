@@ -8,7 +8,11 @@
              , border = TopB
              , bgColor = "black"
              , fgColor = "grey"
-             , position = TopW L 100
+             , position = TopW L 100 24
+             , lowerOnStart = True
+             , hideOnStart  = False
+             , allDesktops  = True
+             , persistent   = True
              , commands = [ Run Weather "CYVR" ["-t","<tempC>C","-L","18","-H","25","--normal","green","--high","red","--low","lightblue"] 36000
                           , Run Network "eth0" ["-L","0","-H","32","--normal","green","--high","red"] 10
                           , Run Network "eth1" ["-L","0","-H","32","--normal","green","--high","red"] 10
