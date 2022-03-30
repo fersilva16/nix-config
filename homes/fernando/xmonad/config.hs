@@ -23,8 +23,6 @@ import Graphics.X11.ExtraTypes.XF86
 import Data.Monoid
 import System.Exit
 
-import Colors.DoomOne
-
 import qualified XMonad.StackSet as W
 import qualified Data.Map        as M
 
@@ -344,21 +342,21 @@ defaults = defaultConfig {
               { ppOutput = \x -> hPutStrLn xmproc0 x   -- xmobar on monitor 1
                               >> hPutStrLn xmproc1 x   -- xmobar on monitor 2
                 -- Current workspace
-              , ppCurrent = xmobarColor color06 "" . wrap
-                            ("<box type=Bottom width=2 mb=2 color=" ++ color06 ++ ">") "</box>"
+              , ppCurrent = xmobarColor "#ffffff" "" . wrap
+                            ("<box type=Bottom width=2 mb=2 color=#ffffff>") "</box>"
                 -- Visible but not current workspace
-              , ppVisible = xmobarColor color06 ""
+              , ppVisible = xmobarColor "#ffffff" ""
                 -- Hidden workspace
-              , ppHidden = xmobarColor color05 "" . wrap
-                           ("<box type=Top width=2 mt=2 color=" ++ color05 ++ ">") "</box>"
+              , ppHidden = xmobarColor "#ffffff" "" . wrap
+                           ("<box type=Top width=2 mt=2 color=#ffffff>") "</box>"
                 -- Hidden workspaces (no windows)
-              , ppHiddenNoWindows = xmobarColor color05 ""
+              , ppHiddenNoWindows = xmobarColor "#ffffff" ""
                 -- Title of active window
-              , ppTitle = xmobarColor color16 "" . shorten 60
+              , ppTitle = xmobarColor "#ffffff" "" . shorten 60
                 -- Separator character
-              , ppSep =  "<fc=" ++ color09 ++ "> <fn=1>|</fn> </fc>"
+              , ppSep =  "<fc=#ffffff> <fn=1>|</fn> </fc>"
                 -- Urgent workspace
-              , ppUrgent = xmobarColor color02 "" . wrap "!" "!"
+              , ppUrgent = xmobarColor "#ffffff" "" . wrap "!" "!"
                 -- Adding # of windows on current workspace to the bar
                 -- , ppExtras  = [10]
                 -- order of things in xmobar
