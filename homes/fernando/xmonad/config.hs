@@ -363,6 +363,6 @@ defaults = defaultConfig {
                 -- , ppExtras  = [10]
                 -- order of things in xmobar
               , ppOrder  = \(ws:l:t:ex) -> [ws,l]++ex++[t]
-              }
+              },
         startupHook        = myStartupHook
     }
