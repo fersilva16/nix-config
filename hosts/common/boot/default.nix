@@ -16,6 +16,8 @@
 
         efiSupport = true;
 
+        devices = [ "nodev" ];
+
         extraEntries = ''
           menuentry "Windows" {
             insmod part_gpt
