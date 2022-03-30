@@ -17,4 +17,17 @@
       experimental-features = nix-command flakes
     '';
   };
+
+  environment = {
+    loginShellInit = ''
+      [ -d "$HOME/.nix-profile" ] || /nix/var/nix/profiles/per-user/$USER/home-manager/activate &> /dev/null
+    '';
+    homeBinInPath = true;
+    localBinInPath = true;
+
+    etc."nixos" = {
+      target = "nixos";
+      source = "/nix-config";
+    };
+  };
 }

@@ -38,19 +38,6 @@ in
 
   hardware.bluetooth.enable = true;
 
-  environment = {
-    loginShellInit = ''
-      [ -d "$HOME/.nix-profile" ] || /nix/var/nix/profiles/per-user/$USER/home-manager/activate &> /dev/null
-    '';
-    homeBinInPath = true;
-    localBinInPath = true;
-
-    etc."nixos" = {
-      target = "nixos";
-      source = "/nix-config";
-    };
-  };
-
   services.xserver.displayManager.autoLogin = {
     enable = true;
     user = "fernando";
