@@ -30,6 +30,7 @@
     ytmdesktop
     any-nix-shell
     bottom
+    vlc
   ];
 
   xdg.mimeApps = {
