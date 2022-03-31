@@ -25,6 +25,8 @@ in
     usbutils
     pciutils
     light
+    htop
+    nvtop
   ];
 
   time.timeZone = "America/Sao_Paulo";

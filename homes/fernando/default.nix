@@ -29,6 +29,7 @@
     obsidian
     ytmdesktop
     any-nix-shell
+    bottom
   ];
 
   xdg.mimeApps = {
