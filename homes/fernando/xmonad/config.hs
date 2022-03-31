@@ -16,7 +16,7 @@
 --
 
 import XMonad
-import XMonad.Hooks.DynamicLog (dynamicLogWithPP, wrap, xmobarPP, xmobarColor, shorten)
+import XMonad.Hooks.DynamicLog (dynamicLogWithPP, wrap, xmobarPP, xmobarColor, shorten, PP(..))
 import XMonad.Hooks.ManageDocks
 import XMonad.Util.Run
 import Graphics.X11.ExtraTypes.XF86
