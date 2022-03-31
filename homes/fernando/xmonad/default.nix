@@ -11,6 +11,13 @@
     windowManager.xmonad = {
       enable = true;
       enableContribAndExtras = true;
+
+      extraPackages = haskellPackages: with haskellPackages; [
+        xmonad_0_17_0
+        xmonad-contrib_0_17_0
+        xmonad-extras_0_17_0
+      ];
+
       config = ./config.hs;
     };
   };
