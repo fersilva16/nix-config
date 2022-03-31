@@ -309,58 +309,49 @@ myStartupHook = return ()
 main = do
   xmproc0 <- spawnPipe "xmobar -x 0 $HOME/.config/xmobar/.xmobarrc"
   xmproc1 <- spawnPipe "xmobar -x 1 $HOME/.config/xmobar/.xmobarrc"
-  xmonad $ docks defaults
+  xmonad $ docks def
+    { terminal           = myTerminal
+    , focusFollowsMouse  = myFocusFollowsMouse
+    , borderWidth        = myBorderWidth
+    , modMask            = myModMask
+    -- numlockMask deprecated in 0.9.1
+    -- numlockMask        = myNumlockMask,
+    , workspaces         = myWorkspaces
+    , normalBorderColor  = myNormalBorderColor
+    , focusedBorderColor = myFocusedBorderColor
 
--- A structure containing your configuration settings, overriding
--- fields in the default config. Any you don't override, will
--- use the defaults defined in xmonad/XMonad/Config.hs
---
--- No need to modify this.
---
-defaults = defaultConfig {
-      -- simple stuff
-        terminal           = myTerminal,
-        focusFollowsMouse  = myFocusFollowsMouse,
-        borderWidth        = myBorderWidth,
-        modMask            = myModMask,
-        -- numlockMask deprecated in 0.9.1
-        -- numlockMask        = myNumlockMask,
-        workspaces         = myWorkspaces,
-        normalBorderColor  = myNormalBorderColor,
-        focusedBorderColor = myFocusedBorderColor,
+    -- key bindings
+    , keys               = myKeys
+    , mouseBindings      = myMouseBindings
 
-      -- key bindings
-        keys               = myKeys,
-        mouseBindings      = myMouseBindings,
-
-      -- hooks, layouts
-        layoutHook         = myLayout,
-        manageHook         = myManageHook,
-        handleEventHook    = myEventHook,
-        logHook            = dynamicLogWithPP $ xmobarPP
-              -- XMOBAR SETTINGS
-              { ppOutput = \x -> hPutStrLn xmproc0 x   -- xmobar on monitor 1
-                              >> hPutStrLn xmproc1 x   -- xmobar on monitor 2
-                -- Current workspace
-              , ppCurrent = xmobarColor "#ffffff" "" . wrap
-                            ("<box type=Bottom width=2 mb=2 color=#ffffff>") "</box>"
-                -- Visible but not current workspace
-              , ppVisible = xmobarColor "#ffffff" ""
-                -- Hidden workspace
-              , ppHidden = xmobarColor "#ffffff" "" . wrap
-                           ("<box type=Top width=2 mt=2 color=#ffffff>") "</box>"
-                -- Hidden workspaces (no windows)
-              , ppHiddenNoWindows = xmobarColor "#ffffff" ""
-                -- Title of active window
-              , ppTitle = xmobarColor "#ffffff" "" . shorten 60
-                -- Separator character
-              , ppSep =  "<fc=#ffffff> <fn=1>|</fn> </fc>"
-                -- Urgent workspace
-              , ppUrgent = xmobarColor "#ffffff" "" . wrap "!" "!"
-                -- Adding # of windows on current workspace to the bar
-                -- , ppExtras  = [10]
-                -- order of things in xmobar
-              , ppOrder  = \(ws:l:t:ex) -> [ws,l]++ex++[t]
-              },
-        startupHook        = myStartupHook
+    -- hooks, layouts
+    , layoutHook         = myLayout
+    , manageHook         = myManageHook
+    , handleEventHook    = myEventHook
+    , logHook            = dynamicLogWithPP $ xmobarPP
+        -- XMOBAR SETTINGS
+        { ppOutput = \x -> hPutStrLn xmproc0 x   -- xmobar on monitor 1
+                        >> hPutStrLn xmproc1 x   -- xmobar on monitor 2
+        -- Current workspace
+        , ppCurrent = xmobarColor "#ffffff" "" . wrap
+                      ("<box type=Bottom width=2 mb=2 color=#ffffff>") "</box>"
+        -- Visible but not current workspace
+        , ppVisible = xmobarColor "#ffffff" ""
+        -- Hidden workspace
+        , ppHidden = xmobarColor "#ffffff" "" . wrap
+                     ("<box type=Top width=2 mt=2 color=#ffffff>") "</box>"
+        -- Hidden workspaces (no windows)
+        , ppHiddenNoWindows = xmobarColor "#ffffff" ""
+        -- Title of active window
+        , ppTitle = xmobarColor "#ffffff" "" . shorten 60
+        -- Separator character
+        , ppSep =  "<fc=#ffffff> <fn=1>|</fn> </fc>"
+        -- Urgent workspace
+        , ppUrgent = xmobarColor "#ffffff" "" . wrap "!" "!"
+        -- Adding # of windows on current workspace to the bar
+        -- , ppExtras  = [10]
+        -- order of things in xmobar
+        , ppOrder  = \(ws:l:t:ex) -> [ws,l]++ex++[t]
+        }
+    , startupHook        = myStartupHook
     }
