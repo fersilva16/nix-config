@@ -28,6 +28,7 @@
     nyxt
     obsidian
     ytmdesktop
+    any-nix-shell
   ];
 
   xdg.mimeApps = {
