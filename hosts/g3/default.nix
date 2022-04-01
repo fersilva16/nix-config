@@ -27,6 +27,8 @@ in
     light
     htop
     nvtop
+    zip
+    unzip
   ];
 
   time.timeZone = "America/Sao_Paulo";
