@@ -31,6 +31,7 @@
     any-nix-shell
     bottom
     vlc
+    bitwarden-cli
   ];
 
   xdg.mimeApps = {
