@@ -160,8 +160,8 @@ myKeys conf@(XConfig {XMonad.modMask = modm}) = M.fromList $
     , ((modm              , xK_q     ), spawn "xmonad --recompile; xmonad --restart")
 
     -- Audio control
-    , ((0, xF86XK_AudioRaiseVolume   ), spawn "amixer sset Master 10%+")
-    , ((0, xF86XK_AudioLowerVolume   ), spawn "amixer sset Master 10%-")
+    , ((0, xF86XK_AudioRaiseVolume   ), spawn "amixer sset Master 5%+")
+    , ((0, xF86XK_AudioLowerVolume   ), spawn "amixer sset Master 5%-")
     , ((0, xF86XK_AudioMute          ), spawn "amixer sset Master toggle")
     ]
     ++
