@@ -32,6 +32,7 @@
     bottom
     vlc
     bitwarden-cli
+    rofi
   ];
 
   xdg.mimeApps = {
