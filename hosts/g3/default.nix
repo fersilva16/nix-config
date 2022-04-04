@@ -22,6 +22,7 @@ in
   ];
 
   environment.systemPackages = with pkgs; [
+    keyutils
     usbutils
     pciutils
     light
