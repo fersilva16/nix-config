@@ -3,8 +3,7 @@
   programs.doom-emacs = {
     enable = true;
     doomPrivateDir = ./doom.d;
-    # TODO: add emacs28
-    # emacsPackage = pkgs.emacs28;
+    emacsPackage = pkgs.emacsUnstable;
   };
 
   services.emacs = {
