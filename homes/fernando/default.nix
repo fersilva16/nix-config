@@ -33,6 +33,7 @@
     vlc
     bitwarden-cli
     rofi
+    jq
   ];
 
   xdg.mimeApps = {
