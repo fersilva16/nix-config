@@ -11,5 +11,9 @@
     shellAbbrs = {
       g = "git";
     };
+
+    functions = {
+      e = "emacs &";
+    };
   };
 }
