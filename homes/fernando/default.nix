@@ -15,6 +15,7 @@
     ./flameshot
     ./fzf
     ./git
+    ./rbw
     ./obs
     ./qutebrowser
     ./starship
