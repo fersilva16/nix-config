@@ -15,6 +15,7 @@
     ./flameshot
     ./fzf
     ./git
+    ./kitty
     ./rbw
     ./obs
     ./qutebrowser
