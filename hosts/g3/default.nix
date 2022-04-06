@@ -12,6 +12,7 @@ in
     ../common/nix
     ../common/xserver
     ../common/fonts
+    ../common/ssh
 
     ./audio
     ./fingerprint
