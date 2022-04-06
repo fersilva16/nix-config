@@ -36,6 +36,7 @@
     bitwarden-cli
     rofi
     jq
+    slack
   ];
 
   xdg.mimeApps = {
