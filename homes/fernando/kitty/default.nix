@@ -11,6 +11,7 @@
 
     settings = {
       disable_ligatures = "never";
+      cursor_shape = "beam";
     };
   };
 }
