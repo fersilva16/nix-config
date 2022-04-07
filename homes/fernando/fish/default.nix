@@ -8,7 +8,7 @@
       any-nix-shell fish --info-right | source
     '';
 
-    shellAbbrs = {
+    shellAliases = {
       g = "git";
     };
 
