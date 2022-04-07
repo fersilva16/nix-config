@@ -10,6 +10,12 @@
 
     shellAliases = {
       g = "git";
+      ga = "git add";
+      gaa = "git add .";
+      gb = "git branch";
+      gc = "git commit";
+      gco = "git checkout";
+      gp = "git push";
     };
 
     functions = {
