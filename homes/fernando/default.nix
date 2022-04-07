@@ -37,6 +37,7 @@
     rofi
     jq
     slack
+    robo3t
   ];
 
   xdg.mimeApps = {
