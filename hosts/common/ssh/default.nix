@@ -1,8 +1,6 @@
 { ... }:
 {
   programs.ssh = {
-    extraConfig = ''
-      AddressFamily inet
-    '';
+    startAgent = true;
   };
 }
