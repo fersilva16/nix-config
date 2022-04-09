@@ -38,6 +38,7 @@
     jq
     slack
     robo3t
+    ripgrep
   ];
 
   xdg.mimeApps = {
