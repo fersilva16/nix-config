@@ -16,10 +16,12 @@
       gc = "git commit";
       gco = "git checkout";
       gp = "git push";
+      e = "emacs &";
+      ds = "nix develop . --command fish";
     };
 
     functions = {
-      e = "emacs &";
+      pj = "cd $argv; ds";
     };
   };
 }
