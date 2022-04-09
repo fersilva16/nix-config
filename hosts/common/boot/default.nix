@@ -1,5 +1,4 @@
-{ ... }:
-{
+{ ... }: {
   boot = {
     loader = {
       timeout = 10;

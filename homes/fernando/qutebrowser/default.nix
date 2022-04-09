@@ -1,8 +1,5 @@
-{ lib, ... }:
-{
-  programs.qutebrowser = {
-    enable = true;
-  };
+{ lib, ... }: {
+  programs.qutebrowser = { enable = true; };
 
   xdg.mimeApps.defaultApplications = lib.genAttrs [
     "text/html"

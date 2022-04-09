@@ -1,12 +1,7 @@
-{ ... }:
-{
+{ ... }: {
   programs.chromium = {
     enable = true;
 
-    extensions = [
-      {
-        id = "cjpalhdlnbpafiamejdnhcphjbkeiagm";
-      }
-    ];
+    extensions = [{ id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; }];
   };
 }

@@ -1,5 +1,4 @@
-{ inputs, config, pkgs, ... }:
-{
+{ inputs, config, pkgs, ... }: {
   imports = [
     inputs.doom-emacs.hmModule
 
@@ -41,9 +40,7 @@
     ripgrep
   ];
 
-  xdg.mimeApps = {
-    enable = true;
-  };
+  xdg.mimeApps = { enable = true; };
 
   home.file."home-config" = {
     target = ".config/nixpkgs";

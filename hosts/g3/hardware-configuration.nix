@@ -1,17 +1,16 @@
 { modulesPath, lib, config, ... }:
 let
-  fsDefaultOptions = [ "compress=lzo" "noatime" "discard" "ssd" "autodefrag" "space_cache" ];
-in
-{
-  imports = [
-    (modulesPath + "/installer/scan/not-detected.nix")
-  ];
+  fsDefaultOptions =
+    [ "compress=lzo" "noatime" "discard" "ssd" "autodefrag" "space_cache" ];
+in {
+  imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
 
   boot.kernelModules = [ "kvm-intel" ];
 
   boot.initrd = {
-    availableKernelModules = [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
-    kernelModules = [  ];
+    availableKernelModules =
+      [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
+    kernelModules = [ ];
     supportedFilesystems = [ "btrfs" ];
 
     luks.devices."lvm" = {
@@ -22,15 +21,14 @@ in
   };
 
   powerManagement.cpuFreqGovernor = lib.mkDefault "ondemand";
-  hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
+  hardware.cpu.intel.updateMicrocode =
+    lib.mkDefault config.hardware.enableRedistributableFirmware;
 
   boot.resumeDevice = "/var/swapfile";
-  swapDevices = [
-    {
-      device = "/var/swapfile";
-      size = 18432;
-    }
-  ];
+  swapDevices = [{
+    device = "/var/swapfile";
+    size = 18432;
+  }];
 
   fileSystems = {
     "/" = {
