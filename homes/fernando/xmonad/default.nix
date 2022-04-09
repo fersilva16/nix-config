@@ -15,9 +15,9 @@
 
       extraPackages = haskellPackages:
         with haskellPackages; [
-          xmonad_0_17_0
-          xmonad-contrib_0_17_0
-          xmonad-extras_0_17_0
+          xmonad
+          xmonad-contrib
+          xmonad-extras
         ];
 
       config = ./config.hs;
