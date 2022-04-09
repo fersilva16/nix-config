@@ -1,8 +1,6 @@
 self: super:
 let inherit (super) lib;
 in {
-  nvidia-vaapi-driver = lib.hiPrio super.nvidia-vaapi-driver;
-
   kitty-themes = super.kitty-themes.overrideAttrs (oldAttrs: {
     version = "2022-04-05";
     src = self.fetchFromGitHub {
