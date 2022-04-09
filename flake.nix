@@ -58,12 +58,25 @@
       } // utils.lib.eachDefaultSystem (system:
         let
           pkgs = import nixpkgs { inherit system overlays; };
+
+          ghcWithPackages = pkgs.ghc.withPackages (haskellPackages: with haskellPackages; [
+            haskell-language-server
+            xmonad
+            xmonad-extras
+            xmonad-contrib
+          ]);
         in
         {
           packages = pkgs;
 
           devShell = pkgs.mkShell {
-            buildInputs = with pkgs; [ nixfmt rnix-lsp home-manager git ];
+            buildInputs = with pkgs; [
+              nixfmt
+              rnix-lsp
+              home-manager
+              git
+              ghcWithPackages
+            ];
           };
         });
 }
