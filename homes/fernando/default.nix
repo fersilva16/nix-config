@@ -3,6 +3,7 @@
     inputs.doom-emacs.hmModule
 
     ./alacritty
+    ./autorandr
     ./bat
     ./bottom
     ./broot

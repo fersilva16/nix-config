@@ -16,8 +16,6 @@
   services.xserver = {
     videoDrivers = lib.mkForce [ "nvidia" ];
 
-    dpi = 96;
-
     # screenSection = ''
     #   Option         "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
     #   Option         "AllowIndirectGLXProtocol" "off"
