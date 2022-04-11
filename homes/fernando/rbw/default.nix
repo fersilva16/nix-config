@@ -1,4 +1,5 @@
-{ ... }: {
+{ ... }:
+{
   programs.rbw = {
     enable = true;
 

@@ -34,7 +34,8 @@
       overlays = with inputs; [ overlay nur.overlay emacs-overlay.overlay ];
 
       lib = import ./lib { inherit inputs overlays; };
-    in {
+    in
+    {
       inherit overlay overlays;
 
       nixosConfigurations = {
@@ -61,7 +62,8 @@
             xmonad-extras
             xmonad-contrib
           ]);
-      in {
+      in
+      {
         packages = pkgs;
 
         devShell = pkgs.mkShell {

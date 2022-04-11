@@ -1,4 +1,5 @@
-{ ... }: {
+{ ... }:
+{
   services.xserver = {
     enable = true;
     layout = "br,us";
@@ -9,11 +10,13 @@
     displayManager = {
       defaultSession = "xsession";
 
-      session = [{
-        name = "xsession";
-        manage = "desktop";
-        start = "exec $HOME/.xsession";
-      }];
+      session = [
+        {
+          name = "xsession";
+          manage = "desktop";
+          start = "exec $HOME/.xsession";
+        }
+      ];
     };
   };
 }

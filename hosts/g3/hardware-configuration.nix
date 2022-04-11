@@ -1,15 +1,32 @@
 { modulesPath, lib, config, ... }:
 let
   fsDefaultOptions =
-    [ "compress=lzo" "noatime" "discard" "ssd" "autodefrag" "space_cache" ];
-in {
-  imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
+    [
+      "compress=lzo"
+      "noatime"
+      "discard"
+      "ssd"
+      "autodefrag"
+      "space_cache"
+    ];
+in
+{
+  imports = [
+    (modulesPath + "/installer/scan/not-detected.nix")
+  ];
 
   boot.kernelModules = [ "kvm-intel" ];
 
   boot.initrd = {
-    availableKernelModules =
-      [ "xhci_pci" "ahci" "nvme" "usb_storage" "usbhid" "sd_mod" ];
+    availableKernelModules = [
+      "xhci_pci"
+      "ahci"
+      "nvme"
+      "usb_storage"
+      "usbhid"
+      "sd_mod"
+    ];
+
     kernelModules = [ ];
     supportedFilesystems = [ "btrfs" ];
 

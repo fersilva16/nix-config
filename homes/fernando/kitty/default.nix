@@ -1,8 +1,11 @@
-{ ... }: {
+{ ... }:
+{
   programs.kitty = {
     enable = true;
 
-    font = { name = "Caskaydia Cove Nerd Font"; };
+    font = {
+      name = "Caskaydia Cove Nerd Font";
+    };
 
     theme = "Doom One";
 

@@ -1,6 +1,8 @@
 self: super:
-let inherit (super) lib;
-in {
+let
+  inherit (super) lib;
+in
+{
   kitty-themes = super.kitty-themes.overrideAttrs (oldAttrs: {
     version = "2022-04-05";
     src = self.fetchFromGitHub {

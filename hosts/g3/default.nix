@@ -1,6 +1,8 @@
 { inputs, pkgs, ... }:
-let inherit (inputs.hardware.nixosModules) dell-g3-3779;
-in {
+let
+  inherit (inputs.hardware.nixosModules) dell-g3-3779;
+in
+{
   imports = [
     dell-g3-3779
 
