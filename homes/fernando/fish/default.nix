@@ -26,6 +26,7 @@
       e = "emacs &";
       pj = "cd $argv; ds";
 
+      fish_command_not_found = "__fish_default_command_not_found_handler $argv";
       fish_user_key_bindings = "fish_vi_key_bindings";
     };
   };
