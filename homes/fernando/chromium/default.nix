@@ -2,6 +2,19 @@
   programs.chromium = {
     enable = true;
 
-    extensions = [{ id = "cjpalhdlnbpafiamejdnhcphjbkeiagm"; }];
+    extensions = [
+      {
+        # uBlock Origin
+        id = "cjpalhdlnbpafiamejdnhcphjbkeiagm";
+      }
+      {
+        # Bitwarden
+        id = "nngceckbapebfimnlniiiahkandclblb";
+      }
+      {
+        # Phantom Wallet
+        id = "bfnaelmomeimhlpmgjnjophhpkkoljpa";
+      }
+    ];
   };
 }
