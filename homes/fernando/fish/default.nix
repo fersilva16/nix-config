@@ -6,6 +6,9 @@
 
     interactiveShellInit = ''
       any-nix-shell fish --info-right | source
+
+      set fish_cursor_default block
+      set fish_cursor_insert line
     '';
 
     shellAliases = {
@@ -22,6 +25,8 @@
     functions = {
       e = "emacs &";
       pj = "cd $argv; ds";
+
+      fish_user_key_bindings = "fish_vi_key_bindings";
     };
   };
 }
