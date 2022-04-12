@@ -22,6 +22,9 @@
     };
 
     functions = {
+      ls = "exa -lag $argv";
+      cat = "bat $argv";
+
       e = "emacs &";
       pj = "cd $argv; ds";
 
