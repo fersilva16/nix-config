@@ -12,6 +12,8 @@
     settings = {
       disable_ligatures = "never";
       cursor_shape = "beam";
+
+      tab_bar_style = "powerline";
     };
   };
 }
