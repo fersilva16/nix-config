@@ -38,8 +38,10 @@
     rofi
     jq
     slack
-    robo3t
     ripgrep
+
+    mongodb-3_6
+    robo3t
   ];
 
   xdg.mimeApps = {
