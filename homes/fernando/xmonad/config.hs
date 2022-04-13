@@ -140,7 +140,9 @@ myKeys conf@(XConfig {XMonad.modMask = modm}) =
       -- Audio control
       ((0, xF86XK_AudioRaiseVolume), spawn "amixer sset Master 5%+ unmute"),
       ((0, xF86XK_AudioLowerVolume), spawn "amixer sset Master 5%- unmute"),
-      ((0, xF86XK_AudioMute), spawn "amixer sset Master toggle")
+      ((0, xF86XK_AudioMute), spawn "amixer sset Master toggle"),
+      -- Print screen
+      ((0, xK_Print), spawn "flameshot gui")
     ]
       ++
       --
