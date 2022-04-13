@@ -39,6 +39,7 @@
     jq
     slack
     ripgrep
+    gh
 
     jetbrains.webstorm
     vscode

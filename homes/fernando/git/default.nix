@@ -25,8 +25,8 @@
     userName = "Fernando Silva";
   };
 
-  programs.gh = {
-    enable = true;
-    settings.git_protocol = "ssh";
-  };
+  # programs.gh = {
+  #   enable = true;
+  #   settings.git_protocol = "ssh";
+  # };
 }
