@@ -32,6 +32,23 @@ in
           };
         };
       };
+
+      single = {
+        fingerprint = {
+          inherit eDP-1-1;
+        };
+
+        config = {
+          eDP-1-1 = {
+            enable = true;
+            primary = true;
+            position = "0x0";
+            mode = "1920x1080";
+            rate = "144.0";
+            dpi = 96;
+          };
+        };
+      };
     };
   };
 }
