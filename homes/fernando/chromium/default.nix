@@ -16,6 +16,10 @@
         # Phantom Wallet
         id = "bfnaelmomeimhlpmgjnjophhpkkoljpa";
       }
+      {
+        # Simplified Twitter
+        id = "kfopmjhmejbgomgeajemgpgpbckpoopg";
+      }
     ];
   };
 
