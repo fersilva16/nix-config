@@ -4,6 +4,8 @@
     enable = true;
 
     initExtra = ''
+      autorandr --change
+
       keyctl link @u @s
     '';
 
