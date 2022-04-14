@@ -27,7 +27,7 @@
 
     etc."nixos" = {
       target = "nixos";
-      source = "/nix-config";
+      source = "/dotfiles";
     };
   };
 }
