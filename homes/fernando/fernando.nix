@@ -3,26 +3,26 @@
   imports = [
     inputs.doom-emacs.hmModule
 
-    ./alacritty
-    ./autorandr
-    ./bat
-    ./bottom
-    ./broot
-    ./chromium
-    ./emacs
-    ./exa
-    ./firefox
-    ./fish
-    ./flameshot
-    ./fzf
-    ./git
-    ./kitty
-    ./rbw
-    ./obs
-    ./qutebrowser
-    ./starship
-    ./xmobar
-    ./xmonad
+    ./alacritty.nix
+    ./autorandr.nix
+    ./bat.nix
+    ./bottom.nix
+    ./broot.nix
+    ./chromium.nix
+    ./emacs/emacs.nix
+    ./exa.nix
+    ./firefox.nix
+    ./fish.nix
+    ./flameshot.nix
+    ./fzf.nix
+    ./git.nix
+    ./kitty.nix
+    ./rbw.nix
+    ./obs.nix
+    ./qutebrowser.nix
+    ./starship.nix
+    ./xmobar.nix
+    ./xmonad/xmonad.nix
   ];
 
   home.packages = with pkgs; [

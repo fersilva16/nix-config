@@ -6,18 +6,18 @@ in
   imports = [
     dell-g3-3779
 
-    ../common
-    ../common/boot
-    ../common/docker
-    ../common/nix
-    ../common/xserver
-    ../common/fonts
-    ../common/ssh
+    ../common/common.nix
+    ../common/boot.nix
+    ../common/docker.nix
+    ../common/nix.nix
+    ../common/xserver.nix
+    ../common/fonts.nix
+    ../common/ssh.nix
 
-    ./audio
-    ./fingerprint
-    ./networking
-    ./nvidia
+    ./audio.nix
+    ./fingerprint.nix
+    ./networking.nix
+    ./nvidia.nix
 
     ./hardware-configuration.nix
   ];

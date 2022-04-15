@@ -12,15 +12,17 @@ in
       };
 
       modules = [
-        ../hosts/${hostname}
+        (../hosts + "/${hostname}/${hostname}.nix")
         {
-          networking.hostName = hostname;
+          networking.hostName =
+            hostname;
           nixpkgs = {
             inherit overlays;
             config.allowUnfree = true;
           };
         }
-      ] ++ nixpkgs.lib.forEach users (user: ../users/${user});
+      ] ++ nixpkgs.lib.forEach users
+        (user: ../users + "/${user}.nix");
     };
 
   makeHome = { username, system ? "x86_64-linux", hostname }:
@@ -32,7 +34,7 @@ in
       };
 
       homeDirectory = "/home/${username}";
-      configuration = ../homes/${username};
+      configuration = ../homes + "/${username}/${username}.nix";
 
       extraModules = [
         {
