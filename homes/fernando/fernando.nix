@@ -50,4 +50,6 @@
   xdg.mimeApps = {
     enable = true;
   };
+
+  home.keyboard = null;
 }
