@@ -68,5 +68,8 @@
             ghcWithPackages
           ];
         };
-      });
+
+        devShells = import ./devShells/devShells.nix { inherit pkgs; };
+      }
+    );
 }
