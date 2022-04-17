@@ -22,6 +22,7 @@ import System.Exit
 import XMonad
 import XMonad.Hooks.DynamicLog (PP (..), dynamicLogWithPP, shorten, wrap, xmobarColor, xmobarPP)
 import XMonad.Hooks.ManageDocks
+import XMonad.Layout.Fullscreen (fullscreenEventHook)
 import qualified XMonad.StackSet as W
 import XMonad.Util.Run
 
@@ -257,7 +258,7 @@ myManageHook =
 -- It will add EWMH event handling to your custom event hooks by
 -- combining them with ewmhDesktopsEventHook.
 --
-myEventHook = mempty
+myEventHook = fullscreenEventHook
 
 ------------------------------------------------------------------------
 -- Status bars and logging
