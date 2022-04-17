@@ -1,8 +1,6 @@
 { inputs, config, pkgs, ... }:
 {
   imports = [
-    inputs.doom-emacs.hmModule
-
     ./alacritty.nix
     ./autorandr.nix
     ./bat.nix
@@ -51,10 +49,5 @@
 
   xdg.mimeApps = {
     enable = true;
-  };
-
-  home.file."home-config" = {
-    target = ".config/nixpkgs";
-    source = config.lib.file.mkOutOfStoreSymlink "/dotfiles";
   };
 }

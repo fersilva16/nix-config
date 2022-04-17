@@ -12,42 +12,25 @@ in
       };
 
       modules = [
+        home-manager.nixosModule
+
         (../hosts + "/${hostname}/${hostname}.nix")
         {
-          networking.hostName =
-            hostname;
-          nixpkgs = {
-            inherit overlays;
-            config.allowUnfree = true;
-          };
-        }
-      ] ++ nixpkgs.lib.forEach users
-        (user: ../users + "/${user}.nix");
-    };
+          networking.hostName = hostname;
 
-  makeHome = { username, system ? "x86_64-linux", hostname }:
-    home-manager.lib.homeManagerConfiguration {
-      inherit username system;
-
-      extraSpecialArgs = {
-        inherit inputs system hostname;
-      };
-
-      homeDirectory = "/home/${username}";
-      configuration = ../homes + "/${username}/${username}.nix";
-
-      extraModules = [
-        {
           nixpkgs = {
             inherit overlays;
             config.allowUnfree = true;
           };
 
-          programs = {
-            home-manager.enable = true;
-            git.enable = true;
+          home-manager = {
+            useGlobalPkgs = true;
+
+            sharedModules = [
+              inputs.doom-emacs.hmModule
+            ];
           };
         }
-      ];
+      ] ++ nixpkgs.lib.forEach users (user: ../users + "/${user}.nix");
     };
 }

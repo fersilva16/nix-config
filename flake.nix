@@ -44,13 +44,6 @@
           users = [ "fernando" ];
         };
       };
-
-      homeConfigurations = {
-        "fernando@g3" = lib.makeHome {
-          username = "fernando";
-          hostname = "g3";
-        };
-      };
     } // utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system overlays; };
