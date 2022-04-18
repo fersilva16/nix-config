@@ -30,6 +30,12 @@
 
       fish_command_not_found = "__fish_default_command_not_found_handler $argv";
       fish_user_key_bindings = "fish_vi_key_bindings";
+
+      notes-push = ''
+        git add .
+        git commit -m "$(date -u +"%Y-%m-%d %H:%M:%S")"
+        git push
+      '';
     };
   };
 }
