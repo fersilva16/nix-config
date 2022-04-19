@@ -45,6 +45,8 @@
 
     mongodb-3_6
     robo3t
+
+    insomnia
   ];
 
   xdg.mimeApps = {
