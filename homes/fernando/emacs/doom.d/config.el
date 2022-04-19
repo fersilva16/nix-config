@@ -1,5 +1,35 @@
 (setq doom-font (font-spec :family "Caskaydia Cove Nerd Font"))
 
+(setq user-full-name "Fernando Silva"
+      user-full-name "fernandonsilva16@gmail.com")
+
+(setq confirm-kill-emacs nil)
+
+(setq company-idle-delay nil)
+
+(setq org-directory "~/org"
+      org-roam-directory (concat org-directory "/roam")
+      org-roam-dailies-directory (concat org-roam-directory "/dailies")
+      org-agenda-files '(concat ))
+
+(after! org-roam
+  (setq org-roam-capture-templates
+        '(("n" "note" plain "%?"
+           :if-new (file+head "${slug}.org"
+                              "#+title: ${title}\n#+date: %<%Y-%m-%d %H:%M:%S>\n\nTags: \n\n* ${title}")
+           :unnarrowed t))))
+
+(use-package! websocket
+  :after org-roam)
+
+(use-package! org-roam-ui
+  :after org-roam
+  :config
+  (setq org-roam-ui-sync-theme t
+        org-roam-ui-follow t
+        org-roam-ui-update-on-save t
+        org-roam-ui-open-on-start nil))
+
 (when (and (featurep! :completion company) (featurep! :lang nix))
   (after! company
     (setq-hook! 'nix-mode-hook company-idle-delay nil)))
