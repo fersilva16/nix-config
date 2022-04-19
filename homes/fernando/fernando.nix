@@ -19,7 +19,7 @@
     ./obs.nix
     ./qutebrowser.nix
     ./starship.nix
-    ./xmobar.nix
+    ./xmobar/xmobar.nix
     ./xmonad/xmonad.nix
   ];
 
