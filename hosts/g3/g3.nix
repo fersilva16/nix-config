@@ -32,6 +32,8 @@ in
     nvtop
     zip
     unzip
+
+    cachix
   ];
 
   time.timeZone = "America/Sao_Paulo";
