@@ -21,6 +21,7 @@
     ./starship.nix
     ./xmobar/xmobar.nix
     ./xmonad/xmonad.nix
+    ./vscode.nix
   ];
 
   home.packages = with pkgs; [
@@ -40,7 +41,6 @@
     gh
 
     jetbrains.webstorm
-    vscode
     neovim
 
     robo3t

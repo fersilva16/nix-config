@@ -1,7 +1,4 @@
 self: super:
-let
-  inherit (super) lib;
-in
 {
   kitty-themes = super.kitty-themes.overrideAttrs (oldAttrs: {
     version = "2022-04-05";
@@ -12,4 +9,4 @@ in
       sha256 = "lq+VE/+BL7F0SKmNaXMKm/4cM9NVARKJzJThyLG5Ec4=";
     };
   });
-}
+} // import ../pkgs/pkgs.nix { pkgs = self; }
