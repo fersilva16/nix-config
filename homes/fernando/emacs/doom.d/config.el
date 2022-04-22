@@ -30,6 +30,9 @@
         org-roam-ui-update-on-save t
         org-roam-ui-open-on-start nil))
 
+(add-hook 'org-mode-hook #'org-modern-mode)
+(add-hook 'org-agenda-finalize-hook #'org-modern-agenda)
+
 (when (and (featurep! :completion company) (featurep! :lang nix))
   (after! company
     (setq-hook! 'nix-mode-hook company-idle-delay nil)))
