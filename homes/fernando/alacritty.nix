@@ -1,4 +1,7 @@
 { pkgs, ... }:
+let
+  family = "CaskaydiaCove Nerd Font";
+in
 {
   programs.alacritty = {
     enable = true;
@@ -6,22 +9,22 @@
     settings = {
       font = {
         normal = {
-          family = "Caskaydia Cove Nerd Font";
+          inherit family;
           style = "Regular";
         };
 
         bold = {
-          family = "Caskaydia Cove Nerd Font";
+          inherit family;
           style = "Bold";
         };
 
         italic = {
-          family = "Caskaydia Cove Nerd Font";
+          inherit family;
           style = "Italic";
         };
 
         bold_italic = {
-          family = "Caskaydia Cove Nerd Font";
+          inherit family;
           style = "Bold Italic";
         };
       };

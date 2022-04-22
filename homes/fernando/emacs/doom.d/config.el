@@ -1,4 +1,6 @@
-(setq doom-font (font-spec :family "Caskaydia Cove Nerd Font"))
+(setq doom-font (font-spec :family "CaskaydiaCove Nerd Font"))
+
+(setq doom-unicode-font doom-font)
 
 (setq user-full-name "Fernando Silva"
       user-full-name "fernandonsilva16@gmail.com")
