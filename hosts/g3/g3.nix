@@ -26,6 +26,7 @@ in
     keyutils
     usbutils
     pciutils
+    lm_sensors
     light
     htop
     nvtop
