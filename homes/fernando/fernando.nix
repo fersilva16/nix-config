@@ -21,7 +21,7 @@
     ./starship.nix
     ./xmobar/xmobar.nix
     ./xmonad/xmonad.nix
-    ./vscode.nix
+    ./vscode/vscode.nix
   ];
 
   home.packages = with pkgs; [
