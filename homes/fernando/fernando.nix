@@ -9,7 +9,7 @@
     ./chromium.nix
     ./emacs/emacs.nix
     ./exa.nix
-    ./firefox.nix
+    # ./firefox.nix
     ./fish.nix
     ./flameshot.nix
     ./fzf.nix
@@ -17,7 +17,7 @@
     ./kitty.nix
     ./rbw.nix
     ./obs.nix
-    ./qutebrowser.nix
+    # ./qutebrowser.nix
     ./starship.nix
     ./xmobar/xmobar.nix
     ./xmonad/xmonad.nix
