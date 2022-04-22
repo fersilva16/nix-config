@@ -22,6 +22,7 @@
     ./xmobar/xmobar.nix
     ./xmonad/xmonad.nix
     ./vscode/vscode.nix
+    ./xdg.nix
   ];
 
   home.packages = with pkgs; [
@@ -47,10 +48,6 @@
 
     insomnia
   ];
-
-  xdg.mimeApps = {
-    enable = true;
-  };
 
   home.keyboard = null;
 }
