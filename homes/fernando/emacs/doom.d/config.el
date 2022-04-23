@@ -9,6 +9,8 @@
 
 (setq company-idle-delay nil)
 
+(global-wakatime-mode)
+
 (setq org-directory "~/org"
       org-roam-directory (concat org-directory "/roam")
       org-roam-dailies-directory (concat org-roam-directory "/dailies")

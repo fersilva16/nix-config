@@ -47,6 +47,8 @@
     robo3t
 
     insomnia
+
+    wakatime
   ];
 
   home.keyboard = null;
