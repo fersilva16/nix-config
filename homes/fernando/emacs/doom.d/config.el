@@ -76,3 +76,6 @@
 
 (use-package! nix-drv-mode
   :mode "\\.drv\\'")
+
+(setq lsp-haskell-plugin-ghcide-type-lenses-global-on nil)
+(setq lsp-haskell-plugin-import-lens-code-lens-on nil)
