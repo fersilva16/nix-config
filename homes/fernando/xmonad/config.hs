@@ -200,30 +200,6 @@ tall =
               mySpacing 8 $
                 ResizableTall 1 (3 / 100) (1 / 2) []
 
-magnify =
-  renamed [Replace "magnify"] $
-    smartBorders $
-      windowNavigation $
-        addTabs shrinkText myTabTheme $
-          subLayout [] (smartBorders Simplest) $
-            magnifier $
-              limitWindows 12 $
-                mySpacing 8 $
-                  ResizableTall 1 (3 / 100) (1 / 2) []
-
-monocle =
-  renamed [Replace "monocle"] $
-    smartBorders $
-      windowNavigation $
-        addTabs shrinkText myTabTheme $
-          subLayout [] (smartBorders Simplest) $
-            limitWindows 20 Full
-
-floats =
-  renamed [Replace "floats"] $
-    smartBorders $
-      limitWindows 20 simplestFloat
-
 grid =
   renamed [Replace "grid"] $
     smartBorders $
@@ -235,43 +211,9 @@ grid =
                 mkToggle (single MIRROR) $
                   Grid (16 / 10)
 
-spirals =
-  renamed [Replace "spirals"] $
-    smartBorders $
-      windowNavigation $
-        addTabs shrinkText myTabTheme $
-          subLayout [] (smartBorders Simplest) $
-            mySpacing' 8 $
-              spiral (6 / 7)
-
-threeCol =
-  renamed [Replace "threeCol"] $
-    smartBorders $
-      windowNavigation $
-        addTabs shrinkText myTabTheme $
-          subLayout [] (smartBorders Simplest) $
-            limitWindows 7 $
-              ThreeCol 1 (3 / 100) (1 / 2)
-
-threeRow =
-  renamed [Replace "threeRow"] $
-    smartBorders $
-      windowNavigation $
-        addTabs shrinkText myTabTheme $
-          subLayout [] (smartBorders Simplest) $
-            limitWindows 7 $
-              Mirror $
-                ThreeCol 1 (3 / 100) (1 / 2)
-
 tabs =
   renamed [Replace "tabs"] $
     tabbed shrinkText myTabTheme
-
-tallAccordion =
-  renamed [Replace "tallAccordion"] Accordion
-
-wideAccordion =
-  renamed [Replace "wideAccordion"] $ Mirror Accordion
 
 myTabTheme =
   def
@@ -297,21 +239,12 @@ myLayoutHook =
   avoidStruts $
     mouseResize $
       windowArrange $
-        T.toggleLayouts floats $
-          mkToggle (NBFULL ?? NOBORDERS ?? EOT) myDefaultLayout
+        mkToggle (NBFULL ?? NOBORDERS ?? EOT) myDefaultLayout
   where
     myDefaultLayout =
       withBorder myBorderWidth tall
-        ||| magnify
-        ||| noBorders monocle
-        ||| floats
         ||| noBorders tabs
         ||| grid
-        ||| spirals
-        ||| threeCol
-        ||| threeRow
-        ||| tallAccordion
-        ||| wideAccordion
 
 myWorkspaces = [" 1 ", " 2 ", " 3 ", " 4 ", " 5 ", " 6 ", " 7 ", " 8 ", " 9 "]
 
