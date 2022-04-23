@@ -163,28 +163,26 @@ spawnSelected' lst = gridselect conf lst >>= flip whenJust spawn
           gs_font = myFont
         }
 
+myScratchPadFloat = customFloating $ W.RationalRect l t w h
+  where
+    h = 0.9
+    w = 0.9
+    t = 0.95 - h
+    l = 0.95 - w
+
 myScratchPads :: [NamedScratchpad]
 myScratchPads =
   [ NS "terminal" spawnTerm findTerm manageTerm,
-    NS "ytmdesktop" spawnYtm findYtm manageYtm
+    NS "music" spawnMusic findMusic manageMusic
   ]
   where
     spawnTerm = myTerminal ++ " --title=scratchpad"
     findTerm = title =? "scratchpad"
-    manageTerm = customFloating $ W.RationalRect l t w h
-      where
-        h = 0.9
-        w = 0.9
-        t = 0.95 - h
-        l = 0.95 - w
-    spawnYtm = "ytmdesktop --no-sandbox"
-    findYtm = title =? "ytmdesktop"
-    manageYtm = customFloating $ W.RationalRect l t w h
-      where
-        h = 0.9
-        w = 0.9
-        t = 0.95 - h
-        l = 0.95 - w
+    manageTerm = myScratchPadFloat
+
+    spawnMusic = "ytmdesktop --no-sandbox"
+    findMusic = className =? "youtube-music-desktop-app"
+    manageMusic = myScratchPadFloat
 
 mySpacing :: Integer -> l a -> XMonad.Layout.LayoutModifier.ModifiedLayout Spacing l a
 mySpacing i = spacingRaw False (Border i i i i) True (Border i i i i) True
@@ -362,8 +360,6 @@ myKeys =
     ("M-f", sendMessage (T.Toggle "floats")),
     ("M-t", withFocused $ windows . W.sink),
     ("M-S-t", sinkAll),
-    ("C-g t", goToSelected $ mygridConfig myColorizer),
-    ("C-g b", bringSelected $ mygridConfig myColorizer),
     ("M-m", windows W.focusMaster),
     ("M-j", windows W.focusDown),
     ("M-k", windows W.focusUp),
@@ -392,8 +388,8 @@ myKeys =
     ("M-C-/", withFocused (sendMessage . UnMergeAll)),
     ("M-C-.", onGroup W.focusUp'),
     ("M-C-,", onGroup W.focusDown'),
-    ("M-s t", namedScratchpadAction myScratchPads "terminal"),
-    ("M-s y", namedScratchpadAction myScratchPads "ytmdesktop"),
+    ("M-C-S-t", namedScratchpadAction myScratchPads "terminal"),
+    ("M-C-S-m", namedScratchpadAction myScratchPads "music"),
     ("<XF86AudioMute>", spawn "amixer set Master toggle"),
     ("<XF86AudioLowerVolume>", spawn "amixer set Master 5%- unmute"),
     ("<XF86AudioRaiseVolume>", spawn "amixer set Master 5%+ unmute"),
