@@ -6,6 +6,7 @@
       noto-fonts
       twitter-color-emoji
       (nerdfonts.override { fonts = [ "FiraCode" ]; })
+      font-awesome_6
     ];
 
     fontconfig = {
