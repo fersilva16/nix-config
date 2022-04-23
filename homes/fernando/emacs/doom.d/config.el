@@ -1,4 +1,4 @@
-(setq doom-font (font-spec :family "CaskaydiaCove Nerd Font"))
+(setq doom-font (font-spec :family "FiraCode Nerd Font" :weight 'medium))
 
 (setq doom-unicode-font doom-font)
 

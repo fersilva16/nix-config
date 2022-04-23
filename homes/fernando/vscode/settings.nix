@@ -1,3 +1,6 @@
+let
+  fontFamily = "FiraCode Nerd Font";
+in
 {
   "codespaces.accountProvider" = "GitHub";
 
@@ -14,9 +17,10 @@
     "source.fixAll.eslint" = true;
   };
   "editor.colorDecorators" = true;
-  "editor.cursorBlinking" = "blink";
+  "editor.cursorBlinking" = "solid";
   "editor.cursorStyle" = "line";
-  "editor.fontFamily" = "CaskaydiaCove Nerd Font";
+  # "editor.fontWeight" = fontWeight;
+  "editor.fontFamily" = fontFamily;
   "editor.fontLigatures" = true;
   "editor.fontSize" = 16;
   "editor.lineHeight" = 26;
@@ -121,23 +125,16 @@
 
   "security.workspace.trust.untrustedFiles" = "open";
 
-  "terminal.integrated.cursorBlinking" = true;
+  "terminal.integrated.cursorBlinking" = false;
   "terminal.integrated.cursorStyle" = "line";
   "terminal.integrated.defaultProfile.linux" = "fish";
   "terminal.integrated.defaultProfile.windows" = "Git Bash";
-  "terminal.integrated.drawBoldTextInBrightColors" = true;
-  "terminal.integrated.fontFamily" = "CaskaydiaCove Nerd Font";
+  "terminal.integrated.drawBoldTextInBrightColors" = false;
+  "terminal.integrated.fontFamily" = fontFamily;
+  # "terminal.integrated.fontWeight" = fontWeight;
   "terminal.integrated.fontSize" = 16;
+  "terminal.integrated.cursorWidth" = 2;
   "terminal.integrated.lineHeight" = 1.2;
-  "terminal.integrated.profiles.windows" = {
-    "Git Bash" = {
-      "source" = "Git Bash";
-    };
-    "PowerShell" = {
-      "icon" = "terminal-powershell";
-      "source" = "PowerShell";
-    };
-  };
   "terminal.integrated.showExitAlert" = false;
   "terminal.integrated.tabs.enabled" = true;
 

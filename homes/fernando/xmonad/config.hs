@@ -107,7 +107,7 @@ colorTrayer :: String
 colorTrayer = "--tint 0x282c34"
 
 myFont :: String
-myFont = "xft:CaskaydiaCove Nerd Font:regular:size=9:antialias=true:hinting=true"
+myFont = "xft:FiraCode Nerd Font:regular:size=9:antialias=true:hinting=true"
 
 myModMask :: KeyMask
 myModMask = mod4Mask
@@ -304,7 +304,7 @@ myTabTheme =
 myShowWNameTheme :: SWNConfig
 myShowWNameTheme =
   def
-    { swn_font = "xft:CaskaydiaCove Nerd Font:bold:size=60",
+    { swn_font = "xft:FiraCode Nerd Font:bold:size=60",
       swn_fade = 1.0,
       swn_bgcolor = "#1c1f24",
       swn_color = "#ffffff"

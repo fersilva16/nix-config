@@ -1,6 +1,6 @@
 { pkgs, ... }:
 let
-  family = "CaskaydiaCove Nerd Font";
+  family = "FiraCode Nerd Font";
 in
 {
   programs.alacritty = {
@@ -10,7 +10,7 @@ in
       font = {
         normal = {
           inherit family;
-          style = "Regular";
+          style = "Medium";
         };
 
         bold = {

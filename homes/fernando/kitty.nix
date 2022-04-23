@@ -4,7 +4,7 @@
     enable = true;
 
     font = {
-      name = "CaskaydiaCove Nerd Font";
+      name = "FiraCode Nerd Font";
     };
 
     theme = "Doom One";
