@@ -1,11 +1,11 @@
 { lib, fetchFromGitHub }:
 fetchFromGitHub {
-  name = "font-awesome-6.0.0";
+  name = "font-awesome-6.1.1";
 
   owner = "FortAwesome";
   repo = "Font-Awesome";
-  rev = "6.0.0";
-  sha256 = "sha256-ZfMiliRAkY4i7lzHX/77TOhe3EJZq3WNkTa4qehXDJQ=";
+  rev = "28e297f07af26f148c15e6cbbd12cea3027371d3";
+  sha256 = "sha256-BjK1PJQFWtKDvfQ2Vh7BoOPqYucyvOG+2Pu/Kh+JpAA=";
 
   postFetch = ''
     tar xf $downloadedFile --strip=1
