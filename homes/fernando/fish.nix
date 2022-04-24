@@ -20,7 +20,7 @@
       gc = "git commit";
       gco = "git checkout";
       gp = "git push";
-      ds = "nix develop . --command fish";
+      ds = "nix develop . --command $SHELL";
     };
 
     functions = {
