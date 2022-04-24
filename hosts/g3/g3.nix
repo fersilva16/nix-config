@@ -13,6 +13,7 @@ in
     ../common/xserver.nix
     ../common/fonts.nix
     ../common/ssh.nix
+    ../common/gnupg.nix
 
     ./audio.nix
     ./fingerprint.nix

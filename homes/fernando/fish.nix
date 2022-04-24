@@ -8,6 +8,8 @@
 
       set fish_cursor_default block
       set fish_cursor_insert line
+
+      set -gx GPG_TTY (tty)
     '';
 
     shellAliases = {
