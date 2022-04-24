@@ -49,6 +49,8 @@
     insomnia
 
     wakatime
+
+    rnix-lsp
   ];
 
   home.keyboard = null;
