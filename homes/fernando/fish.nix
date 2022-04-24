@@ -34,9 +34,15 @@
       fish_user_key_bindings = "fish_vi_key_bindings";
 
       notes-push = ''
+        set prevdir (pwd)
+
+        cd "$HOME/org"
+
         git add .
         git commit -m "$(date -u +"%Y-%m-%d %H:%M:%S")"
         git push
+
+        cd $prevdir
       '';
     };
   };
