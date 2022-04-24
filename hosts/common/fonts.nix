@@ -1,7 +1,7 @@
 { pkgs, ... }:
 {
   fonts = {
-    enableDefaultFonts = true;
+    enableDefaultFonts = false;
     fonts = with pkgs; [
       noto-fonts
       twitter-color-emoji
