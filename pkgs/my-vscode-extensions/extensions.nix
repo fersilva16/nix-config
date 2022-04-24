@@ -113,4 +113,10 @@
     version = "11.11.0";
     sha256 = "0qd9y0rb1j70iha8gqkxv2xvds6n4db8p0h8arlqcsfayljkn5v6";
   }
+  {
+    name = "direnv";
+    publisher = "mkhl";
+    version = "0.6.1";
+    sha256 = "1d60hqww1innch277yd3va2snpsp19c7w4v0rxz2jvzvgykfmx77";
+  }
 ]

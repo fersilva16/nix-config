@@ -23,6 +23,7 @@
     ./xmonad/xmonad.nix
     ./vscode/vscode.nix
     ./xdg.nix
+    ./direnv.nix
   ];
 
   home.packages = with pkgs; [
