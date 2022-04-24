@@ -3,10 +3,6 @@
   programs.kitty = {
     enable = true;
 
-    font = {
-      name = "FiraCode Nerd Font";
-    };
-
     theme = "Doom One";
 
     settings = {
@@ -14,6 +10,11 @@
       cursor_shape = "beam";
 
       tab_bar_style = "powerline";
+
+      font_family = "Fira Code Medium Nerd Font Complete";
+      bold_font = "Fira Code Bold Nerd Font Complete";
+      italic_font = "auto";
+      bold_italic_font = "auto";
     };
   };
 }
