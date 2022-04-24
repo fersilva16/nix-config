@@ -19,9 +19,7 @@
       credential.helper = "cache --timeout=7200";
     };
 
-    # TODO: setup signing
-
-    userEmail = "fernando457829@gmail.com";
+    userEmail = "fernandonsilva16@gmail.com";
     userName = "Fernando Silva";
   };
 
