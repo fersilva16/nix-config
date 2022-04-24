@@ -12,12 +12,6 @@
     sha256 = "0fa4h9hk1xq6j3zfxvf483sbb4bd17fjl5cdm3rll7z9kaigdqwg";
   }
   {
-    name = "copilot";
-    publisher = "github";
-    version = "1.12.5517";
-    sha256 = "07ayx6ikka48nyj143zyn5x1mdr23gnz8m43hayg4ybyw1y9dglf";
-  }
-  {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
     version = "1.0.5527";
