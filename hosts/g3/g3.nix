@@ -37,6 +37,8 @@ in
     cachix
   ];
 
+  time.hardwareClockInLocalTime = true;
+
   time.timeZone = "America/Sao_Paulo";
 
   i18n.defaultLocale = pkgs.lib.mkDefault "en_US.UTF-8";
