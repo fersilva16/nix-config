@@ -12,11 +12,17 @@
     };
 
     extraConfig = {
+      user = {
+        signingkey = "F55076D20369DDE1";
+      };
+
+      commit = {
+        gpgsign = true;
+      };
+
       init.defaultBranch = "main";
 
       pull.rebase = false;
-
-      credential.helper = "cache --timeout=7200";
     };
 
     userEmail = "fernandonsilva16@gmail.com";
