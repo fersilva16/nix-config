@@ -52,6 +52,8 @@
     wakatime
 
     rnix-lsp
+
+    calibre
   ];
 
   home.keyboard = null;
