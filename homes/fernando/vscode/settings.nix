@@ -1,5 +1,6 @@
 let
   fontFamily = "FiraCode Nerd Font";
+  fontWeight = "500";
 in
 {
   "codespaces.accountProvider" = "GitHub";
@@ -19,11 +20,11 @@ in
   "editor.colorDecorators" = true;
   "editor.cursorBlinking" = "solid";
   "editor.cursorStyle" = "line";
-  # "editor.fontWeight" = fontWeight;
+  "editor.fontWeight" = fontWeight;
   "editor.fontFamily" = fontFamily;
   "editor.fontLigatures" = true;
   "editor.fontSize" = 16;
-  "editor.lineHeight" = 26;
+  # "editor.lineHeight" = 26;
   "editor.minimap.enabled" = false;
   "editor.multiCursorModifier" = "alt";
   "editor.renderWhitespace" = "none";
@@ -131,10 +132,10 @@ in
   "terminal.integrated.defaultProfile.windows" = "Git Bash";
   "terminal.integrated.drawBoldTextInBrightColors" = false;
   "terminal.integrated.fontFamily" = fontFamily;
-  # "terminal.integrated.fontWeight" = fontWeight;
+  "terminal.integrated.fontWeight" = fontWeight;
   "terminal.integrated.fontSize" = 16;
   "terminal.integrated.cursorWidth" = 2;
-  "terminal.integrated.lineHeight" = 1.2;
+  # "terminal.integrated.lineHeight" = 1.2;
   "terminal.integrated.showExitAlert" = false;
   "terminal.integrated.tabs.enabled" = true;
 
