@@ -47,6 +47,7 @@
     robo3t
 
     insomnia
+    postman
 
     wakatime
 
