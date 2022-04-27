@@ -24,6 +24,7 @@
     ./vscode/vscode.nix
     ./xdg.nix
     ./direnv.nix
+    ./gpg.nix
   ];
 
   home.packages = with pkgs; [
