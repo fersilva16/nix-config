@@ -32,7 +32,6 @@
     nyxt
     obsidian
     ytmdesktop
-    any-nix-shell
     bottom
     vlc
     bitwarden-cli

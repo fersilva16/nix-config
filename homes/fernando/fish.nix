@@ -4,8 +4,6 @@
     enable = true;
 
     interactiveShellInit = ''
-      any-nix-shell fish --info-right | source
-
       set fish_cursor_default block
       set fish_cursor_insert line
 
