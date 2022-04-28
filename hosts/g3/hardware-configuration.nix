@@ -16,6 +16,7 @@ in
   ];
 
   boot.kernelModules = [ "kvm-intel" ];
+  boot.kernelParams = [ "resume=/var/swapfile" "resume_offset=16400" ];
 
   boot.initrd = {
     availableKernelModules = [
@@ -41,11 +42,13 @@ in
   hardware.cpu.intel.updateMicrocode =
     lib.mkDefault config.hardware.enableRedistributableFirmware;
 
-  boot.resumeDevice = "/var/swapfile";
-  swapDevices = [{
-    device = "/var/swapfile";
-    size = 18432;
-  }];
+  boot.resumeDevice = "/dev/disk/by-label/root";
+  swapDevices = [
+    {
+      device = "/var/swapfile";
+      size = 18432;
+    }
+  ];
 
   fileSystems = {
     "/" = {
