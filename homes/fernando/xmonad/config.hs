@@ -264,6 +264,7 @@ myManageHook =
       className =? "pinentry-gtk-2" --> doFloat,
       className =? "splash" --> doFloat,
       className =? "toolbar" --> doFloat,
+      className =? "Peek" --> doFloat,
       className =? "Yad" --> doCenterFloat,
       title =? "Oracle VM VirtualBox Manager" --> doFloat,
       title =? "Mozilla Firefox" --> doShift (myWorkspaces !! 1),

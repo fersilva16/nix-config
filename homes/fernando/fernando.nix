@@ -57,6 +57,9 @@
     calibre
 
     fd
+
+    peek
+    gifski
   ];
 
   home.keyboard = null;
