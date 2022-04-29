@@ -55,6 +55,8 @@
     rnix-lsp
 
     calibre
+
+    fd
   ];
 
   home.keyboard = null;
