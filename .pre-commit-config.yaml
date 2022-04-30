@@ -1,0 +1,38 @@
+repos:
+  - repo: local
+    hooks:
+      - name: prettier-yaml
+        id: prettier-yaml
+        types: [yaml]
+        language: system
+        entry: prettier --write
+
+      - name: hlint
+        id: hlint
+        files: '(\.hs|xmobarrc)$'
+        language: system
+        entry: hlint
+
+      - name: shellcheck
+        id: shellcheck
+        files: '\.sh$'
+        language: system
+        entry: shellcheck
+
+      - name: nixpkgs-fmt
+        id: nixpkgs-fmt
+        files: '\.nix$'
+        language: system
+        entry: nixpkgs-fmt
+
+      - name: statix
+        id: statix
+        files: '\.nix$'
+        language: system
+        entry: statix check
+
+      - name: nix-linter
+        id: nix-linter
+        files: '\.nix$'
+        language: system
+        entry: nix-linter

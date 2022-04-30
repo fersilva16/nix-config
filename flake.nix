@@ -27,7 +27,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, utils, ... }@inputs:
+  outputs = { nixpkgs, utils, ... }@inputs:
     let
       overlay = import ./overlays/overlays.nix;
 
@@ -50,10 +50,12 @@
 
         ghcWithPackages = pkgs.ghc.withPackages (haskellPackages:
           with haskellPackages; [
-            haskell-language-server
             xmonad
             xmonad-extras
             xmonad-contrib
+
+            hlint
+            haskell-language-server
           ]);
       in
       {
@@ -61,12 +63,23 @@
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nixfmt
             rnix-lsp
-            home-manager
-            git
+            statix
+            nix-linter
+            nixpkgs-fmt
+
+            shellcheck
+
+            nodePackages.prettier
+
+            pre-commit
+
             ghcWithPackages
           ];
+
+          shellHook = ''
+            pre-commit install
+          '';
         };
 
         devShells = import ./devShells/devShells.nix { inherit pkgs; };
