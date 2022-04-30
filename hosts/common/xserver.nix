@@ -10,6 +10,11 @@
     displayManager = {
       defaultSession = "xsession";
 
+      autoLogin = {
+        enable = true;
+        user = "fernando";
+      };
+
       session = [
         {
           name = "xsession";
@@ -20,3 +25,5 @@
     };
   };
 }
+
+

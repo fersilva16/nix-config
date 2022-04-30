@@ -1,0 +1,4 @@
+{ pkgs, ... }:
+{
+  home.keyboard = null;
+}

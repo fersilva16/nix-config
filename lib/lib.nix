@@ -14,7 +14,7 @@ in
       modules = [
         home-manager.nixosModule
 
-        (../hosts + "/${hostname}/${hostname}.nix")
+        (../hosts + "/${hostname}.nix")
         {
           networking.hostName = hostname;
 

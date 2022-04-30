@@ -1,5 +1,7 @@
-{ modulesPath, lib, config, ... }:
+{ modulesPath, inputs, pkgs, lib, config, ... }:
 let
+  inherit (inputs.hardware.nixosModules) dell-g3-3779;
+
   fsDefaultOptions =
     [
       "compress=lzo"
@@ -12,6 +14,33 @@ let
 in
 {
   imports = [
+    dell-g3-3779
+
+    ./common/audio.nix
+    ./common/bluetooth.nix
+    ./common/boot.nix
+    ./common/cachix.nix
+    ./common/common.nix
+    ./common/console.nix
+    ./common/docker.nix
+    ./common/fingerprint.nix
+    ./common/fonts.nix
+    ./common/gnupg.nix
+    ./common/i18n.nix
+    ./common/light.nix
+    ./common/monitors.nix
+    ./common/networking.nix
+    ./common/nix.nix
+    ./common/noisetorch.nix
+    ./common/nvidia.nix
+    ./common/opengl.nix
+    ./common/sensors.nix
+    ./common/ssh.nix
+    ./common/time.nix
+    ./common/utils.nix
+    ./common/xserver.nix
+    ./common/zip.nix
+
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 

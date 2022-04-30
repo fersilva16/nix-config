@@ -7,13 +7,8 @@
   };
 
   home.packages = with pkgs; [
-    # Used by treemacs
     python3
 
     editorconfig-core-c
   ];
-
-  # services.emacs = {
-  #   enable = true;
-  # };
 }

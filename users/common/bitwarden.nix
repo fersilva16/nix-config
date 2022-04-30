@@ -1,5 +1,10 @@
-{ ... }:
+{ pkgs, ... }:
 {
+  home.packages = with pkgs; [
+    bitwarden-cli
+    jq
+  ];
+
   programs.rbw = {
     enable = true;
 
@@ -9,3 +14,4 @@
     };
   };
 }
+

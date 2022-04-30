@@ -2,10 +2,6 @@
 {
   sound.enable = true;
 
-  programs.noisetorch = {
-    enable = true;
-  };
-
   services.pipewire = {
     enable = true;
 
