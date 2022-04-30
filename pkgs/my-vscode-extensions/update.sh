@@ -1,22 +1,6 @@
-#! /usr/bin/env nix-shell
-#! nix-shell -i bash -p curl jq unzip
+#! /usr/bin/env bash
 # shellcheck shell=bash
 set -eu -o pipefail
-
-# can be added to your configuration with the following command and snippet:
-# $ ./pkgs/applications/editors/vscode/extensions/update_installed_exts.sh > extensions.nix
-#
-# packages = with pkgs;
-#   (vscode-with-extensions.override {
-#     vscodeExtensions = map
-#       (extension: vscode-utils.buildVscodeMarketplaceExtension {
-#         mktplcRef = {
-#          inherit (extension) name publisher version sha256;
-#         };
-#       })
-#       (import ./extensions.nix).extensions;
-#   })
-# ]
 
 # Helper to just fail with a message and non-zero exit code.
 function fail() {
@@ -60,29 +44,16 @@ function get_vsixpkg() {
 EOF
 }
 
-# See if we can find our `code` binary somewhere.
-if [ $# -ne 0 ]; then
-  CODE=$1
-else
-  CODE=$(command -v code || command -v codium)
-fi
-
-if [ -z "$CODE" ]; then
-  # Not much point continuing.
-  fail "VSCode executable not found"
-fi
-
 # Try to be a good citizen and clean up after ourselves if we're killed.
 trap clean_up SIGINT
 
 # Begin the printing of the nix expression that will house the list of extensions.
 printf '[\n'
 
-# Note that we are only looking to update extensions that are already installed.
-for i in $(cat extensions)
+grep -v '^ *#' < extensions | while IFS= read -r line
 do
-  OWNER=$(echo "$i" | cut -d. -f1)
-  EXT=$(echo "$i" | cut -d. -f2)
+  OWNER=$(echo "$line" | cut -d. -f1)
+  EXT=$(echo "$line" | cut -d. -f2)
 
   get_vsixpkg "$OWNER" "$EXT"
 done
