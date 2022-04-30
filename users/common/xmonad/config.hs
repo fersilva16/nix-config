@@ -322,8 +322,8 @@ myKeys =
     ("M-C-S-t", namedScratchpadAction myScratchPads "terminal"),
     ("M-C-S-m", namedScratchpadAction myScratchPads "music"),
     ("<XF86AudioMute>", spawn "amixer set Master toggle"),
-    ("<XF86AudioLowerVolume>", spawn "amixer set Master 5%- unmute"),
-    ("<XF86AudioRaiseVolume>", spawn "amixer set Master 5%+ unmute"),
+    ("<XF86AudioLowerVolume>", spawn "amixer set Master 2%- unmute"),
+    ("<XF86AudioRaiseVolume>", spawn "amixer set Master 2%+ unmute"),
     ("<Print>", spawn "flameshot gui")
   ]
   where
