@@ -12,7 +12,7 @@
 
       nix_shell = {
         format = "via [$symbol]($style) ";
-        symbol = "❄";
+        symbol = " ";
       };
     };
   };
