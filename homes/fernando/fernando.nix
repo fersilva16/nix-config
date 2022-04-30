@@ -60,6 +60,8 @@
 
     peek
     gifski
+
+    dconf
   ];
 
   home.keyboard = null;
