@@ -1,4 +1,4 @@
-{ ... }:
+_:
 {
   console = {
     earlySetup = true;

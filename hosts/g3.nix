@@ -1,4 +1,4 @@
-{ modulesPath, inputs, pkgs, lib, config, ... }:
+{ modulesPath, inputs, lib, config, ... }:
 let
   inherit (inputs.hardware.nixosModules) dell-g3-3779;
 

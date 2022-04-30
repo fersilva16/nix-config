@@ -1,7 +1,7 @@
-{ pkgs, ... }:
 let
   family = "FiraCode Nerd Font";
 in
+_:
 {
   programs.alacritty = {
     enable = true;

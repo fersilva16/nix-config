@@ -1,6 +1,6 @@
 self: super:
 {
-  kitty-themes = super.kitty-themes.overrideAttrs (oldAttrs: {
+  kitty-themes = super.kitty-themes.overrideAttrs (_: {
     version = "2022-04-05";
     src = self.fetchFromGitHub {
       owner = "kovidgoyal";
@@ -9,4 +9,4 @@ self: super:
       sha256 = "lq+VE/+BL7F0SKmNaXMKm/4cM9NVARKJzJThyLG5Ec4=";
     };
   });
-} // import ../pkgs/pkgs.nix { pkgs = self; }
+} // import ../pkgs/pkgs.nix { inherit self; }

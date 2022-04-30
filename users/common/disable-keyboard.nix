@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+_:
 {
   home.keyboard = null;
 }

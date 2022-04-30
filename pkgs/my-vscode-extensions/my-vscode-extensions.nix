@@ -1,15 +1,13 @@
 { lib, vscode-utils }:
 let
   extensions = import ./extensions.nix;
-  extensionToPackage = (extension:
-    vscode-utils.buildVscodeMarketplaceExtension { mktplcRef = extension; }
-  );
+  extensionToPackage = mktplcRef:
+    vscode-utils.buildVscodeMarketplaceExtension { inherit mktplcRef; };
 
-  extensionToNameValuePair = (extension:
+  extensionToNameValuePair = extension:
     lib.nameValuePair
       extension.name
-      (extensionToPackage extension)
-  );
+      (extensionToPackage extension);
 in
 {
   allExtensions = map extensionToPackage extensions;
