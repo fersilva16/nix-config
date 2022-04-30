@@ -366,7 +366,7 @@ main = do
                       . clickable,
                   ppHiddenNoWindows = xmobarColor color05 "" . clickable,
                   ppTitle = xmobarColor color16 "" . shorten 60,
-                  ppSep = "<fc=" ++ color09 ++ "> <fn=1>|</fn> </fc>",
+                  ppSep = "<fc=" ++ color09 ++ ">  |  </fc>",
                   ppUrgent = xmobarColor color02 "" . wrap "!" "!",
                   ppExtras = [windowCount],
                   ppOrder = \(ws : l : t : ex) -> [ws, l] ++ ex ++ [t]
