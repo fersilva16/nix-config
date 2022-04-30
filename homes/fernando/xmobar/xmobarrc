@@ -18,10 +18,10 @@ Config
         Run Uptime ["-t", "<fn=2>\xf0aa</fn>  <days>d <hours>h"] 360,
         Run BatteryP ["BAT0"] ["-t", "<acstatus>", "--", "-O", "<fn=2>\xf240</fn>  <left>%", "-i", "<fn=2>\xf240</fn>  <left>%", "-o", "<fn=2>\xf242</fn>  <timeleft> (<left>%)"] 360,
         Run Alsa "default" "Master" ["-t", "<status>  <volume>%", "--", "-O", "<fn=2>\xf028</fn>", "-o", "<fn=2>\xf6a9</fn>", "-C", "#c678dd", "-c", "#c678dd"],
-        Run Date "<fn=2>\xf017</fn>  %b %d %Y - (%H:%M) " "date" 50,
+        Run Date "<fn=2>\xf017</fn>  %b %d %Y - (%H:%M)" "date" 50,
         Run UnsafeStdinReader
       ],
     sepChar = "%",
     alignSep = "}{",
-    template = "%UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=#c678dd><fc=#c678dd>%alsa:default:Master%</fc></box>    <box type=Bottom width=2 mb=2 color=#ecbe7b><fc=#ecbe7b>%cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=#ff6c6b><fc=#ff6c6b>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=#a9a1e1><fc=#a9a1e1>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=#98be65><fc=#98be65>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=#da8548><fc=#da8548>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=#46d9ff><fc=#46d9ff>%date%</fc></box>"
+    template = " %UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=#c678dd><fc=#c678dd>%alsa:default:Master%</fc></box>    <box type=Bottom width=2 mb=2 color=#ecbe7b><fc=#ecbe7b>%cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=#ff6c6b><fc=#ff6c6b>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=#a9a1e1><fc=#a9a1e1>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=#98be65><fc=#98be65>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=#da8548><fc=#da8548>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=#46d9ff><fc=#46d9ff>%date%</fc></box> "
   }
