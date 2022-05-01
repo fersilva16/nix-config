@@ -12,7 +12,8 @@ Config
     allDesktops = True,
     persistent = True,
     commands =
-      [ Run Cpu ["-t", "<fn=2>\xf108</fn>  <total>%", "-H", "50", "--high", "%red%"] 20,
+      [ Run MultiCoreTemp ["-t", "<fn=2>\xf108</fn> <max>°C", "-H", "80", "--high", "%red%"] 20,
+        Run Cpu ["-t", "(<total>%)", "-H", "50", "--high", "%red%"] 20,
         Run Memory ["-t", "<fn=2>\xf233</fn>  <used>M (<usedratio>%)"] 20,
         Run DiskU [("/", "<fn=2>\xf0c7</fn>  <free> free")] [] 60,
         Run Uptime ["-t", "<fn=2>\xf0aa</fn>  <days>d <hours>h"] 360,
@@ -24,5 +25,5 @@ Config
       ],
     sepChar = "%",
     alignSep = "}{",
-    template = " %UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=%yellow%><fc=%yellow%>%cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=%red%><fc=%red%>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=%violet%><fc=%violet%>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=%green%><fc=%green%>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=%orange%><fc=%orange%>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=%cyan%><fc=%cyan%>%date%</fc></box> "
+    template = " %UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=%yellow%><fc=%yellow%>%multicoretemp% %cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=%red%><fc=%red%>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=%violet%><fc=%violet%>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=%green%><fc=%green%>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=%orange%><fc=%orange%>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=%cyan%><fc=%cyan%>%date%</fc></box> "
   }
