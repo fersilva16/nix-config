@@ -4,24 +4,25 @@ Config
       [ "xft:Font Awesome 6 Brands:pixelsize=12:weight=regular:antialias=true:hinting=true",
         "xft:Font Awesome 6 Free Solid:pixelsize=12:weight=regular:antialias=true:hinting=true"
       ],
-    bgColor = "#282c34",
-    fgColor = "#ff6c6b",
+    bgColor = "%bg%",
+    fgColor = "%red%",
     position = TopSize L 100 24,
     lowerOnStart = True,
     hideOnStart = False,
     allDesktops = True,
     persistent = True,
     commands =
-      [ Run Cpu ["-t", "<fn=2>\xf108</fn>  <total>%", "-H", "50", "--high", "#ff6c6b"] 20,
+      [ Run Cpu ["-t", "<fn=2>\xf108</fn>  <total>%", "-H", "50", "--high", "%red%"] 20,
         Run Memory ["-t", "<fn=2>\xf233</fn>  <used>M (<usedratio>%)"] 20,
         Run DiskU [("/", "<fn=2>\xf0c7</fn>  <free> free")] [] 60,
         Run Uptime ["-t", "<fn=2>\xf0aa</fn>  <days>d <hours>h"] 360,
         Run BatteryP ["BAT0"] ["-t", "<acstatus>", "--", "-O", "<fn=2>\xf240</fn>  <left>%", "-i", "<fn=2>\xf240</fn>  <left>%", "-o", "<fn=2>\xf242</fn>  <timeleft> (<left>%)"] 360,
-        -- Run Alsa "default" "Master" ["-t", "<status>  <volume>%", "--", "-O", "<fn=2>\xf028</fn>", "-o", "<fn=2>\xf6a9</fn>", "-C", "#c678dd", "-c", "#c678dd"],
+        -- Run Alsa "default" "Master" ["-t", "<status>  <volume>%", "--", "-O", "<fn=2>\xf028</fn>", "-o", "<fn=2>\xf6a9</fn>", "-C", "%magenta%", "-c", "%magenta%"],
+        -- <box type=Bottom width=2 mb=2 color=%magenta%><fc=%magenta%>%alsa:default:Master%</fc></box>
         Run Date "<fn=2>\xf017</fn>  %b %d %Y - (%H:%M)" "date" 50,
         Run UnsafeStdinReader
       ],
     sepChar = "%",
     alignSep = "}{",
-    template = " %UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=#c678dd><fc=#c678dd>%alsa:default:Master%</fc></box>    <box type=Bottom width=2 mb=2 color=#ecbe7b><fc=#ecbe7b>%cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=#ff6c6b><fc=#ff6c6b>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=#a9a1e1><fc=#a9a1e1>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=#98be65><fc=#98be65>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=#da8548><fc=#da8548>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=#46d9ff><fc=#46d9ff>%date%</fc></box> "
+    template = " %UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=%yellow%><fc=%yellow%>%cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=%red%><fc=%red%>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=%violet%><fc=%violet%>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=%green%><fc=%green%>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=%orange%><fc=%orange%>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=%cyan%><fc=%cyan%>%date%</fc></box> "
   }
