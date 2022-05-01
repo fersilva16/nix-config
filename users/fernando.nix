@@ -26,6 +26,7 @@
       ./common/broot.nix
       ./common/calibre.nix
       ./common/chromium.nix
+      ./common/colors.nix
       ./common/dconf.nix
       ./common/direnv.nix
       ./common/disable-keyboard.nix
