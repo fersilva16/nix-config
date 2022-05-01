@@ -215,25 +215,8 @@ clickable ws = "<action=xdotool key super+" ++ show i ++ ">" ++ ws ++ "</action>
 myManageHook :: XMonad.Query (Data.Monoid.Endo WindowSet)
 myManageHook =
   composeAll
-    [ className =? "confirm" --> doFloat,
-      className =? "file_progress" --> doFloat,
-      className =? "dialog" --> doFloat,
-      className =? "download" --> doFloat,
-      className =? "error" --> doFloat,
-      className =? "Gimp" --> doFloat,
-      className =? "notification" --> doFloat,
-      className =? "pinentry-gtk-2" --> doFloat,
-      className =? "splash" --> doFloat,
-      className =? "toolbar" --> doFloat,
-      className =? "Peek" --> doFloat,
-      className =? "Yad" --> doCenterFloat,
-      title =? "Oracle VM VirtualBox Manager" --> doFloat,
-      title =? "Mozilla Firefox" --> doShift (myWorkspaces !! 1),
-      className =? "Brave-browser" --> doShift (myWorkspaces !! 1),
-      className =? "mpv" --> doShift (myWorkspaces !! 7),
-      className =? "Gimp" --> doShift (myWorkspaces !! 8),
-      className =? "VirtualBox Manager" --> doShift (myWorkspaces !! 4),
-      (className =? "firefox" <&&> resource =? "Dialog") --> doFloat,
+    [ className =? "discord" --> doShift (myWorkspaces !! 8),
+      className =? "Slack" --> doShift (myWorkspaces !! 8),
       isFullscreen --> doFullFloat
     ]
     <+> namedScratchpadManageHook myScratchPads
