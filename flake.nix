@@ -33,13 +33,13 @@
 
       overlays = with inputs; [ overlay nur.overlay emacs-overlay.overlay ];
 
-      lib = import ./lib/lib.nix { inherit inputs overlays; };
+      mkHost = import ./lib/mkHost.nix { inherit inputs overlays; };
     in
     {
       inherit overlay overlays;
 
       nixosConfigurations = {
-        g3 = lib.makeHost {
+        g3 = mkHost {
           hostname = "g3";
           users = [ "fernando" ];
         };
