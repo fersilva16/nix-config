@@ -64,7 +64,7 @@
       ./common/xdg.nix
       ./common/xmobar/xmobar.nix
       ./common/xmonad/xmonad.nix
-      ./common/ytmdesktop.nix
+      ./common/ytmdesktop/ytmdesktop.nix
     ];
   };
 }
