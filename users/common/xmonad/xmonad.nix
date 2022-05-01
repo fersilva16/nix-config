@@ -12,6 +12,8 @@ in
       autorandr --change
 
       keyctl link @u @s
+
+      xwallpaper --stretch ${config.wallpaper}
     '';
 
     windowManager.xmonad = {
@@ -22,5 +24,8 @@ in
     };
   };
 
-  home.packages = with pkgs; [ dmenu ];
+  home.packages = with pkgs; [
+    dmenu
+    xwallpaper
+  ];
 }
