@@ -67,45 +67,6 @@ import XMonad.Util.Run (runProcessWithInput, safeSpawn, spawnPipe)
 import XMonad.Util.Scratchpad (scratchpadFilterOutWorkspace)
 import XMonad.Util.SpawnOnce
 
-colorBack = "#282c34"
-
-colorFore = "#bbc2cf"
-
-color01 = "#1c1f24"
-
-color02 = "#ff6c6b"
-
-color03 = "#98be65"
-
-color04 = "#da8548"
-
-color05 = "#51afef"
-
-color06 = "#c678dd"
-
-color07 = "#5699af"
-
-color08 = "#202328"
-
-color09 = "#5b6268"
-
-color10 = "#da8548"
-
-color11 = "#4db5bd"
-
-color12 = "#ecbe7b"
-
-color13 = "#3071db"
-
-color14 = "#a9a1e1"
-
-color15 = "#46d9ff"
-
-color16 = "#dfdfdf"
-
-colorTrayer :: String
-colorTrayer = "--tint 0x282c34"
-
 myFont :: String
 myFont = "xft:FiraCode Nerd Font:regular:size=9:antialias=true:hinting=true"
 
@@ -119,10 +80,10 @@ myBorderWidth :: Dimension
 myBorderWidth = 2
 
 myNormColor :: String
-myNormColor = colorBack
+myNormColor = "%bg%"
 
 myFocusColor :: String
-myFocusColor = color15
+myFocusColor = "%cyan%"
 
 windowCount :: X (Maybe String)
 windowCount = gets $ Just . show . length . W.integrate' . W.stack . W.workspace . W.current . windowset
@@ -215,12 +176,12 @@ tabs =
 myTabTheme =
   def
     { fontName = myFont,
-      activeColor = color15,
-      inactiveColor = color08,
-      activeBorderColor = color15,
-      inactiveBorderColor = colorBack,
-      activeTextColor = colorBack,
-      inactiveTextColor = color16
+      activeColor = "%cyan%",
+      inactiveColor = "%base2%",
+      activeBorderColor = "%cyan%",
+      inactiveBorderColor = "%bg%",
+      activeTextColor = "%bg%",
+      inactiveTextColor = "%base8%"
     }
 
 myShowWNameTheme :: SWNConfig
@@ -228,8 +189,8 @@ myShowWNameTheme =
   def
     { swn_font = "xft:FiraCode Nerd Font:bold:size=60",
       swn_fade = 1.0,
-      swn_bgcolor = "#1c1f24",
-      swn_color = "#ffffff"
+      swn_bgcolor = "%bg%",
+      swn_color = "%fg%"
     }
 
 myLayoutHook =
@@ -353,21 +314,21 @@ main = do
                     hPutStrLn xmproc0 x
                       >> hPutStrLn xmproc1 x,
                   ppCurrent =
-                    xmobarColor color06 ""
+                    xmobarColor "%magenta%" ""
                       . wrap
-                        ("<box type=Bottom width=2 mb=2 color=" ++ color06 ++ ">")
+                        ("<box type=Bottom width=2 mb=2 color=" ++ "%magenta%" ++ ">")
                         "</box>",
-                  ppVisible = xmobarColor color06 "" . clickable,
+                  ppVisible = xmobarColor "%magenta%" "" . clickable,
                   ppHidden =
-                    xmobarColor color05 ""
+                    xmobarColor "%blue%" ""
                       . wrap
-                        ("<box type=Top width=2 mt=2 color=" ++ color05 ++ ">")
+                        ("<box type=Top width=2 mt=2 color=" ++ "%blue%" ++ ">")
                         "</box>"
                       . clickable,
-                  ppHiddenNoWindows = xmobarColor color05 "" . clickable,
-                  ppTitle = xmobarColor color16 "" . shorten 60,
-                  ppSep = "<fc=" ++ color09 ++ ">  |  </fc>",
-                  ppUrgent = xmobarColor color02 "" . wrap "!" "!",
+                  ppHiddenNoWindows = xmobarColor "%blue%" "" . clickable,
+                  ppTitle = xmobarColor "%base8%" "" . shorten 60,
+                  ppSep = "<fc=" ++ "%base5%" ++ ">  |  </fc>",
+                  ppUrgent = xmobarColor "%red%" "" . wrap "!" "!",
                   ppExtras = [windowCount],
                   ppOrder = \(ws : l : t : ex) -> [ws, l] ++ ex ++ [t]
                 }

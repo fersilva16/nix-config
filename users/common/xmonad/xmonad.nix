@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
+let
+  replaceColors = import ../../../lib/replaceColors.nix { inherit config; };
+
+  extraConfig = builtins.readFile ./config.hs;
+in
 {
   xsession = {
     enable = true;
@@ -13,14 +18,7 @@
       enable = true;
       enableContribAndExtras = true;
 
-      extraPackages = haskellPackages:
-        with haskellPackages; [
-          xmonad
-          xmonad-contrib
-          xmonad-extras
-        ];
-
-      config = ./config.hs;
+      config = pkgs.writeText "xmonad.hs" (replaceColors extraConfig);
     };
   };
 
