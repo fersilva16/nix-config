@@ -208,10 +208,6 @@ myWorkspaces = [" 1 ", " 2 ", " 3 ", " 4 ", " 5 ", " 6 ", " 7 ", " 8 ", " 9 "]
 
 myWorkspaceIndices = M.fromList $ zip myWorkspaces [1 ..]
 
-clickable ws = "<action=xdotool key super+" ++ show i ++ ">" ++ ws ++ "</action>"
-  where
-    i = fromJust $ M.lookup ws myWorkspaceIndices
-
 myManageHook :: XMonad.Query (Data.Monoid.Endo WindowSet)
 myManageHook =
   composeAll
@@ -298,19 +294,14 @@ main = do
                       >> hPutStrLn xmproc1 x,
                   ppCurrent =
                     xmobarColor "%magenta%" ""
-                      . wrap
-                        ("<box type=Bottom width=2 mb=2 color=" ++ "%magenta%" ++ ">")
-                        "</box>",
-                  ppVisible = xmobarColor "%magenta%" "" . clickable,
+                      . wrap "<box type=Bottom width=2 mb=2 color=%magenta%>" "</box>",
+                  ppVisible = xmobarColor "%magenta%" "",
                   ppHidden =
                     xmobarColor "%blue%" ""
-                      . wrap
-                        ("<box type=Top width=2 mt=2 color=" ++ "%blue%" ++ ">")
-                        "</box>"
-                      . clickable,
-                  ppHiddenNoWindows = xmobarColor "%blue%" "" . clickable,
+                      . wrap "<box type=Top width=2 mt=2 color=%blue%>" "</box>",
+                  ppHiddenNoWindows = xmobarColor "%blue%" "",
                   ppTitle = xmobarColor "%base8%" "" . shorten 60,
-                  ppSep = "<fc=" ++ "%base5%" ++ ">  |  </fc>",
+                  ppSep = "<fc=%base5%>  |  </fc>",
                   ppUrgent = xmobarColor "%red%" "" . wrap "!" "!",
                   ppExtras = [windowCount],
                   ppOrder = \(ws : l : t : ex) -> [ws, l] ++ ex ++ [t]
