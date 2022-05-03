@@ -39,6 +39,7 @@
       ./common/flameshot.nix
       ./common/fzf.nix
       ./common/git.nix
+      ./common/glab.nix
       ./common/gpg.nix
       ./common/insomnia.nix
       ./common/kitty.nix
