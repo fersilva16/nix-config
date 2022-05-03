@@ -53,6 +53,7 @@
       ./common/peek.nix
       ./common/postman.nix
       # ./common/qutebrowser.nix
+      ./common/responsively.nix
       ./common/ripgrep.nix
       ./common/rofi.nix
       ./common/slack.nix
