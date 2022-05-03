@@ -213,6 +213,7 @@ myManageHook =
   composeAll
     [ className =? "discord" --> doShift (myWorkspaces !! 8),
       className =? "Slack" --> doShift (myWorkspaces !! 8),
+      className =? "Peek" --> doFloat,
       isFullscreen --> doFullFloat
     ]
     <+> namedScratchpadManageHook myScratchPads
