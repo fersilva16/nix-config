@@ -16,7 +16,22 @@
     initialPassword = "password";
   };
 
-  home-manager.users.fernando = _: {
+  security.sudo = {
+    extraRules = [
+      {
+        runAs = "root";
+        users = [ "fernando" ];
+        commands = [
+          {
+            command = "${pkgs.nixos-rebuild}}/bin/nixos-rebuild";
+            options = [ "NOPASSWD" ];
+          }
+        ];
+      }
+    ];
+  };
+
+  home-manager.users.fernando = {
     imports = [
       ./common/alacritty.nix
       ./common/autorandr.nix
