@@ -79,5 +79,6 @@
 
   "[typescriptreact]": {
     "editor.formatOnSave": true
-  }
+  },
+  "typescript.updateImportsOnFileMove.enabled": "always"
 }
