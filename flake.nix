@@ -29,9 +29,13 @@
 
   outputs = { nixpkgs, utils, ... }@inputs:
     let
-      overlay = import ./overlays/overlays.nix;
+      overlay = import ./overlay/overlay.nix;
 
-      overlays = with inputs; [ overlay nur.overlay emacs-overlay.overlay ];
+      overlays = with inputs; [
+        overlay
+        nur.overlay
+        emacs-overlay.overlay
+      ];
 
       mkHost = import ./lib/mkHost.nix { inherit inputs overlays; };
     in
