@@ -9,4 +9,6 @@ self: super:
       sha256 = "lq+VE/+BL7F0SKmNaXMKm/4cM9NVARKJzJThyLG5Ec4=";
     };
   });
+
+  dmenu = import ./dmenu.nix self super;
 } // import ../pkgs/pkgs.nix { inherit self; }

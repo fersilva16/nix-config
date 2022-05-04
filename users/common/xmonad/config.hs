@@ -68,7 +68,7 @@ import XMonad.Util.Scratchpad (scratchpadFilterOutWorkspace)
 import XMonad.Util.SpawnOnce
 
 myFont :: String
-myFont = "xft:FiraCode Nerd Font:regular:size=9:antialias=true:hinting=true"
+myFont = "xft:FiraCode Nerd Font:weight=bold:pixelsize=12:antialias=true:hinting=true"
 
 myModMask :: KeyMask
 myModMask = mod4Mask
@@ -262,6 +262,7 @@ myKeys =
     ("M-C-,", onGroup W.focusDown'),
     ("M-C-S-t", namedScratchpadAction myScratchPads "terminal"),
     ("M-C-S-m", namedScratchpadAction myScratchPads "music"),
+    ("M-p", spawn ("dmenu_run -h 24 -nb '%bg%' -nf '%fg%' -sb '%bgAlt%' -sf '%base8%' -fn '" ++ myFont ++ "'")),
     ("<XF86AudioMute>", spawn "amixer set Master toggle"),
     ("<XF86AudioLowerVolume>", spawn "amixer set Master 2%- unmute"),
     ("<XF86AudioRaiseVolume>", spawn "amixer set Master 2%+ unmute"),
