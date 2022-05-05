@@ -1,6 +1,7 @@
 { pkgs, config, ... }:
 let
   replaceColors = import ../../../lib/replaceColors.nix { inherit config; };
+  replaceWallpaper = import ../../../lib/replaceWallpaper.nix { inherit config; };
 
   extraConfig = builtins.readFile ./config.hs;
 in
@@ -12,15 +13,13 @@ in
       autorandr --change
 
       keyctl link @u @s
-
-      xwallpaper --stretch ${config.wallpaper}
     '';
 
     windowManager.xmonad = {
       enable = true;
       enableContribAndExtras = true;
 
-      config = pkgs.writeText "xmonad.hs" (replaceColors extraConfig);
+      config = pkgs.writeText "xmonad.hs" (replaceWallpaper (replaceColors extraConfig));
     };
   };
 

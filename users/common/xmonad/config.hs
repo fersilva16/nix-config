@@ -89,7 +89,8 @@ windowCount :: X (Maybe String)
 windowCount = gets $ Just . show . length . W.integrate' . W.stack . W.workspace . W.current . windowset
 
 myStartupHook :: X ()
-myStartupHook = mempty
+myStartupHook = do
+    spawnOnce "xwallpaper --stretch %wallpaper%"
 
 myColorizer :: Window -> Bool -> X (String, String)
 myColorizer =
