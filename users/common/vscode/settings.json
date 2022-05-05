@@ -1,7 +1,7 @@
 {
   "editor.colorDecorators": true,
   "editor.cursorBlinking": "solid",
-  
+
   "editor.cursorStyle": "line",
   "editor.fontFamily": "FiraCode Nerd Font",
   "editor.fontLigatures": true,
@@ -17,19 +17,15 @@
   "terminal.integrated.cursorWidth": 2,
   "terminal.integrated.fontWeight": "500",
   "terminal.integrated.drawBoldTextInBrightColors": false,
-  
-  "window.title": "${dirty}${activeEditorShort}${separator}${rootName}",
-  "workbench.colorTheme": "doom-one",
-  
+
   "nix.enableLanguageServer": true,
-  
+
   "workbench.activityBar.visible": true,
   "workbench.sideBar.location": "right",
   "workbench.iconTheme": "vscode-icons",
   "workbench.startupEditor": "none",
   "workbench.view.alwaysShowHeaderActions": true,
   "workbench.statusBar.visible": true,
-
   "breadcrumbs.enabled": false,
   "editor.minimap.enabled": false,
   "editor.scrollbar.horizontal": "hidden",
@@ -39,7 +35,7 @@
   "workbench.editor.showTabs": true,
 
   "explorer.openEditors.visible": 0,
-  
+
   "editor.autoClosingBrackets": "never",
   "editor.autoClosingQuotes": "never",
   "editor.scrollbar.verticalScrollbarSize": 0,
@@ -47,17 +43,61 @@
   "workbench.editor.enablePreview": false,
 
   "editor.renderLineHighlight": "all",
+
+  // bg = "#282c34";
+  // fg = "#bbc2cf";
+
+  // bgAlt = "#21242b";
+  // fgAlt = "#5b6268";
+
+  // base0 = "#1b2229";
+  // base1 = "#1c1f24";
+  // base2 = "#202328";
+  // base3 = "#23272e";
+  // base4 = "#3f444a";
+  // base5 = "#5b6268";
+  // base6 = "#73797e";
+  // base7 = "#9ca0a4";
+  // base8 = "#dfdfdf";
+
+  // grey = config.colors.base4;
+  // red = "#ff6c6b";
+  // orange = "#da8548";
+  // green = "#98be65";
+  // teal = "#4db5bd";
+  // yellow = "#ecbe7b";
+  // blue = "#51afef";
+  // darkBlue = "#2257a0";
+  // magenta = "#c678dd";
+  // violet = "#a9a1e1";
+  // cyan = "#46d9ff";
+  // darkCyan = "#5699af";
+  "workbench.colorTheme": "doom-one",
   "workbench.colorCustomizations": {
     "editor.lineHighlightBackground": "#21242b",
-    "editor.lineHighlightBorder": "#0000",
     "editorSuggestWidget.background": "#21242b",
-    
+
     "editorGroupHeader.border": "#3f444a",
     "editorGroupHeader.noTabsBackground": "#21242b",
     "scrollbar.shadow": "#0000",
     "widget.shadow": "#0000",
 
-    "statusBar.border": "#3f444a"
+    "editor.background": "#282c34",
+    "tab.activeBackground": "#282c34",
+
+    "sideBar.background": "#21242b",
+
+    "sideBar.border": "#3f444a",
+
+    "statusBar.border": "#3f444a",
+
+    "gitDecoration.modifiedResourceForeground": "#ecbe7b",
+    "gitDecoration.untrackedResourceForeground": "#98be65",
+  
+    // "diffEditor.insertedLineBackground": "#98be6540",
+    // "diffEditor.insertedTextBackground": "#98be6580",
+    // "diffEditor.removedLineBackground": "#ff6c6b40",
+    // "diffEditor.removedTextBackground": "#ff6c6b80",
   },
 
   "auto-close-tag.disableOnLanguage": [
@@ -80,5 +120,9 @@
   "[typescriptreact]": {
     "editor.formatOnSave": true
   },
-  "typescript.updateImportsOnFileMove.enabled": "always"
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.tabSize": 2,
+
+  "editor.selectionClipboard": false,
+  "explorer.compactFolders": false
 }
