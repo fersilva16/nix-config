@@ -4,5 +4,5 @@ _:
     ../../../modules/wallpaper.nix
   ];
 
-  wallpaper = ./m9ooj8.jpg;
+  wallpaper = ./72qq29.png;
 }
