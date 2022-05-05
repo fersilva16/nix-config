@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 {
   users.users.fernando = {
     isNormalUser = true;
@@ -23,7 +23,11 @@
         users = [ "fernando" ];
         commands = [
           {
-            command = "${pkgs.nixos-rebuild}}/bin/nixos-rebuild";
+            command = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch";
+            options = [ "NOPASSWD" ];
+          }
+          {
+            command = "${config.system.build.nixos-rebuild}/bin/nixos-rebuild switch --show-trace";
             options = [ "NOPASSWD" ];
           }
         ];
