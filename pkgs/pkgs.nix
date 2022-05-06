@@ -5,4 +5,6 @@ pkgs:
   my-vscode-extensions = pkgs.callPackage ./my-vscode-extensions/my-vscode-extensions.nix { };
 
   responsively = pkgs.callPackage ./responsively.nix { };
+
+  ticktick = pkgs.callPackage ./ticktick.nix { };
 }
