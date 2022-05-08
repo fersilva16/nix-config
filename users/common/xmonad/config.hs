@@ -136,7 +136,8 @@ myScratchPads :: [NamedScratchpad]
 myScratchPads =
   [ NS "terminal" spawnTerm findTerm manageTerm,
     NS "music" spawnMusic findMusic manageMusic,
-    NS "ticktick" spawnTickTick findTickTick manageTickTick
+    NS "ticktick" spawnTickTick findTickTick manageTickTick,
+    NS "obsidian" spawnObsidian findObsidian manageObsidian
   ]
   where
     spawnTerm = myTerminal ++ " --title=scratchpad"
@@ -150,6 +151,10 @@ myScratchPads =
     spawnTickTick = "ticktick"
     findTickTick = className =? "ticktick"
     manageTickTick = myScratchPadFloat
+
+    spawnObsidian = "obsidian"
+    findObsidian = className =? "obsidian"
+    manageObsidian = myScratchPadFloat
 
 mySpacing :: Integer -> l a -> XMonad.Layout.LayoutModifier.ModifiedLayout Spacing l a
 mySpacing i = spacingRaw False (Border i i i i) True (Border i i i i) True
@@ -269,6 +274,7 @@ myKeys =
     ("M-C-S-t", namedScratchpadAction myScratchPads "terminal"),
     ("M-C-S-m", namedScratchpadAction myScratchPads "music"),
     ("M-C-S-p", namedScratchpadAction myScratchPads "ticktick"),
+    ("M-C-S-o", namedScratchpadAction myScratchPads "obsidian"),
     ("M-p", spawn ("dmenu_run -h 24 -nb '%bg%' -nf '%fg%' -sb '%bgAlt%' -sf '%base8%' -fn '" ++ myFont ++ "'")),
     ("<XF86AudioMute>", spawn "amixer set Master toggle"),
     ("<XF86AudioLowerVolume>", spawn "amixer set Master 2%- unmute"),
