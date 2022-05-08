@@ -119,10 +119,4 @@
     version = "0.6.1";
     sha256 = "1d60hqww1innch277yd3va2snpsp19c7w4v0rxz2jvzvgykfmx77";
   }
-  {
-    name = "vim";
-    publisher = "vscodevim";
-    version = "1.22.2";
-    sha256 = "1d85dwlnfgn7d32ivza0bv1zf9bh36fx7gbi586dligkw202blkn";
-  }
 ]

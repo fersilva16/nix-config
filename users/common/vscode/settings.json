@@ -85,19 +85,60 @@
     "editor.background": "#282c34",
     "tab.activeBackground": "#282c34",
 
+    "sideBar.border": "#3f444a",
     "sideBar.background": "#21242b",
 
-    "sideBar.border": "#3f444a",
-
     "statusBar.border": "#3f444a",
+    "statusBar.background": "#21242b",
 
     "gitDecoration.modifiedResourceForeground": "#ecbe7b",
     "gitDecoration.untrackedResourceForeground": "#98be65",
-  
+    "input.background": "#282c34",
+    "input.foreground": "#bbc2cf",
+    "inputOption.activeBackground": "#5699af",
+    "inputValidation.errorBackground": "#ff6c6b50",
+    "inputValidation.errorBorder": "#0000",
+
+    "panelTitle.activeBorder": "#5699af",
+    "panelTitle.inactiveForeground": "#5b6268",
+
+    "editorWidget.background": "#21242b",
+    "editorWidget.border": "#3f444a",
+    "editorWidget.foreground": "#bbc2cf",
+    "editorWidget.resizeBorder": "#0000",
+
+    "tab.activeBorderTop": "#0000",
+    "panel.background": "#282c34",
+    "focusBorder": "#0000",
+
+    // "editor.findMatchBackground": "#ff0000",
+    "quickInput.background": "#21242b",
+
+    "titleBar.activeBackground": "#ff0000",
+
+    "editor.findMatchHighlightBackground": "#46d9ff50",
+    "editor.findMatchHighlightBorder": "#46d9ff50",
+    // "searchEditor.findMatchBackground": "#ff0000",
+    // "menu.selectionBackground": "#ff0000",
+    // "editor.selectionHighlightBackground": "#ff0000"
+
     // "diffEditor.insertedLineBackground": "#98be6540",
     // "diffEditor.insertedTextBackground": "#98be6580",
     // "diffEditor.removedLineBackground": "#ff6c6b40",
     // "diffEditor.removedTextBackground": "#ff6c6b80",
+    // "activityBar.activeBackground": "#ff0000",
+    "activityBar.background": "#21242b",
+    "activityBar.border": "#3f444a",
+    "activityBarBadge.background": "#3f444a",
+    
+    "terminal.ansiBlack": "#3f444a",
+    "terminal.ansiBlue": "#51afef",
+    "terminal.ansiCyan": "#46d9ff",
+    "terminal.ansiGreen": "#98be65",
+    "terminal.ansiWhite": "#bbc2cf",
+    "terminal.ansiMagenta": "#c678dd",
+    "terminal.ansiRed": "#ff6c6b",
+    "terminal.ansiYellow": "#ecbe7b",
   },
 
   "auto-close-tag.disableOnLanguage": [
@@ -120,8 +161,16 @@
   "[typescriptreact]": {
     "editor.formatOnSave": true
   },
+  "emmet.showSuggestionsAsSnippets": true,
+  "emmet.excludeLanguages": [
+    "typescript",
+    "markdown"
+  ],
+
   "typescript.updateImportsOnFileMove.enabled": "always",
   "editor.tabSize": 2,
+
+  "typescript.preferences.quoteStyle": "single",
 
   "editor.selectionClipboard": false,
   "explorer.compactFolders": false
