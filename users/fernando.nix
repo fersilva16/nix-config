@@ -53,6 +53,7 @@
       ./common/doom-emacs/doom-emacs.nix
       ./common/exa.nix
       ./common/fd.nix
+      ./common/feh.nix
       # ./common/firefox.nix
       ./common/fish.nix
       ./common/flameshot.nix
