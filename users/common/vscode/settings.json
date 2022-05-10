@@ -161,6 +161,7 @@
   "[typescriptreact]": {
     "editor.formatOnSave": true
   },
+  "emmet.showExpandedAbbreviation": "never",
   "emmet.showSuggestionsAsSnippets": true,
   "emmet.excludeLanguages": [
     "typescript",
@@ -173,5 +174,7 @@
   "typescript.preferences.quoteStyle": "single",
 
   "editor.selectionClipboard": false,
-  "explorer.compactFolders": false
+  "explorer.compactFolders": false,
+  
+  "prettier.singleQuote": true
 }
