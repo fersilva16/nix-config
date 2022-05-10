@@ -46,6 +46,7 @@
       ./common/calibre.nix
       ./common/chromium.nix
       ./common/colors.nix
+      ./common/dbeaver.nix
       ./common/dconf.nix
       ./common/direnv.nix
       ./common/disable-keyboard.nix
