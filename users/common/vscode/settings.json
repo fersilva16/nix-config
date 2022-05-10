@@ -130,7 +130,7 @@
     "activityBar.background": "#21242b",
     "activityBar.border": "#3f444a",
     "activityBarBadge.background": "#3f444a",
-    
+
     "terminal.ansiBlack": "#3f444a",
     "terminal.ansiBlue": "#51afef",
     "terminal.ansiCyan": "#46d9ff",
@@ -173,5 +173,7 @@
   "typescript.preferences.quoteStyle": "single",
 
   "editor.selectionClipboard": false,
-  "explorer.compactFolders": false
+  "explorer.compactFolders": false,
+
+  "prettier.singleQuote": true
 }
