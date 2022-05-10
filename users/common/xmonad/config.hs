@@ -182,7 +182,7 @@ grid =
 
 tabs =
   renamed [Replace "tabs"] $
-    tabbed shrinkText myTabTheme
+    tabbedBottom shrinkText myTabTheme
 
 myTabTheme =
   def
