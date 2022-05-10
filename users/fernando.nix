@@ -63,6 +63,7 @@
       ./common/gpg.nix
       ./common/insomnia.nix
       ./common/kitty.nix
+      ./common/libreoffice.nix
       ./common/mongodb.nix
       ./common/neofetch.nix
       ./common/neovim.nix
