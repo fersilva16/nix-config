@@ -125,4 +125,10 @@
     version = "1.7.4";
     sha256 = "0qx1mvvw0bqa0psm35yxv9lvzw40bp8syjx4sp13502hg63r4h7n";
   }
+  {
+    name = "vscode-status-bar-format-toggle";
+    publisher = "tombonnike";
+    version = "3.0.0";
+    sha256 = "1raz2rmqqx6f17070x9mqd186gz1ihqp26dxgjkdr1zvik8xb6bn";
+  }
 ]

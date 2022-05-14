@@ -138,12 +138,10 @@
     "terminal.ansiWhite": "#bbc2cf",
     "terminal.ansiMagenta": "#c678dd",
     "terminal.ansiRed": "#ff6c6b",
-    "terminal.ansiYellow": "#ecbe7b",
+    "terminal.ansiYellow": "#ecbe7b"
   },
 
-  "auto-close-tag.disableOnLanguage": [
-    "typescript"
-  ],
+  "auto-close-tag.disableOnLanguage": ["typescript"],
 
   "editor.defaultFormatter": "esbenp.prettier-vscode",
 
@@ -163,10 +161,7 @@
   },
   "editor.snippetSuggestions": "bottom",
   "emmet.showSuggestionsAsSnippets": true,
-  "emmet.excludeLanguages": [
-    "typescript",
-    "markdown"
-  ],
+  "emmet.excludeLanguages": ["typescript", "markdown"],
 
   "typescript.updateImportsOnFileMove.enabled": "always",
   "editor.tabSize": 2,
@@ -176,5 +171,8 @@
   "editor.selectionClipboard": false,
   "explorer.compactFolders": false,
 
-  "prettier.singleQuote": true
+  "prettier.singleQuote": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true
 }
