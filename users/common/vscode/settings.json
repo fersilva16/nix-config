@@ -238,7 +238,5 @@
 
   "prettier.singleQuote": true,
   "editor.formatOnSave": true,
-  "javascript.updateImportsOnFileMove.enabled": "always",
-
-  "formattingToggle.affects": ["editor.formatOnSave"]
+  "javascript.updateImportsOnFileMove.enabled": "always"
 }

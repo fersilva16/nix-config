@@ -32,8 +32,8 @@
   {
     name = "vscode-wakatime";
     publisher = "wakatime";
-    version = "18.1.4";
-    sha256 = "1h9ypcfnbifxkrp7w5a485dg1nfc902g4102ry4xw94jrbd6q5xn";
+    version = "18.1.5";
+    sha256 = "0j934rjna223ssbj0iiw3jsdini0gsrhb6j4sch5qn99f6n2g5a7";
   }
   {
     name = "vscode-zipfs";
@@ -124,11 +124,5 @@
     publisher = "styled-components";
     version = "1.7.4";
     sha256 = "0qx1mvvw0bqa0psm35yxv9lvzw40bp8syjx4sp13502hg63r4h7n";
-  }
-  {
-    name = "vscode-status-bar-format-toggle";
-    publisher = "tombonnike";
-    version = "3.0.0";
-    sha256 = "1raz2rmqqx6f17070x9mqd186gz1ihqp26dxgjkdr1zvik8xb6bn";
   }
 ]
