@@ -104,14 +104,14 @@
   {
     name = "errorlens";
     publisher = "usernamehw";
-    version = "3.4.2";
-    sha256 = "1ifz0iyc7zknb07qx2fixg3qw9i69pvr12rlg2yvg1s8paj8mnbx";
+    version = "3.5.0";
+    sha256 = "1n4qk2n69dmd7wy9r7mww919p4k15bx96lfp8b2l9qj9qlh28xbm";
   }
   {
     name = "vscode-icons";
     publisher = "vscode-icons-team";
-    version = "11.11.0";
-    sha256 = "0qd9y0rb1j70iha8gqkxv2xvds6n4db8p0h8arlqcsfayljkn5v6";
+    version = "11.12.0";
+    sha256 = "121177jwcy73xp1cx8v1kcm5w63pqsa1ydhqwwnjdhazm6dkl9wg";
   }
   {
     name = "direnv";
