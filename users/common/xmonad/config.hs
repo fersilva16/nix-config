@@ -200,7 +200,7 @@ myShowWNameTheme =
   def
     { swn_font = "xft:FiraCode Nerd Font:bold:size=60",
       swn_fade = 1.0,
-      swn_bgcolor = "%bg%",
+      swn_bgcolor = "%bgAlt%",
       swn_color = "%fg%"
     }
 
