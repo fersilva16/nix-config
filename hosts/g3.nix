@@ -31,7 +31,6 @@ in
     ./common/monitors.nix
     ./common/networking.nix
     ./common/nix.nix
-    ./common/noisetorch.nix
     ./common/nvidia.nix
     ./common/opengl.nix
     ./common/sensors.nix
