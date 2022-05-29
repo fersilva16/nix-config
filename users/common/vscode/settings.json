@@ -203,6 +203,8 @@
     "terminal.ansiYellow": "#ecbe7b",
     "terminal.background": "#282c34",
 
+    "editorRuler.foreground": "#3f444a",
+
     "widget.shadow": "#0000"
   },
 
@@ -238,5 +240,6 @@
 
   "prettier.singleQuote": true,
   "editor.formatOnSave": true,
-  "javascript.updateImportsOnFileMove.enabled": "always"
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "editor.rulers": [80]
 }
