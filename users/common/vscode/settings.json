@@ -234,6 +234,7 @@
   "editor.tabSize": 2,
 
   "typescript.preferences.quoteStyle": "single",
+  "typescript.preferences.importModuleSpecifier": "project-relative",
 
   "editor.selectionClipboard": false,
   "explorer.compactFolders": false,
