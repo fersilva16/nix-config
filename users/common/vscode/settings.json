@@ -226,6 +226,17 @@
   "[typescriptreact]": {
     "editor.formatOnSave": true
   },
+
+  "[md]": {
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80
+  },
+
+  "[mdx]": {
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80
+  },
+
   "editor.snippetSuggestions": "bottom",
   "emmet.showSuggestionsAsSnippets": true,
   "emmet.excludeLanguages": ["typescript", "markdown"],

@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5561";
-    sha256 = "00fb5qa2gg19h9wlsa2rvyw1l55l96w8819g5igjl45mal7mg4s5";
+    version = "1.0.5597";
+    sha256 = "082h920x38584c9z9l2p47asm8r8hbm87x7yb5bygs282dyn0bav";
   }
   {
     name = "doom-one";
@@ -56,8 +56,8 @@
   {
     name = "gitlens";
     publisher = "eamodio";
-    version = "12.0.6";
-    sha256 = "1d7gzxsyxrhvvx2md6gbcwiawd8f3jarxfbv2qhj7xl1phd7zja3";
+    version = "12.0.7";
+    sha256 = "0g5kxc3b6hhxhjvmdviviy7yv615nqi92wqv1rg7wzv1vg565y40";
   }
   {
     name = "prettier-vscode";
@@ -98,14 +98,14 @@
   {
     name = "color-highlight";
     publisher = "naumovs";
-    version = "2.5.0";
-    sha256 = "0ri1rylg0r9r1kdc67815gjlq5fwnb26xpyziva6a40brrbh70vm";
+    version = "2.6.0";
+    sha256 = "1ssh5d4kn3b57gfw5w99pp3xybdk2xif8z6l7m3y2qf204wd1hsd";
   }
   {
     name = "errorlens";
     publisher = "usernamehw";
-    version = "3.5.0";
-    sha256 = "1n4qk2n69dmd7wy9r7mww919p4k15bx96lfp8b2l9qj9qlh28xbm";
+    version = "3.5.1";
+    sha256 = "17xbbr5hjrs67yazicb9qillbkp3wnaccjpnl1jlp07s0n7q4f8f";
   }
   {
     name = "vscode-icons";
@@ -124,5 +124,11 @@
     publisher = "styled-components";
     version = "1.7.4";
     sha256 = "0qx1mvvw0bqa0psm35yxv9lvzw40bp8syjx4sp13502hg63r4h7n";
+  }
+  {
+    name = "mdx";
+    publisher = "silvenon";
+    version = "0.1.0";
+    sha256 = "1mzsqgv0zdlj886kh1yx1zr966yc8hqwmiqrb1532xbmgyy6adz3";
   }
 ]
