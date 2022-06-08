@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5597";
-    sha256 = "082h920x38584c9z9l2p47asm8r8hbm87x7yb5bygs282dyn0bav";
+    version = "1.0.5615";
+    sha256 = "13989czgcxqgvhavw7kh8rlfnrqbwzx5775r7hxhsi0ss6dazgk6";
   }
   {
     name = "doom-one";
@@ -130,5 +130,11 @@
     publisher = "silvenon";
     version = "0.1.0";
     sha256 = "1mzsqgv0zdlj886kh1yx1zr966yc8hqwmiqrb1532xbmgyy6adz3";
+  }
+  {
+    name = "relay";
+    publisher = "meta";
+    version = "1.0.0";
+    sha256 = "1b1a54ah45jwfaa1v2zzlr9ymbvzikbw3zw9f9p8ypamr852zhp7";
   }
 ]
