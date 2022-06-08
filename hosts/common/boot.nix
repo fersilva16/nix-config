@@ -36,5 +36,7 @@ _:
       #   editor = false;
       # };
     };
+
+    cleanTmpDir = true;
   };
 }
