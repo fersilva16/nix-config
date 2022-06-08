@@ -253,5 +253,7 @@
   "prettier.singleQuote": true,
   "editor.formatOnSave": true,
   "javascript.updateImportsOnFileMove.enabled": "always",
-  "editor.rulers": [80]
+  "editor.rulers": [80],
+
+  "scm.defaultViewMode": "tree"
 }
