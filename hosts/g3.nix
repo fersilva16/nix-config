@@ -27,6 +27,7 @@ in
     ./common/fonts.nix
     ./common/gnupg.nix
     ./common/i18n.nix
+    ./common/kernel.nix
     ./common/light.nix
     ./common/monitors.nix
     ./common/networking.nix
