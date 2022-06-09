@@ -26,7 +26,7 @@ nixpkgs.lib.nixosSystem {
         useGlobalPkgs = true;
 
         sharedModules = [
-          inputs.doom-emacs.hmModule
+          # inputs.doom-emacs.hmModule
         ];
       };
     }

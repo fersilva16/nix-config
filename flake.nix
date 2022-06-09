@@ -24,11 +24,11 @@
       inputs.flake-utils.follows = "utils";
     };
 
-    doom-emacs = {
-      url = "github:nix-community/nix-doom-emacs";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.emacs-overlay.follows = "emacs-overlay";
-    };
+    # doom-emacs = {
+    #   url = "github:nix-community/nix-doom-emacs";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    #   inputs.emacs-overlay.follows = "emacs-overlay";
+    # };
   };
 
   outputs = { nixpkgs, utils, ... }@inputs:
