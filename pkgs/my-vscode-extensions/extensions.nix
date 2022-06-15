@@ -44,8 +44,8 @@
   {
     name = "npm-intellisense";
     publisher = "christian-kohler";
-    version = "1.4.1";
-    sha256 = "0hph57g8fbwrvj1sdzc7vqsiaf7n2qzvkakc9ir0kkkwwdxc6c5a";
+    version = "1.4.2";
+    sha256 = "0bkgc9fkfpk2mnmr4f7f7c458i1cniy940s5nxap029ysnp6c0yw";
   }
   {
     name = "vscode-eslint";
@@ -56,8 +56,8 @@
   {
     name = "gitlens";
     publisher = "eamodio";
-    version = "12.0.7";
-    sha256 = "0g5kxc3b6hhxhjvmdviviy7yv615nqi92wqv1rg7wzv1vg565y40";
+    version = "12.1.0";
+    sha256 = "0bpb22j7njy5jgqhhnpk1i3mlf288gc4iyn1zr41z03xrdn4wvh3";
   }
   {
     name = "prettier-vscode";
@@ -134,7 +134,7 @@
   {
     name = "relay";
     publisher = "meta";
-    version = "1.0.0";
-    sha256 = "1b1a54ah45jwfaa1v2zzlr9ymbvzikbw3zw9f9p8ypamr852zhp7";
+    version = "1.0.1";
+    sha256 = "1k3yqganml405ydfqdsk6xggc41s9g98w9jhqpg553l6457cmn4v";
   }
 ]
