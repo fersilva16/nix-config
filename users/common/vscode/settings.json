@@ -255,5 +255,6 @@
   "javascript.updateImportsOnFileMove.enabled": "always",
   "editor.rulers": [80],
 
-  "scm.defaultViewMode": "tree"
+  "scm.defaultViewMode": "tree",
+  "editor.inlineSuggest.enabled": true
 }

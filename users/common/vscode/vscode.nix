@@ -2,7 +2,7 @@
 {
   programs.vscode = {
     enable = true;
-    package = pkgs.vscodium;
+    package = pkgs.vscode;
 
     extensions = pkgs.my-vscode-extensions.allExtensions;
 
@@ -10,11 +10,11 @@
     # userSettings = import ./settings.nix;
   };
 
-  home.file.".config/VSCodium/User/settings.json" = {
+  home.file.".config/Code/User/settings.json" = {
     source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/vscode/settings.json";
   };
 
-  home.file.".config/VSCodium/User/keybindings.json" = {
+  home.file.".config/Code/User/keybindings.json" = {
     source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/vscode/keybindings.json";
   };
 }
