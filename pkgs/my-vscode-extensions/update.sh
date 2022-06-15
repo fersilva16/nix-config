@@ -1,6 +1,11 @@
 #! /usr/bin/env bash
 set -eu -o pipefail
 
+BASEDIR=$(dirname "$0")
+
+INPUT="$BASEDIR/extensions"
+OUTPUT="$BASEDIR/extensions.nix"
+
 function fail() {
   echo "$1" >&2
   exit 1
@@ -29,7 +34,7 @@ function get_vsixpkg() {
 
   rm -rf "$EXTTMP"
 
-  cat <<-EOF
+  cat <<-EOF >> "$OUTPUT"
   {
     name = "$2";
     publisher = "$1";
@@ -41,9 +46,9 @@ EOF
 
 trap clean_up SIGINT
 
-printf '[\n'
+echo '[' > "$OUTPUT"
 
-grep -v '^ *#' < extensions | while IFS= read -r LINE
+grep -v '^ *#' < "$INPUT" | while IFS= read -r LINE
 do
   OWNER=$(echo "$LINE" | cut -d. -f1)
   EXT=$(echo "$LINE" | cut -d. -f2)
@@ -51,4 +56,4 @@ do
   get_vsixpkg "$OWNER" "$EXT"
 done
 
-printf ']\n'
+echo ']' >> "$OUTPUT"
