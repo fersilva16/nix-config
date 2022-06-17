@@ -256,5 +256,11 @@
   "editor.rulers": [80],
 
   "scm.defaultViewMode": "tree",
-  "editor.inlineSuggest.enabled": true
+  "editor.inlineSuggest.enabled": true,
+  "github.copilot.enable": {
+    "*": true,
+
+    // Because I'm learning
+    "lean4": false
+  }
 }
