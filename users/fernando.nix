@@ -38,6 +38,7 @@
   home-manager.users.fernando = {
     imports = [
       ./common/alacritty.nix
+      ./common/android.nix
       ./common/autorandr.nix
       ./common/bat.nix
       ./common/bitwarden.nix
