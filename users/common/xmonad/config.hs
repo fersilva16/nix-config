@@ -225,6 +225,7 @@ myManageHook =
     [ className =? "discord" --> doShift (myWorkspaces !! 8),
       className =? "Slack" --> doShift (myWorkspaces !! 8),
       className =? "Peek" --> doFloat,
+      className =? "Android" --> doFloat,
       isFullscreen --> doFullFloat
     ]
     <+> namedScratchpadManageHook myScratchPads
