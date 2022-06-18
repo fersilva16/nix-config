@@ -259,8 +259,9 @@
   "editor.inlineSuggest.enabled": true,
   "github.copilot.enable": {
     "*": true,
-
-    // Because I'm learning
+    "yaml": false,
+    "plaintext": true,
+    "markdown": false,
     "lean4": false
   }
 }
