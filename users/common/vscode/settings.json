@@ -256,5 +256,6 @@
   "editor.rulers": [80],
 
   "scm.defaultViewMode": "tree",
-  "editor.inlineSuggest.enabled": true
+  "editor.inlineSuggest.enabled": true,
+  "terminal.integrated.enableMultiLinePasteWarning": false
 }
