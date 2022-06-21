@@ -138,12 +138,6 @@
     sha256 = "1f072i5crwf7mivf9346r05b8psw4440bh7qk88l8wlvm4cli8ws";
   }
   {
-    name = "copilot";
-    publisher = "github";
-    version = "1.29.6152";
-    sha256 = "0nmf6hrmbsbn41rvvx3bcafj9r80bln047pc44kc5vmw40vm4794";
-  }
-  {
     name = "lean4";
     publisher = "leanprover";
     version = "0.0.78";
