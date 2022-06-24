@@ -35,7 +35,14 @@
     ];
   };
 
+  home-manager.users.root = {
+    home.stateVersion = "22.05";
+
+  };
+
   home-manager.users.fernando = {
+    home.stateVersion = "22.05";
+
     imports = [
       ./common/alacritty.nix
       ./common/android.nix
