@@ -25,6 +25,7 @@ in
     ./common/docker.nix
     ./common/fingerprint.nix
     ./common/fonts.nix
+    ./common/gcc.nix
     ./common/gnupg.nix
     ./common/i18n.nix
     ./common/kernel.nix
