@@ -59,6 +59,7 @@
       ./common/discord.nix
       ./common/dunst.nix
       # ./common/doom-emacs/doom-emacs.nix
+      ./common/emacs/emacs.nix
       ./common/exa.nix
       ./common/fd.nix
       ./common/feh.nix
