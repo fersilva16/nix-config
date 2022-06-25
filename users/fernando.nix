@@ -80,7 +80,6 @@
       ./common/nix.nix
       ./common/nyxt.nix
       ./common/obs.nix
-      ./common/obsidian.nix
       ./common/peek.nix
       ./common/postman.nix
       # ./common/qutebrowser.nix
