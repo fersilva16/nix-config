@@ -36,13 +36,12 @@
   };
 
   home-manager.users.root = {
-    home.stateVersion = "22.05";
-
+    imports = [
+      ./common/home.nix
+    ];
   };
 
   home-manager.users.fernando = {
-    home.stateVersion = "22.05";
-
     imports = [
       ./common/alacritty.nix
       ./common/android.nix
@@ -57,7 +56,6 @@
       ./common/dbeaver.nix
       ./common/dconf.nix
       ./common/direnv.nix
-      ./common/disable-keyboard.nix
       ./common/discord.nix
       ./common/dunst.nix
       # ./common/doom-emacs/doom-emacs.nix
@@ -71,6 +69,7 @@
       ./common/git.nix
       ./common/glab.nix
       ./common/gpg.nix
+      ./common/home.nix
       ./common/insomnia.nix
       ./common/kitty.nix
       ./common/libreoffice.nix
