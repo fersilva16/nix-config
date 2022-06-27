@@ -52,6 +52,7 @@
       ./common/broot.nix
       ./common/calibre.nix
       ./common/chromium.nix
+      ./common/circleci.nix
       ./common/colors.nix
       ./common/dbeaver.nix
       ./common/dconf.nix
