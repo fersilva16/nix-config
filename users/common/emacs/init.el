@@ -41,6 +41,10 @@
  "f s" 'save-buffer
  "b k" 'kill-current-buffer
  "w k" 'evil-quit
+ "n a" 'org-agenda
+ "n r n" 'org-roam-capture
+ "n d t" 'org-roam-dailies-goto-today
+ "n d T" 'org-roam-dailies-capture-today
  "h" help-map)
 
 (use-package evil
@@ -78,15 +82,20 @@
                        "#+title: ${title}\n#+date: %<%Y-%m-%d %H:%M:%S>\n\nTags: \n\n* ${title}")
     :unnarrowed t)))
 
+(require 'org-habit)
+
 (setq org-directory "~/org"
 	org-roam-directory (concat org-directory "/roam")
 	org-roam-dailies-directory (concat org-roam-directory "/dailies")
-	org-agenda-files '(concat ))
+	org-agenda-files '(concat org-directory "/agenda.org"))
 
-(use-package org-modern
-  :init
-  (add-hook 'org-mode-hook #'org-modern-mode)
-  (add-hook 'org-agenda-finalize-hook #'org-modern-agenda))
+(add-hook 'org-mode-hook #'org-indent-mode)
+
+(use-package org-superstar
+  :init (add-hook 'org-mode-hook (lambda () (org-superstar-mode 1))))
+
+(setq org-hide-leading-stars t
+      org-indent-mode-turns-on-hiding-stars nil)
 
 (use-package websocket
   :after org-roam)
