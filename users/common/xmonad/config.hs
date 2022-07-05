@@ -134,12 +134,17 @@ myScratchPadFloat = customFloating $ W.RationalRect l t w h
 
 myScratchPads :: [NamedScratchpad]
 myScratchPads =
-  [ NS "music" spawnMusic findMusic manageMusic
+  [ NS "music" spawnMusic findMusic manageMusic,
+    NS "emacs" spawnEmacs findEmacs manageEmacs
   ]
   where
     spawnMusic = "ytmdesktop --no-sandbox"
     findMusic = className =? "youtube-music-desktop-app"
     manageMusic = myScratchPadFloat
+
+    spawnEmacs = "emacs"
+    findEmacs = className =? "Emacs"
+    manageEmacs = myScratchPadFloat
 
 mySpacing :: Integer -> l a -> XMonad.Layout.LayoutModifier.ModifiedLayout Spacing l a
 mySpacing i = spacingRaw False (Border i i i i) True (Border i i i i) True
@@ -257,6 +262,7 @@ myKeys =
     ("M-C-/", withFocused (sendMessage . UnMergeAll)),
     ("M-C-.", onGroup W.focusUp'),
     ("M-C-,", onGroup W.focusDown'),
+    ("M-C-S-p", namedScratchpadAction myScratchPads "emacs"),
     ("M-C-S-m", namedScratchpadAction myScratchPads "music"),
     ("M-p", spawn ("dmenu_run -h 24 -nb '%bg%' -nf '%fg%' -sb '%bgAlt%' -sf '%base8%' -fn '" ++ myFont ++ "'")),
     ("<XF86AudioMute>", spawn "amixer set Master toggle"),
