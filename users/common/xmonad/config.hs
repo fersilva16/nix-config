@@ -134,15 +134,10 @@ myScratchPadFloat = customFloating $ W.RationalRect l t w h
 
 myScratchPads :: [NamedScratchpad]
 myScratchPads =
-  [ NS "terminal" spawnTerm findTerm manageTerm,
-    NS "music" spawnMusic findMusic manageMusic,
+  [ NS "music" spawnMusic findMusic manageMusic,
     NS "ticktick" spawnTickTick findTickTick manageTickTick
   ]
   where
-    spawnTerm = myTerminal ++ " --title=scratchpad"
-    findTerm = title =? "scratchpad"
-    manageTerm = myScratchPadFloat
-
     spawnMusic = "ytmdesktop --no-sandbox"
     findMusic = className =? "youtube-music-desktop-app"
     manageMusic = myScratchPadFloat
@@ -267,7 +262,6 @@ myKeys =
     ("M-C-/", withFocused (sendMessage . UnMergeAll)),
     ("M-C-.", onGroup W.focusUp'),
     ("M-C-,", onGroup W.focusDown'),
-    ("M-C-S-t", namedScratchpadAction myScratchPads "terminal"),
     ("M-C-S-m", namedScratchpadAction myScratchPads "music"),
     ("M-C-S-p", namedScratchpadAction myScratchPads "ticktick"),
     ("M-p", spawn ("dmenu_run -h 24 -nb '%bg%' -nf '%fg%' -sb '%bgAlt%' -sf '%base8%' -fn '" ++ myFont ++ "'")),
