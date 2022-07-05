@@ -89,7 +89,6 @@
       ./common/rofi.nix
       ./common/slack.nix
       ./common/starship.nix
-      ./common/ticktick.nix
       ./common/vlc.nix
       ./common/vscode/vscode.nix
       ./common/wakatime.nix
