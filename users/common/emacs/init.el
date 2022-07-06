@@ -32,6 +32,11 @@
 (use-package which-key
   :init (which-key-mode))
 
+
+(defun notes-push ()
+  (interactive)
+  (shell-command "notes-push"))
+
 (general-define-key
  :states 'normal
  :prefix "SPC"
@@ -42,6 +47,7 @@
  "b k" 'kill-current-buffer
  "w k" 'evil-quit
  "n a" 'org-agenda
+ "n p" 'notes-push
  "n r n" 'org-roam-capture
  "n d t" 'org-roam-dailies-goto-today
  "n d T" 'org-roam-dailies-capture-today
