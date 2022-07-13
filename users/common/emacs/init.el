@@ -54,6 +54,8 @@
  "n d T" 'org-roam-dailies-capture-today
  "n d y" 'org-roam-dailies-goto-yesterday
  "n d Y" 'org-roam-dailies-capture-yesterday
+ "n d d" 'org-roam-dailies-goto-date
+ "n d D" 'org-roam-dailies-capture-date
  "h" help-map)
 
 (use-package evil
