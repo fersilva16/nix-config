@@ -44,6 +44,7 @@
  "f o" 'find-file
  "f e" 'eval-buffer
  "f s" 'save-buffer
+ "b b" 'switch-to-buffer
  "b k" 'kill-current-buffer
  "w" evil-window-map
  "n a" 'org-agenda
