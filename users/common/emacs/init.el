@@ -45,7 +45,7 @@
  "f e" 'eval-buffer
  "f s" 'save-buffer
  "b k" 'kill-current-buffer
- "w k" 'evil-quit
+ "w" evil-window-map
  "n a" 'org-agenda
  "n p" 'notes-push
  "n r n" 'org-roam-capture
