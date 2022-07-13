@@ -50,6 +50,7 @@
  "n a" 'org-agenda
  "n p" 'notes-push
  "n r n" 'org-roam-capture
+ "n r f" 'org-roam-node-find
  "n d t" 'org-roam-dailies-goto-today
  "n d T" 'org-roam-dailies-capture-today
  "n d y" 'org-roam-dailies-goto-yesterday
