@@ -32,35 +32,6 @@
 (use-package which-key
   :init (which-key-mode))
 
-
-(defun notes-push ()
-  (interactive)
-  (shell-command "notes-push"))
-
-(general-define-key
- :states 'normal
- :prefix "SPC"
- ":" 'execute-extended-command
- "f o" 'find-file
- "f e" 'eval-buffer
- "f s" 'save-buffer
- "b b" 'switch-to-buffer
- "b k" 'kill-current-buffer
- "w" evil-window-map
- "n a" 'org-agenda
- "n p" 'notes-push
- "n r n" 'org-roam-capture
- "n r f" 'org-roam-node-find
- "n d t" 'org-roam-dailies-goto-today
- "n d T" 'org-roam-dailies-capture-today
- "n d y" 'org-roam-dailies-goto-yesterday
- "n d Y" 'org-roam-dailies-capture-yesterday
- "n d d" 'org-roam-dailies-goto-date
- "n d D" 'org-roam-dailies-capture-date
- "n d t" 'org-roam-dailies-goto-tomorrow
- "n d T" 'org-roam-dailies-capture-tomorrow
- "h" help-map)
-
 (use-package evil
   :config (evil-mode 1))
 
@@ -121,3 +92,31 @@
   org-roam-ui-follow t
   org-roam-ui-update-on-save t
   org-roam-ui-open-on-start nil))
+
+(defun notes-push ()
+  (interactive)
+  (shell-command "notes-push"))
+
+(general-define-key
+ :states 'normal
+ :prefix "SPC"
+ ":" 'execute-extended-command
+ "f o" 'find-file
+ "f e" 'eval-buffer
+ "f s" 'save-buffer
+ "b b" 'switch-to-buffer
+ "b k" 'kill-current-buffer
+ "w" evil-window-map
+ "n a" 'org-agenda
+ "n p" 'notes-push
+ "n r n" 'org-roam-capture
+ "n r f" 'org-roam-node-find
+ "n d t" 'org-roam-dailies-goto-today
+ "n d T" 'org-roam-dailies-capture-today
+ "n d y" 'org-roam-dailies-goto-yesterday
+ "n d Y" 'org-roam-dailies-capture-yesterday
+ "n d d" 'org-roam-dailies-goto-date
+ "n d D" 'org-roam-dailies-capture-date
+ "n d t" 'org-roam-dailies-goto-tomorrow
+ "n d T" 'org-roam-dailies-capture-tomorrow
+ "h" help-map)
