@@ -50,6 +50,7 @@
       ./common/bitwarden.nix
       ./common/bottom.nix
       ./common/broot.nix
+      ./common/bun.nix
       ./common/calibre.nix
       ./common/chromium.nix
       ./common/circleci.nix
