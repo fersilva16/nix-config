@@ -88,6 +88,7 @@
       ./common/responsively.nix
       ./common/ripgrep.nix
       ./common/rofi.nix
+      ./common/rust.nix
       ./common/slack.nix
       ./common/starship.nix
       ./common/vlc.nix

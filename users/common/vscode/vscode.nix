@@ -4,7 +4,7 @@
     enable = true;
     package = pkgs.vscode;
 
-    extensions = pkgs.my-vscode-extensions.allExtensions;
+    extensions = pkgs.my-vscode-extensions.allExtensions ++ (with pkgs.vscode-extensions; [ rust-lang.rust-analyzer ]);
 
     # keybindings = import ./keybindings.nix;
     # userSettings = import ./settings.nix;
