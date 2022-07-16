@@ -112,11 +112,12 @@
  "n r n" 'org-roam-capture
  "n r f" 'org-roam-node-find
  "n d t" 'org-roam-dailies-goto-today
+ "n d n" 'org-roam-dailies-capture-today
  "n d T" 'org-roam-dailies-capture-today
  "n d y" 'org-roam-dailies-goto-yesterday
  "n d Y" 'org-roam-dailies-capture-yesterday
  "n d d" 'org-roam-dailies-goto-date
  "n d D" 'org-roam-dailies-capture-date
- "n d t" 'org-roam-dailies-goto-tomorrow
- "n d T" 'org-roam-dailies-capture-tomorrow
+ "n d m" 'org-roam-dailies-goto-tomorrow
+ "n d M" 'org-roam-dailies-capture-tomorrow
  "h" help-map)
