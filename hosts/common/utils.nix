@@ -4,5 +4,6 @@
     keyutils
     usbutils
     pciutils
+    binutils
   ];
 }
