@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5625";
-    sha256 = "09dwcrfjxpsx7sclmn5fkgm89g6l6z2ik9wp1acaffsfkay4cg05";
+    version = "1.0.5641";
+    sha256 = "0vr2crlcc0gg4z9hbpjnjap9ly5h4fvp744f4zwr0nxb3y83pvvm";
   }
   {
     name = "doom-one";
@@ -26,14 +26,14 @@
   {
     name = "vscodeintellicode";
     publisher = "visualstudioexptteam";
-    version = "1.2.21";
-    sha256 = "17sk2zwl2qmcvyajvgvzx22hzxrv0bal5qs7jwih573f3q124dnv";
+    version = "1.2.22";
+    sha256 = "1svgrdx5p0j81k9lyn8y77rsg9c1l2i7ywwml9wrr54cbl0ynl1a";
   }
   {
     name = "vscode-wakatime";
     publisher = "wakatime";
-    version = "18.1.5";
-    sha256 = "0j934rjna223ssbj0iiw3jsdini0gsrhb6j4sch5qn99f6n2g5a7";
+    version = "18.1.6";
+    sha256 = "15ldc9774jgwqlw5qfrdmpmgdyvps2rkn2lh7v2f0w457x9h52lx";
   }
   {
     name = "vscode-zipfs";
@@ -50,14 +50,14 @@
   {
     name = "vscode-eslint";
     publisher = "dbaeumer";
-    version = "2.2.3";
-    sha256 = "0sl9d85wbac3h79a5y5mcv0rhcz8azcamyiiyix0b7klcr80v56d";
+    version = "2.2.6";
+    sha256 = "0m16wi8slyj09r1y5qin9xsw4pyhfk3mj6rs5ghydfnppb45w9np";
   }
   {
     name = "gitlens";
     publisher = "eamodio";
-    version = "12.1.0";
-    sha256 = "0bpb22j7njy5jgqhhnpk1i3mlf288gc4iyn1zr41z03xrdn4wvh3";
+    version = "12.1.2";
+    sha256 = "0wpmfrfpi6wl9v3dknx2qr2m74azpcw8bvhac21v67w6jxnl3jd9";
   }
   {
     name = "prettier-vscode";
@@ -104,14 +104,14 @@
   {
     name = "errorlens";
     publisher = "usernamehw";
-    version = "3.5.1";
-    sha256 = "17xbbr5hjrs67yazicb9qillbkp3wnaccjpnl1jlp07s0n7q4f8f";
+    version = "3.5.2";
+    sha256 = "0d8xjzq4ykyh9w9f42pr8rhv71gyjfnv2pbcirjg5cblayg1g40l";
   }
   {
     name = "vscode-icons";
     publisher = "vscode-icons-team";
-    version = "11.12.0";
-    sha256 = "121177jwcy73xp1cx8v1kcm5w63pqsa1ydhqwwnjdhazm6dkl9wg";
+    version = "11.13.0";
+    sha256 = "1nsp0bb5b3h9ihncxgnnybxmqryvdd8x4bgw9wb771kvm35lk0is";
   }
   {
     name = "direnv";
@@ -140,7 +140,7 @@
   {
     name = "lean4";
     publisher = "leanprover";
-    version = "0.0.78";
-    sha256 = "0gq7icf377dxqcm5y0mg6mphl2yd20grfijh3hxz5wvvxrl88q9w";
+    version = "0.0.83";
+    sha256 = "1na01sa6g3aczc7hzwkz9fbcfw5fvhz07nrwxs22b1glggb8bq1j";
   }
 ]
