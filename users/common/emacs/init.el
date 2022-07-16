@@ -74,6 +74,10 @@
 	org-roam-dailies-directory (concat org-roam-directory "/dailies")
 	org-agenda-files '(concat org-directory "/agenda.org"))
 
+(setq org-todo-keywords
+  '((sequence "TODO(t)" "|" "DONE(d)")
+    (sequence "HOLD(h)" "PROJ(p)" "|" "CANC(k)")))
+
 (add-hook 'org-mode-hook #'org-indent-mode)
 
 (use-package org-superstar
