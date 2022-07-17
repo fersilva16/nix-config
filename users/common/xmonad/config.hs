@@ -303,7 +303,6 @@ main = do
                   ppHidden =
                     xmobarColor "%blue%" ""
                       . wrap "<box type=Top width=2 mt=2 color=%blue%>" "</box>",
-                  ppHiddenNoWindows = xmobarColor "%blue%" "",
                   ppTitle = xmobarColor "%base8%" "" . shorten 60,
                   ppSep = "<fc=%base5%>  |  </fc>",
                   ppUrgent = xmobarColor "%red%" "" . wrap "!" "!",
