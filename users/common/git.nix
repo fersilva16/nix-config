@@ -23,6 +23,8 @@
       init.defaultBranch = "main";
 
       pull.rebase = false;
+
+      push.autoSetupRemote = true;
     };
 
     userEmail = "fernandonsilva16@gmail.com";
