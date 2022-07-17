@@ -261,5 +261,9 @@
   "editor.inlayHints.enabled": "off",
   "[rust]": {
     "editor.defaultFormatter": "rust-lang.rust-analyzer"
-  }
+  },
+  "[haskell]": {
+    "editor.defaultFormatter": "haskell.haskell"
+  },
+  "diffEditor.ignoreTrimWhitespace": false
 }
