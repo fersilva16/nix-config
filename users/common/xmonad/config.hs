@@ -85,9 +85,6 @@ myNormColor = "%bg%"
 myFocusColor :: String
 myFocusColor = "%cyan%"
 
-windowCount :: X (Maybe String)
-windowCount = gets $ Just . show . length . W.integrate' . W.stack . W.workspace . W.current . windowset
-
 myStartupHook :: X ()
 myStartupHook = do
   spawnOnce "xwallpaper --zoom %wallpaper%"
@@ -300,14 +297,9 @@ main = do
                     xmobarColor "%magenta%" ""
                       . wrap "<box type=Bottom width=2 mb=2 color=%magenta%>" "</box>",
                   ppVisible = xmobarColor "%magenta%" "",
-                  ppHidden =
-                    xmobarColor "%blue%" ""
-                      . wrap "<box type=Top width=2 mt=2 color=%blue%>" "</box>",
-                  ppTitle = xmobarColor "%base8%" "" . shorten 60,
-                  ppSep = "<fc=%base5%>  |  </fc>",
-                  ppUrgent = xmobarColor "%red%" "" . wrap "!" "!",
-                  ppExtras = [windowCount],
-                  ppOrder = \(ws : l : t : ex) -> [ws, l] ++ ex ++ [t]
+                  ppHidden = xmobarColor "%blue%" "",
+                  ppHiddenNoWindows = xmobarColor "%fgAlt%" "",
+                  ppOrder = \(ws : _) -> [ws]
                 }
       }
       `additionalKeysP` myKeys
