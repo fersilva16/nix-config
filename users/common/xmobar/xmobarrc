@@ -4,9 +4,9 @@ Config
       [ "xft:Font Awesome 6 Brands:pixelsize=12:weight=regular:antialias=true:hinting=true",
         "xft:Font Awesome 6 Free Solid:pixelsize=12:weight=regular:antialias=true:hinting=true"
       ],
-    bgColor = "%bg%",
+    bgColor = "%bgAlt%",
     fgColor = "%red%",
-    position = TopSize L 100 24,
+    position = TopH 24,
     lowerOnStart = True,
     hideOnStart = False,
     allDesktops = True,
