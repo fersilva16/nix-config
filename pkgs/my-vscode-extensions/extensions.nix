@@ -140,7 +140,19 @@
   {
     name = "lean4";
     publisher = "leanprover";
-    version = "0.0.83";
-    sha256 = "1na01sa6g3aczc7hzwkz9fbcfw5fvhz07nrwxs22b1glggb8bq1j";
+    version = "0.0.84";
+    sha256 = "1pak96p7irf8jiip5svxhx08z3qkr8b0pifkjnn91y7926n20h5n";
+  }
+  {
+    name = "language-haskell";
+    publisher = "justusadam";
+    version = "3.6.0";
+    sha256 = "115y86w6n2bi33g1xh6ipz92jz5797d3d00mr4k8dv5fz76d35dd";
+  }
+  {
+    name = "haskell";
+    publisher = "haskell";
+    version = "2.2.0";
+    sha256 = "0qgp93m5d5kz7bxlnvlshcd8ms5ag48nk5hb37x02giqcavg4qv0";
   }
 ]
