@@ -90,7 +90,7 @@ windowCount = gets $ Just . show . length . W.integrate' . W.stack . W.workspace
 
 myStartupHook :: X ()
 myStartupHook = do
-    spawnOnce "xwallpaper --zoom %wallpaper%"
+  spawnOnce "xwallpaper --zoom %wallpaper%"
 
 myColorizer :: Window -> Bool -> X (String, String)
 myColorizer =
