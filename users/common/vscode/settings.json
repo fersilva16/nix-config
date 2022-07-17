@@ -257,5 +257,9 @@
 
   "scm.defaultViewMode": "tree",
   "editor.inlineSuggest.enabled": true,
-  "terminal.integrated.enableMultiLinePasteWarning": false
+  "terminal.integrated.enableMultiLinePasteWarning": false,
+  "editor.inlayHints.enabled": "off",
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  }
 }
