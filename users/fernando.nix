@@ -75,6 +75,7 @@
       ./common/home.nix
       ./common/insomnia.nix
       ./common/kitty.nix
+      # ./common/krita.nix
       ./common/krusader.nix
       ./common/mongodb.nix
       ./common/neofetch.nix
