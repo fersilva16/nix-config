@@ -12,18 +12,18 @@ Config
     allDesktops = True,
     persistent = True,
     commands =
-      [ Run MultiCoreTemp ["-t", "<fn=2>\xf108</fn> <max>°C", "-H", "80", "--high", "%red%"] 20,
+      [ Run MultiCoreTemp ["-t", "<fc=%bg%,%yellow%:0> <fn=2>\xf108</fn> </fc>  <max>°C", "-H", "80", "--high", "%red%"] 20,
         Run Cpu ["-t", "(<total>%)", "-H", "50", "--high", "%red%"] 20,
-        Run Memory ["-t", "<fn=2>\xf233</fn>  <used>M (<usedratio>%)"] 20,
-        Run DiskU [("/", "<fn=2>\xf0c7</fn>  <free> free")] [] 60,
-        Run Uptime ["-t", "<fn=2>\xf0aa</fn>  <days>d <hours>h"] 360,
-        Run BatteryP ["BAT0"] ["-t", "<acstatus>", "--", "-O", "<fn=2>\xf240</fn>  <left>%", "-i", "<fn=2>\xf240</fn>  <left>%", "-o", "<fn=2>\xf242</fn>  <timeleft> (<left>%)"] 360,
-        -- Run Alsa "default" "Master" ["-t", "<status>  <volume>%", "--", "-O", "<fn=2>\xf028</fn>", "-o", "<fn=2>\xf6a9</fn>", "-C", "%magenta%", "-c", "%magenta%"],
+        Run Memory ["-t", "<fc=%bg%,%red%:0> <fn=2>\xf233</fn> </fc>  <used>M (<usedratio>%)"] 20,
+        Run DiskU [("/", "<fc=%bg%,%violet%:0> <fn=2>\xf0c7</fn> </fc>  <free> free")] [] 60,
+        Run Uptime ["-t", "<fc=%bg%,%green%:0> <fn=2>\xf0aa</fn> </fc>  <days>d <hours>h"] 360,
+        Run BatteryP ["BAT0"] ["-t", "<acstatus>", "--", "-O", "<fc=%bg%,%orange%:0> <fn=2>\xf240</fn> </fc>  <left>%", "-i", "<fc=%bg%,%orange%:0> <fn=2>\xf240</fn> </fc>  <left>%", "-o", "<fc=%bg%,%orange%:0> <fn=2>\xf242</fn> </fc>  <timeleft> (<left>%)"] 360,
+        -- Run Alsa "default" "Master" ["-t", "<status> <volume>%", "--", "-O", "<fc=%bg%,%yellow%:0> <fn=2>\xf028</fn> </fc>", "-o", "<fc=%bg%,%yellow%:0> <fn=2>\xf6a9</fn> </fc>", "-C", "%magenta%", "-c", "%magenta%"],
         -- <box type=Bottom width=2 mb=2 color=%magenta%><fc=%magenta%>%alsa:default:Master%</fc></box>
-        Run Date "<fn=2>\xf017</fn>  %b %d %Y - (%H:%M)" "date" 50,
+        Run Date "<fc=%bg%,%cyan%:0> <fn=2>\xf017</fn> </fc>  %b %d %Y - (%H:%M)  " "date" 50,
         Run UnsafeStdinReader
       ],
     sepChar = "%",
     alignSep = "}{",
-    template = " %UnsafeStdinReader% }{ <box type=Bottom width=2 mb=2 color=%yellow%><fc=%yellow%>%multicoretemp% %cpu%</fc></box>    <box type=Bottom width=2 mb=2 color=%red%><fc=%red%>%memory%</fc></box>    <box type=Bottom width=2 mb=2 color=%violet%><fc=%violet%>%disku%</fc></box>    <box type=Bottom width=2 mb=2 color=%green%><fc=%green%>%uptime%</fc></box>    <box type=Bottom width=2 mb=2 color=%orange%><fc=%orange%>%battery%</fc></box>    <box type=Bottom width=2 mb=2 color=%cyan%><fc=%cyan%>%date%</fc></box> "
+    template = "%UnsafeStdinReader% }{ <fc=%yellow%,%bgAlt%:0>%multicoretemp% %cpu%</fc>  <fc=%red%,%bgAlt%:0>%memory%</fc>  <fc=%violet%,%bgAlt%:0>%disku%</fc>  <fc=%green%,%bgAlt%:0>%uptime%</fc>  <fc=%orange%,%bgAlt%:0>%battery%</fc>  <fc=%cyan%,%bgAlt%:0>%date%</fc>"
   }
