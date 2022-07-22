@@ -165,6 +165,7 @@
 
     "gitDecoration.modifiedResourceForeground": "#ecbe7b",
     "gitDecoration.untrackedResourceForeground": "#98be65",
+    "gitDecoration.renamedResourceForeground": "#98be65",
 
     "input.background": "#282c34",
     "input.foreground": "#bbc2cf",
