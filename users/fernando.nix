@@ -97,6 +97,7 @@
       ./common/vscode/vscode.nix
       ./common/wakatime.nix
       ./common/wallpaper/wallpaper.nix
+      ./common/webstorm.nix
       ./common/xdg.nix
       ./common/xmobar/xmobar.nix
       ./common/xmonad/xmonad.nix
