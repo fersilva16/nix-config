@@ -77,6 +77,7 @@
       ./common/kitty.nix
       # ./common/krita.nix
       ./common/krusader.nix
+      ./common/libreoffice.nix
       ./common/minecraft.nix
       ./common/mongodb.nix
       ./common/neofetch.nix
