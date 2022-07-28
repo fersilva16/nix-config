@@ -99,15 +99,18 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
                  (setq type (list 'symbol-function type)))
                (list 'cl-letf (list (cons type rest)) body)))))))
 
+(setq org-directory "~/org"
+	org-roam-directory (concat org-directory "/roam")
+	org-roam-dailies-directory (concat org-roam-directory "/dailies")
+	org-agenda-files '(concat org-directory "/agenda.org"))
+
 (use-package org-roam
-  :after '(emacsql emacsql-sqlite)
   :hook (org-load . +org-init-roam-h)
   :config
   (defun +org-init-roam-h ()
-    (letf! ((#'org-roam-db-sync #'ignore))
-      (org-roam-db-autosync-enable)))
+  (letf! ((#'org-roam-db-sync #'ignore))
+    (org-roam-db-autosync-enable))))
 
-  (org-roam-db-sync))
 
 (setq org-roam-capture-templates '(("n" "note" plain "%?"
     :if-new (file+head "${slug}.org"
@@ -121,10 +124,6 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 
 (require 'org-habit)
 
-(setq org-directory "~/org"
-	org-roam-directory (concat org-directory "/roam")
-	org-roam-dailies-directory (concat org-roam-directory "/dailies")
-	org-agenda-files '(concat org-directory "/agenda.org"))
 
 (setq org-todo-keywords
   '((sequence "TODO(t)" "|" "DONE(d)")
