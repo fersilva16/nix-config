@@ -59,8 +59,55 @@
 (use-package emacsql)
 (use-package emacsql-sqlite)
 
+(defmacro letf! (bindings &rest body)
+  "Temporarily rebind function, macros, and advice in BODY.
+Intended as syntax sugar for `cl-letf', `cl-labels', `cl-macrolet', and
+temporary advice.
+BINDINGS is either:
+  A list of, or a single, `defun', `defun*', `defmacro', or `defadvice' forms.
+  A list of (PLACE VALUE) bindings as `cl-letf*' would accept.
+TYPE is one of:
+  `defun' (uses `cl-letf')
+  `defun*' (uses `cl-labels'; allows recursive references),
+  `defmacro' (uses `cl-macrolet')
+  `defadvice' (uses `defadvice!' before BODY, then `undefadvice!' after)
+NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
+`defadvice!', respectively.
+\(fn ((TYPE NAME ARGLIST &rest BODY) ...) BODY...)"
+  (declare (indent defun))
+  (setq body (macroexp-progn body))
+  (when (memq (car bindings) '(defun defun* defmacro defadvice))
+    (setq bindings (list bindings)))
+  (dolist (binding (reverse bindings) body)
+    (let ((type (car binding))
+          (rest (cdr binding)))
+      (setq
+       body (pcase type
+              (`defmacro `(cl-macrolet ((,@rest)) ,body))
+              (`defadvice `(progn (defadvice! ,@rest)
+                                  (unwind-protect ,body (undefadvice! ,@rest))))
+              ((or `defun `defun*)
+               `(cl-letf ((,(car rest) (symbol-function #',(car rest))))
+                  (ignore ,(car rest))
+                  ,(if (eq type 'defun*)
+                       `(cl-labels ((,@rest)) ,body)
+                     `(cl-letf (((symbol-function #',(car rest))
+                                 (lambda! ,(cadr rest) ,@(cddr rest))))
+                        ,body))))
+              (_
+               (when (eq (car-safe type) 'function)
+                 (setq type (list 'symbol-function type)))
+               (list 'cl-letf (list (cons type rest)) body)))))))
+
 (use-package org-roam
-  :after '(emacsql emacsql-sqlite))
+  :after '(emacsql emacsql-sqlite)
+  :hook (org-load . +org-init-roam-h)
+  :config
+  (defun +org-init-roam-h ()
+    (letf! ((#'org-roam-db-sync #'ignore))
+      (org-roam-db-autosync-enable)))
+
+  (org-roam-db-sync))
 
 (setq org-roam-capture-templates '(("n" "note" plain "%?"
     :if-new (file+head "${slug}.org"
