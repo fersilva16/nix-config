@@ -102,6 +102,20 @@
   org-roam-ui-update-on-save t
   org-roam-ui-open-on-start nil))
 
+(use-package git-gutter)
+(global-git-gutter-mode +1)
+
+(use-package git-gutter-fringe)
+
+(define-fringe-bitmap 'git-gutter-fr:added [224] nil nil '(center repeated))
+(set-face-foreground 'git-gutter-fr:added "#98be65")
+
+(define-fringe-bitmap 'git-gutter-fr:modified [224] nil nil '(center repeated))
+(set-face-foreground 'git-gutter-fr:modified "#da8548")
+
+(define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom)
+(set-face-foreground 'git-gutter-fr:deleted "#ff6c6b")
+
 (defun notes-push ()
   (interactive)
   (shell-command "notes-push"))
