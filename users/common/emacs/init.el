@@ -118,6 +118,7 @@
  "w" evil-window-map
  "n a" 'org-agenda
  "n p" 'notes-push
+ "n s" 'org-save-all-org-buffers
  "n r n" 'org-roam-capture
  "n r f" 'org-roam-node-find
  "n d t" 'org-roam-dailies-goto-today
