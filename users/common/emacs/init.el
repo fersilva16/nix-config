@@ -61,11 +61,16 @@
 
 (use-package org-roam
   :after '(emacsql emacsql-sqlite))
-  :config
-  (setq org-roam-capture-templates '(("n" "note" plain "%?"
+
+(setq org-roam-capture-templates '(("n" "note" plain "%?"
     :if-new (file+head "${slug}.org"
-                       "#+title: ${title}\n#+date: %<%Y-%m-%d %H:%M:%S>\n\nTags: \n\n* ${title}")
+                       "#+title: ${title}\n#+date: %<%Y-%m-%d %H:%M:%S>\n\n* ${title}")
     :unnarrowed t)))
+
+(setq org-roam-dailies-capture-templates '(("d" "daily" plain "%?"
+  :if-new (file+head "%<%Y-%m-%d>.org"
+                      "#+title: %<%Y-%m-%d>\n\n* %<%Y-%m-%d>")
+  :unnarrowed t)))
 
 (require 'org-habit)
 
