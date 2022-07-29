@@ -59,9 +59,9 @@
   :init
   (savehist-mode))
 
-  (use-package savehist
-  :init
-  (savehist-mode))
+(use-package undo-tree)
+
+(global-undo-tree-mode)
 
 (use-package emacs
   :init
