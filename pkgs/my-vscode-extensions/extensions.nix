@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5641";
-    sha256 = "0vr2crlcc0gg4z9hbpjnjap9ly5h4fvp744f4zwr0nxb3y83pvvm";
+    version = "1.0.5667";
+    sha256 = "19r0sdj3hssfyb489glh0pha6j9dxz87z06vpjx3damxqyjvwimh";
   }
   {
     name = "doom-one";
@@ -104,8 +104,8 @@
   {
     name = "errorlens";
     publisher = "usernamehw";
-    version = "3.5.2";
-    sha256 = "0d8xjzq4ykyh9w9f42pr8rhv71gyjfnv2pbcirjg5cblayg1g40l";
+    version = "3.6.0";
+    sha256 = "1sv8vlzmynbz20vmv901nrg12wcmsg5i9pm6mqq32rlgb7rw3p50";
   }
   {
     name = "vscode-icons";
@@ -140,8 +140,8 @@
   {
     name = "lean4";
     publisher = "leanprover";
-    version = "0.0.84";
-    sha256 = "1pak96p7irf8jiip5svxhx08z3qkr8b0pifkjnn91y7926n20h5n";
+    version = "0.0.87";
+    sha256 = "04inxr54divfr0n2n9spwz6zc4z9byr9hb4qwgkwk19x16y3mswf";
   }
   {
     name = "language-haskell";
