@@ -80,10 +80,13 @@
 
   (setq enable-recursive-minibuffers t))
 
-(use-package nano-theme
-  :straight (:type git :host github
-		   :repo "rougier/nano-theme")
-  :config (nano-dark))
+(use-package doom-themes
+  :config
+  (setq doom-themes-enable-bold t
+        doom-themes-enable-italic t)
+  (load-theme 'doom-one t)
+  (doom-themes-visual-bell-config)
+  (doom-themes-org-config))
 
 (use-package emacsql)
 (use-package emacsql-sqlite)
