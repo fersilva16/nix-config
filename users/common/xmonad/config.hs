@@ -98,17 +98,6 @@ myColorizer =
     (0xc0, 0xa7, 0x9a)
     (0x28, 0x2c, 0x34)
 
-mygridConfig :: p -> GSConfig Window
-mygridConfig colorizer =
-  (buildDefaultGSConfig myColorizer)
-    { gs_cellheight = 40,
-      gs_cellwidth = 200,
-      gs_cellpadding = 6,
-      gs_originFractX = 0.5,
-      gs_originFractY = 0.5,
-      gs_font = myFont
-    }
-
 spawnSelected' :: [(String, String)] -> X ()
 spawnSelected' lst = gridselect conf lst >>= flip whenJust spawn
   where
@@ -122,6 +111,7 @@ spawnSelected' lst = gridselect conf lst >>= flip whenJust spawn
           gs_font = myFont
         }
 
+myScratchPadFloat :: ManageHook
 myScratchPadFloat = customFloating $ W.RationalRect l t w h
   where
     h = 0.9
@@ -171,6 +161,7 @@ tabs =
   renamed [Replace "tabs"] $
     tabbedBottom shrinkText myTabTheme
 
+myTabTheme :: Theme
 myTabTheme =
   def
     { fontName = myFont,
@@ -202,11 +193,13 @@ myLayoutHook =
         ||| noBorders tabs
         ||| grid
 
+myWorkspaces :: [String]
 myWorkspaces = [" 1 ", " 2 ", " 3 ", " 4 ", " 5 ", " 6 ", " 7 ", " 8 ", " 9 "]
 
+myWorkspaceIndices :: M.Map String Integer
 myWorkspaceIndices = M.fromList $ zip myWorkspaces [1 ..]
 
-myManageHook :: XMonad.Query (Data.Monoid.Endo WindowSet)
+myManageHook :: ManageHook
 myManageHook =
   composeAll
     [ className =? "discord" --> doShift (myWorkspaces !! 8),
