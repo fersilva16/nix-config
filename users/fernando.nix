@@ -72,6 +72,7 @@
       ./common/git.nix
       ./common/glab.nix
       ./common/gpg.nix
+      ./common/gtk.nix
       ./common/home.nix
       ./common/insomnia.nix
       ./common/kitty.nix
@@ -87,6 +88,7 @@
       ./common/obs.nix
       ./common/peek.nix
       ./common/postman.nix
+      ./common/qt.nix
       # ./common/qutebrowser.nix
       ./common/responsively.nix
       ./common/ripgrep.nix
