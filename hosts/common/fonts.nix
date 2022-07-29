@@ -4,7 +4,8 @@
     enableDefaultFonts = false;
     fonts = with pkgs; [
       noto-fonts
-      noto-fonts-cjk
+      noto-fonts-cjk-sans
+      noto-fonts-cjk-serif
       twitter-color-emoji
       (nerdfonts.override { fonts = [ "FiraCode" ]; })
       font-awesome_6
