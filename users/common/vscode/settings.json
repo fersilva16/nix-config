@@ -1,78 +1,65 @@
 {
+  "[haskell]": {
+    "editor.defaultFormatter": "haskell.haskell"
+  },
+
+  "[md]": {
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80
+  },
+
+  "[mdx]": {
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80
+  },
+
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer"
+  },
+
+  "[typescript]": {
+    "editor.formatOnSave": true
+  },
+
+  "[typescriptreact]": {
+    "editor.formatOnSave": true
+  },
+
+  "auto-close-tag.disableOnLanguage": ["typescript"],
+
+  "breadcrumbs.enabled": false,
+
+  "diffEditor.ignoreTrimWhitespace": false,
+
+  "editor.autoClosingBrackets": "never",
+  "editor.autoClosingQuotes": "never",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": true,
+    "source.fixAll": true
+  },
   "editor.colorDecorators": true,
   "editor.cursorBlinking": "solid",
-
   "editor.cursorStyle": "line",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.fontFamily": "FiraCode Nerd Font",
   "editor.fontLigatures": true,
   "editor.fontSize": 16,
   "editor.fontWeight": "500",
-
-  "editor.bracketPairColorization.enabled": true,
-
-  "terminal.integrated.defaultProfile.linux": "fish",
-  "terminal.integrated.fontFamily": "FiraCode Nerd Font",
-  "terminal.integrated.fontSize": 16,
-  "terminal.integrated.cursorStyle": "line",
-  "terminal.integrated.cursorWidth": 2,
-  "terminal.integrated.fontWeight": "500",
-  "terminal.integrated.drawBoldTextInBrightColors": false,
-
-  "nix.enableLanguageServer": true,
-
-  "workbench.activityBar.visible": true,
-  "workbench.sideBar.location": "right",
-  "workbench.iconTheme": "vscode-icons",
-  "workbench.startupEditor": "none",
-  "workbench.view.alwaysShowHeaderActions": true,
-  "workbench.statusBar.visible": true,
-  "breadcrumbs.enabled": false,
+  "editor.formatOnSave": true,
+  "editor.inlayHints.enabled": "off",
+  "editor.inlineSuggest.enabled": true,
+  "editor.linkedEditing": true,
   "editor.minimap.enabled": false,
+  "editor.renderLineHighlight": "all",
+  "editor.rulers": [80],
   "editor.scrollbar.horizontal": "hidden",
   "editor.scrollbar.horizontalScrollbarSize": 8,
   "editor.scrollbar.vertical": "hidden",
-
-  "workbench.editor.showTabs": true,
-
-  "explorer.openEditors.visible": 0,
-
-  "editor.autoClosingBrackets": "never",
-  "editor.autoClosingQuotes": "never",
   "editor.scrollbar.verticalScrollbarSize": 0,
-
-  "workbench.editor.enablePreview": false,
-
-  "editor.renderLineHighlight": "all",
-
-  // bg = "#282c34";
-  // fg = "#bbc2cf";
-
-  // bgAlt = "#21242b";
-  // fgAlt = "#5b6268";
-
-  // base0 = "#1b2229";
-  // base1 = "#1c1f24";
-  // base2 = "#202328";
-  // base3 = "#23272e";
-  // base4 = "#3f444a";
-  // base5 = "#5b6268";
-  // base6 = "#73797e";
-  // base7 = "#9ca0a4";
-  // base8 = "#dfdfdf";
-
-  // grey = config.colors.base4;
-  // red = "#ff6c6b";
-  // orange = "#da8548";
-  // green = "#98be65";
-  // teal = "#4db5bd";
-  // yellow = "#ecbe7b";
-  // blue = "#51afef";
-  // darkBlue = "#2257a0";
-  // magenta = "#c678dd";
-  // violet = "#a9a1e1";
-  // cyan = "#46d9ff";
-  // darkCyan = "#5699af";
-  "workbench.colorTheme": "doom-one",
+  "editor.selectionClipboard": false,
+  "editor.snippetSuggestions": "bottom",
+  "editor.tabSize": 2,
   "editor.tokenColorCustomizations": {
     "textMateRules": [
       {
@@ -120,6 +107,41 @@
       }
     ]
   },
+
+  "emmet.excludeLanguages": ["typescript", "markdown"],
+  "emmet.showSuggestionsAsSnippets": true,
+
+  "explorer.compactFolders": false,
+  "explorer.openEditors.visible": 0,
+
+  "html.autoClosingTags": true,
+
+  "javascript.autoClosingTags": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+
+  "nix.enableLanguageServer": true,
+
+  "prettier.singleQuote": true,
+
+  "scm.defaultViewMode": "tree",
+
+  "terminal.integrated.cursorStyle": "line",
+  "terminal.integrated.cursorWidth": 2,
+  "terminal.integrated.defaultProfile.linux": "fish",
+  "terminal.integrated.drawBoldTextInBrightColors": false,
+  "terminal.integrated.enableMultiLinePasteWarning": false,
+  "terminal.integrated.fontFamily": "FiraCode Nerd Font",
+  "terminal.integrated.fontSize": 16,
+  "terminal.integrated.fontWeight": "500",
+
+  "typescript.autoClosingTags": true,
+  "typescript.preferences.importModuleSpecifier": "project-relative",
+  "typescript.preferences.quoteStyle": "single",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+
+  "window.menuBarVisibility": "hidden",
+
+  "workbench.activityBar.visible": true,
   "workbench.colorCustomizations": {
     "activityBar.background": "#21242b",
     "activityBar.border": "#3f444a",
@@ -135,19 +157,8 @@
     "editorGroupHeader.border": "#3f444a",
     "editorGroupHeader.noTabsBackground": "#21242b",
     "editorGroupHeader.tabsBackground": "#21242b",
-    "editorSuggestWidget.background": "#21242b",
 
-    // red = "#ff6c6b";
-    // orange = "#da8548";
-    // green = "#98be65";
-    // teal = "#4db5bd";
-    // yellow = "#ecbe7b";
-    // blue = "#51afef";
-    // darkBlue = "#2257a0";
-    // magenta = "#c678dd";
-    // violet = "#a9a1e1";
-    // cyan = "#46d9ff";
-    // darkCyan = "#5699af";
+    "editorSuggestWidget.background": "#21242b",
 
     "editorBracketHighlight.foreground1": "#51afef",
     "editorBracketHighlight.foreground2": "#c678dd",
@@ -209,66 +220,12 @@
     "widget.shadow": "#0000"
   },
 
-  "auto-close-tag.disableOnLanguage": ["typescript"],
-
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-
-  "window.menuBarVisibility": "hidden",
-
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true,
-    "source.fixAll": true
-  },
-
-  "[typescript]": {
-    "editor.formatOnSave": true
-  },
-
-  "[typescriptreact]": {
-    "editor.formatOnSave": true
-  },
-
-  "[md]": {
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 80
-  },
-
-  "[mdx]": {
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 80
-  },
-
-  "editor.snippetSuggestions": "bottom",
-  "editor.linkedEditing": true,
-  "html.autoClosingTags": true,
-  "javascript.autoClosingTags": true,
-  "typescript.autoClosingTags": true,
-  "emmet.showSuggestionsAsSnippets": true,
-  "emmet.excludeLanguages": ["typescript", "markdown"],
-
-  "typescript.updateImportsOnFileMove.enabled": "always",
-  "editor.tabSize": 2,
-
-  "typescript.preferences.quoteStyle": "single",
-  "typescript.preferences.importModuleSpecifier": "project-relative",
-
-  "editor.selectionClipboard": false,
-  "explorer.compactFolders": false,
-
-  "prettier.singleQuote": true,
-  "editor.formatOnSave": true,
-  "javascript.updateImportsOnFileMove.enabled": "always",
-  "editor.rulers": [80],
-
-  "scm.defaultViewMode": "tree",
-  "editor.inlineSuggest.enabled": true,
-  "terminal.integrated.enableMultiLinePasteWarning": false,
-  "editor.inlayHints.enabled": "off",
-  "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer"
-  },
-  "[haskell]": {
-    "editor.defaultFormatter": "haskell.haskell"
-  },
-  "diffEditor.ignoreTrimWhitespace": false
+  "workbench.colorTheme": "doom-one",
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.showTabs": true,
+  "workbench.iconTheme": "vscode-icons",
+  "workbench.sideBar.location": "right",
+  "workbench.startupEditor": "none",
+  "workbench.statusBar.visible": true,
+  "workbench.view.alwaysShowHeaderActions": true
 }
