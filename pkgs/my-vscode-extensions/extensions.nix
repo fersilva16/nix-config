@@ -36,12 +36,6 @@
     sha256 = "15ldc9774jgwqlw5qfrdmpmgdyvps2rkn2lh7v2f0w457x9h52lx";
   }
   {
-    name = "vscode-zipfs";
-    publisher = "arcanis";
-    version = "3.0.0";
-    sha256 = "0wvrqnsiqsxb0a7hyccri85f5pfh9biifq4x2bllpl8mg79l5m68";
-  }
-  {
     name = "npm-intellisense";
     publisher = "christian-kohler";
     version = "1.4.2";
@@ -66,28 +60,10 @@
     sha256 = "0h5g746ij36h22v1y2883bqaphds7h1ck8mg8bywn9r723mxdy1g";
   }
   {
-    name = "auto-close-tag";
-    publisher = "formulahendry";
-    version = "0.5.14";
-    sha256 = "1k4ld30fyslj89bvjh2ihwgycb0i11mn266misccbjqkci5hg1jx";
-  }
-  {
-    name = "auto-rename-tag";
-    publisher = "formulahendry";
-    version = "0.1.10";
-    sha256 = "0nyilwfs2kbf8v3v9njx1s7ppdp1472yhimiaja0c3v7piwrcymr";
-  }
-  {
     name = "nix-ide";
     publisher = "jnoortheen";
     version = "0.1.20";
     sha256 = "16mmivdssjky11gmih7zp99d41m09r0ii43n17d4i6xwivagi9a3";
-  }
-  {
-    name = "magit";
-    publisher = "kahole";
-    version = "0.6.29";
-    sha256 = "04nf98c1z384zsxkydxv6lvcwzymp7g0x69h8csmpaa3pfydw208";
   }
   {
     name = "dotenv";
