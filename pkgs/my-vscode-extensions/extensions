@@ -4,15 +4,11 @@ ms-vsliveshare.vsliveshare
 ntbbloodbath.doom-one
 visualstudioexptteam.vscodeintellicode
 wakatime.vscode-wakatime
-arcanis.vscode-zipfs
 christian-kohler.npm-intellisense
 dbaeumer.vscode-eslint
 eamodio.gitlens
 esbenp.prettier-vscode
-formulahendry.auto-close-tag
-formulahendry.auto-rename-tag
 jnoortheen.nix-ide
-kahole.magit
 mikestead.dotenv
 naumovs.color-highlight
 usernamehw.errorlens
@@ -24,6 +20,7 @@ meta.relay
 leanprover.lean4
 justusadam.language-haskell
 haskell.haskell
+# github.vscode-pull-request-github
 # vscodevim.vim
 # vspacecode.vspacecode
 # vspacecode.whichkey

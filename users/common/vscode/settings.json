@@ -239,6 +239,10 @@
   },
 
   "editor.snippetSuggestions": "bottom",
+  "editor.linkedEditing": true,
+  "html.autoClosingTags": true,
+  "javascript.autoClosingTags": true,
+  "typescript.autoClosingTags": true,
   "emmet.showSuggestionsAsSnippets": true,
   "emmet.excludeLanguages": ["typescript", "markdown"],
 
