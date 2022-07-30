@@ -63,6 +63,7 @@
       # ./common/doom-emacs/doom-emacs.nix
       ./common/emacs/emacs.nix
       ./common/exa.nix
+      ./common/fcitx.nix
       ./common/fd.nix
       ./common/feh.nix
       # ./common/firefox.nix
