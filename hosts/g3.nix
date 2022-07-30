@@ -23,6 +23,7 @@ in
     ./common/common.nix
     ./common/console.nix
     ./common/docker.nix
+    ./common/fcitx.nix
     ./common/fingerprint.nix
     ./common/fonts.nix
     ./common/gcc.nix
