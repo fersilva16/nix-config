@@ -2,8 +2,8 @@
   {
     name = "better-comments";
     publisher = "aaron-bond";
-    version = "3.0.0";
-    sha256 = "17b7m50z0fbifs8azgn6ygcmgwclssilw9j8nb178szd6zrjz2vf";
+    version = "3.0.2";
+    sha256 = "15w1ixvp6vn9ng6mmcmv9ch0ngx8m85i1yabxdfn6zx3ypq802c5";
   }
   {
     name = "editorconfig";
@@ -86,8 +86,8 @@
   {
     name = "vscode-icons";
     publisher = "vscode-icons-team";
-    version = "11.13.0";
-    sha256 = "1nsp0bb5b3h9ihncxgnnybxmqryvdd8x4bgw9wb771kvm35lk0is";
+    version = "11.14.0";
+    sha256 = "1sbn40ix69cw2q6j3hq61p1f7da3fr3imrvzpp63ga73qynajbcr";
   }
   {
     name = "direnv";
@@ -130,5 +130,17 @@
     publisher = "haskell";
     version = "2.2.0";
     sha256 = "0qgp93m5d5kz7bxlnvlshcd8ms5ag48nk5hb37x02giqcavg4qv0";
+  }
+  {
+    name = "ocaml-platform";
+    publisher = "ocamllabs";
+    version = "1.10.7";
+    sha256 = "1vbazbgdk5g3sa72wk0vd4i354bw3kagdmp0bzr56v4jwspnw587";
+  }
+  {
+    name = "vscoq";
+    publisher = "maximedenes";
+    version = "0.3.6";
+    sha256 = "1sailpizg7zvncggdma9dyxdnga8jya1a2vswwij1rzd9il04j3g";
   }
 ]
