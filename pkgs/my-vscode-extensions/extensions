@@ -20,6 +20,8 @@ meta.relay
 leanprover.lean4
 justusadam.language-haskell
 haskell.haskell
+ocamllabs.ocaml-platform
+maximedenes.vscoq
 # github.vscode-pull-request-github
 # vscodevim.vim
 # vspacecode.vspacecode
