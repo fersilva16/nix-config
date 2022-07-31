@@ -24,10 +24,6 @@ nixpkgs.lib.nixosSystem {
 
       home-manager = {
         useGlobalPkgs = true;
-
-        sharedModules = [
-          # inputs.doom-emacs.hmModule
-        ];
       };
     }
   ] ++ nixpkgs.lib.forEach users (user: ../users + "/${user}.nix");
