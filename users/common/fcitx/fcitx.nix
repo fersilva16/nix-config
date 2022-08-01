@@ -10,15 +10,15 @@ in
   };
 
   home.file.".config/fcitx5/config" = {
-    source = ./config.ini;
+    source = config.lib.file.mkOutOfStoreSymlink ./config.ini;
   };
 
   home.file.".config/fcitx5/profile" = {
-    source = ./profile.ini;
+    source = config.lib.file.mkOutOfStoreSymlink ./profile.ini;
   };
 
   home.file.".config/fcitx5/conf/classicui.conf" = {
-    source = ./classicui.conf;
+    source = config.lib.file.mkOutOfStoreSymlink ./classicui.conf;
   };
 
   home.file.".local/share/fcitx5/themes/theme/theme.conf" = {
