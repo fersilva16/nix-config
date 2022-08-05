@@ -62,7 +62,7 @@
       ./common/dunst.nix
       ./common/emacs/emacs.nix
       ./common/exa.nix
-      ./common/fcitx/fcitx.nix
+      # ./common/fcitx/fcitx.nix
       ./common/fd.nix
       ./common/feh.nix
       # ./common/firefox.nix
