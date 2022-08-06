@@ -10,18 +10,18 @@ in
   };
 
   # home.file.".config/fcitx5/config" = {
-  #   source = config.lib.file.mkOutOfStoreSymlink ./config.ini;
+  #   source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/fcitx/config.ini";
   # };
 
   # home.file.".config/fcitx5/profile" = {
-  #   source = config.lib.file.mkOutOfStoreSymlink ./profile.ini;
+  #   source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/fcitx/profile.ini";
   # };
 
   home.file.".config/fcitx5/conf/classicui.conf" = {
-    source = config.lib.file.mkOutOfStoreSymlink ./classicui.conf;
+    source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/fcitx/classicui.conf";
   };
 
   home.file.".local/share/fcitx5/themes/theme/theme.conf" = {
-    text = replaceColors (builtins.readFile ./theme.conf);
+    text = replaceColors (builtins.readFile "/dotfiles/users/common/fcitx/theme.conf");
   };
 }
