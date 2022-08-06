@@ -11,10 +11,10 @@
   };
 
   home.file.".config/Code/User/settings.json" = {
-    source = config.lib.file.mkOutOfStoreSymlink ./settings.json;
+    source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/vscode/settings.json";
   };
 
   home.file.".config/Code/User/keybindings.json" = {
-    source = config.lib.file.mkOutOfStoreSymlink ./keybindings.json;
+    source = config.lib.file.mkOutOfStoreSymlink "/dotfiles/users/common/vscode/keybindings.json";
   };
 }
