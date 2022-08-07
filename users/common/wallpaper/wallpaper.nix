@@ -4,5 +4,5 @@ _:
     ../../../modules/wallpaper.nix
   ];
 
-  wallpaper = ./72qq29.png;
+  wallpaper = ./dp19wl.jpg;
 }
