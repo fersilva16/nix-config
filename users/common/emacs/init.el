@@ -91,6 +91,8 @@
 (use-package emacsql)
 (use-package emacsql-sqlite)
 
+(setq org-modules '(org-habit))
+
 (defmacro letf! (bindings &rest body)
   "Temporarily rebind function, macros, and advice in BODY.
 Intended as syntax sugar for `cl-letf', `cl-labels', `cl-macrolet', and
@@ -131,31 +133,28 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
                  (setq type (list 'symbol-function type)))
                (list 'cl-letf (list (cons type rest)) body)))))))
 
-(setq org-directory "~/org"
-	org-roam-directory (concat org-directory "/roam")
-	org-roam-dailies-directory (concat org-roam-directory "/dailies")
-	org-agenda-files '(concat org-directory "/agenda.org"))
 
 (use-package org-roam
   :hook (org-load . +org-init-roam-h)
   :config
+  (setq org-directory "~/org"
+    org-roam-directory (concat org-directory "/roam")
+    org-roam-dailies-directory (concat org-roam-directory "/dailies")
+    org-agenda-files `(,(concat org-directory "/inbox.org")))
+
   (defun +org-init-roam-h ()
   (letf! ((#'org-roam-db-sync #'ignore))
-    (org-roam-db-autosync-enable))))
+    (org-roam-db-autosync-enable)))
 
-
-(setq org-roam-capture-templates '(("n" "note" plain "%?"
+  (setq org-roam-capture-templates '(("n" "note" plain "%?"
     :if-new (file+head "${slug}.org"
                        "#+title: ${title}\n#+date: %<%Y-%m-%d %H:%M:%S>\n\n* ${title}")
     :unnarrowed t)))
 
-(setq org-roam-dailies-capture-templates '(("d" "daily" plain "%?"
-  :if-new (file+head "%<%Y-%m-%d>.org"
-                      "#+title: %<%Y-%m-%d>\n\n* %<%Y-%m-%d>")
-  :unnarrowed t)))
-
-(require 'org-habit)
-
+  (setq org-roam-dailies-capture-templates '(("d" "daily" plain "%?"
+    :if-new (file+head "%<%Y-%m-%d>.org"
+                        "#+title: %<%Y-%m-%d>\n\n* %<%Y-%m-%d>")
+    :unnarrowed t))))
 
 (setq org-todo-keywords
   '((sequence "TODO(t)" "|" "DONE(d)")
