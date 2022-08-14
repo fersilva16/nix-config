@@ -36,6 +36,7 @@ in
     ./common/nvidia.nix
     ./common/opengl.nix
     ./common/sensors.nix
+    ./common/steam.nix
     ./common/ssh.nix
     ./common/time.nix
     ./common/utils.nix
