@@ -80,7 +80,6 @@
       ./common/krusader.nix
       ./common/libreoffice.nix
       ./common/mindustry.nix
-      ./common/minecraft.nix
       ./common/mongodb.nix
       ./common/neofetch.nix
       ./common/neovim.nix
