@@ -22,6 +22,7 @@ justusadam.language-haskell
 haskell.haskell
 ocamllabs.ocaml-platform
 maximedenes.vscoq
+funkyremi.vscode-google-translate
 # github.vscode-pull-request-github
 # vscodevim.vim
 # vspacecode.vspacecode
