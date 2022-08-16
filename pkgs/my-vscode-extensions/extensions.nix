@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5667";
-    sha256 = "19r0sdj3hssfyb489glh0pha6j9dxz87z06vpjx3damxqyjvwimh";
+    version = "1.0.5683";
+    sha256 = "0m6idwbynfvqilvhnkdyiyi207vq50m6cbfi7pfwqb0b5c64771x";
   }
   {
     name = "doom-one";
@@ -32,8 +32,8 @@
   {
     name = "vscode-wakatime";
     publisher = "wakatime";
-    version = "18.1.6";
-    sha256 = "15ldc9774jgwqlw5qfrdmpmgdyvps2rkn2lh7v2f0w457x9h52lx";
+    version = "19.0.0";
+    sha256 = "1ikrzw3dpk4c9r8k0fxc6gadc05g64hsjnk9ciiink8f200vjklx";
   }
   {
     name = "npm-intellisense";
@@ -62,8 +62,8 @@
   {
     name = "nix-ide";
     publisher = "jnoortheen";
-    version = "0.1.20";
-    sha256 = "16mmivdssjky11gmih7zp99d41m09r0ii43n17d4i6xwivagi9a3";
+    version = "0.1.23";
+    sha256 = "0i5zqfz2ic57z9b4v6mrs68dzhvgpnr5984srjapi0nzm30k127b";
   }
   {
     name = "dotenv";
@@ -86,8 +86,8 @@
   {
     name = "vscode-icons";
     publisher = "vscode-icons-team";
-    version = "11.14.0";
-    sha256 = "1sbn40ix69cw2q6j3hq61p1f7da3fr3imrvzpp63ga73qynajbcr";
+    version = "11.15.0";
+    sha256 = "1kk7ggiw576fvlkmyfngfsmx7qqbhg98vyqr4ha2z1fbq08rvjif";
   }
   {
     name = "direnv";
@@ -104,8 +104,8 @@
   {
     name = "mdx";
     publisher = "silvenon";
-    version = "0.1.0";
-    sha256 = "1mzsqgv0zdlj886kh1yx1zr966yc8hqwmiqrb1532xbmgyy6adz3";
+    version = "0.1.1";
+    sha256 = "1bncxipbgngi0x2jpc656jllgncfi113ha0gnqlnfqjwpiqihmc6";
   }
   {
     name = "relay";
@@ -116,8 +116,8 @@
   {
     name = "lean4";
     publisher = "leanprover";
-    version = "0.0.87";
-    sha256 = "04inxr54divfr0n2n9spwz6zc4z9byr9hb4qwgkwk19x16y3mswf";
+    version = "0.0.92";
+    sha256 = "068wbi4a7fi7yv7mkp4knsgw1w800kjjhnfxwhzzb8dnz2142lr0";
   }
   {
     name = "language-haskell";
@@ -128,8 +128,8 @@
   {
     name = "haskell";
     publisher = "haskell";
-    version = "2.2.0";
-    sha256 = "0qgp93m5d5kz7bxlnvlshcd8ms5ag48nk5hb37x02giqcavg4qv0";
+    version = "2.2.1";
+    sha256 = "14p9g07zsb3da4ilaasgsdvh3wagfzayqr8ichsf6k5c952zi8fk";
   }
   {
     name = "ocaml-platform";
@@ -142,5 +142,11 @@
     publisher = "maximedenes";
     version = "0.3.6";
     sha256 = "1sailpizg7zvncggdma9dyxdnga8jya1a2vswwij1rzd9il04j3g";
+  }
+  {
+    name = "vscode-google-translate";
+    publisher = "funkyremi";
+    version = "1.4.13";
+    sha256 = "1klwvkwkwirbylm749rfdk14zagz0k9qn1ldrlvy3mc31abklnpm";
   }
 ]
