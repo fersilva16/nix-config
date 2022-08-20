@@ -36,5 +36,14 @@
     "key": "ctrl+shift+alt+up",
     "command": "-editor.action.copyLinesUpAction",
     "when": "editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "shift+alt+t",
+    "command": "-extension.translateTextPreferred",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "shift+alt+t",
+    "command": "extension.translateText"
   }
 ]
