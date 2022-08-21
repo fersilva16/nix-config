@@ -55,6 +55,10 @@
   :init
   (vertico-mode))
 
+(use-package company
+  :init
+  (add-hook 'after-init-hook 'global-company-mode))
+
 (use-package savehist
   :init
   (savehist-mode))
