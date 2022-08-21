@@ -78,6 +78,7 @@
       ./common/kitty.nix
       # ./common/krita.nix
       ./common/krusader.nix
+      ./common/ledger.nix
       ./common/libreoffice.nix
       ./common/mindustry.nix
       ./common/mongodb.nix

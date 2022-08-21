@@ -193,6 +193,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 (define-fringe-bitmap 'git-gutter-fr:deleted [128 192 224 240] nil nil 'bottom)
 (set-face-foreground 'git-gutter-fr:deleted "#ff6c6b")
 
+(use-package ledger-mode)
+
 (defun notes-push ()
   (interactive)
   (shell-command "notes-push"))
