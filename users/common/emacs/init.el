@@ -226,6 +226,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   (interactive)
   (shell-command "notes-push"))
 
+(run-with-timer 0 (* 5 60) 'notes-push)
+
 (general-create-definer leader-def
   :prefix "SPC")
 
