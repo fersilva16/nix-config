@@ -223,9 +223,15 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   (interactive)
   (shell-command "notes-push"))
 
-(general-define-key
+(general-create-definer leader-def
+  :prefix "SPC")
+
+(general-create-definer localleader-def
+  :prefix "SPC m")
+
+(leader-def
  :states 'normal
- :prefix "SPC"
+ :keymaps 'override
  ":" 'execute-extended-command
  "f o" 'find-file
  "f s" 'save-buffer
@@ -243,11 +249,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
  "n d d" 'org-roam-dailies-goto-date
  "h" help-map)
 
-(general-create-definer localleader-def
-  :prefix "SPC m")
-
 (localleader-def
   :states 'normal
-  :keymaps emacs-lisp-mode-map
+  :keymaps 'emacs-lisp-mode-map
   "e" '(:ignore t :wk "eval")
   "eb" #'eval-buffer)
