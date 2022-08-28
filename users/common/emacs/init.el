@@ -39,6 +39,9 @@
 
 (use-package general)
 
+(use-package projectile
+  :init (projectile-mode t))
+
 (use-package which-key
   :init (which-key-mode))
 
