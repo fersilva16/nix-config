@@ -23,6 +23,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-utils.follows = "utils";
     };
+
+    darwin = {
+      url = "github:lnl7/nix-darwin/master";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = { nixpkgs, utils, ... }@inputs:
@@ -36,6 +41,7 @@
       ];
 
       mkHost = import ./lib/mkHost.nix { inherit inputs overlays; };
+      mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs overlays; };
     in
     {
       inherit overlay overlays;
@@ -43,7 +49,16 @@
       nixosConfigurations = {
         g3 = mkHost {
           hostname = "g3";
+          system = "x86_64-linux";
           users = [ "fernando" ];
+        };
+      };
+
+      darwinConfigurations = {
+        m1 = mkDarwinHost {
+          hostname = "m1";
+          system = "aarch64-darwin";
+          users = [ "fernando-m1" ];
         };
       };
     } // utils.lib.eachDefaultSystem (system:

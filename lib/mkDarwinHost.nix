@@ -1,9 +1,9 @@
 { inputs, overlays }:
 let
-  inherit (inputs) nixpkgs home-manager;
+  inherit (inputs) nixpkgs home-manager darwin;
 in
 { hostname, system, users }:
-nixpkgs.lib.nixosSystem {
+darwin.lib.darwinSystem {
   inherit system;
 
   specialArgs = {
@@ -11,7 +11,7 @@ nixpkgs.lib.nixosSystem {
   };
 
   modules = [
-    home-manager.nixosModule
+    home-manager.darwinModules.home-manager
 
     (../hosts + "/${hostname}.nix")
     {
