@@ -250,6 +250,10 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
  "n d y" 'org-roam-dailies-goto-yesterday
  "n d m" 'org-roam-dailies-goto-tomorrow
  "n d d" 'org-roam-dailies-goto-date
+ "n d T" 'org-roam-dailies-capture-today
+ "n d Y" 'org-roam-dailies-capture-yesterday
+ "n d M" 'org-roam-dailies-capture-tomorrow
+ "n d D" 'org-roam-dailies-capture-date
  "h" help-map)
 
 (localleader-def
