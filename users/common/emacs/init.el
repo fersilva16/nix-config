@@ -200,6 +200,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   :config
   (require 'org-drill))
 
+(use-package org-cliplink)
+
 (use-package wakatime-mode
   :config
   (global-wakatime-mode)
@@ -286,4 +288,5 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 (localleader-def
   :states 'normal
   :keymaps 'org-mode-map
+  "l c" #'org-cliplink
   "l l" #'org-insert-link)
