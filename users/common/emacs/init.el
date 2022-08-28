@@ -189,7 +189,9 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 
 (use-package wakatime-mode
   :config
-  (global-wakatime-mode))
+  (global-wakatime-mode)
+  (setq wakatime-api-key "460ec448-4d21-4765-8457-4444866f5f46"
+        wakatime-cli-path "wakatime-cli"))
 
 (use-package git-gutter)
 (global-git-gutter-mode +1)
@@ -231,16 +233,4 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
  "n d m" 'org-roam-dailies-goto-tomorrow
  "n d d" 'org-roam-dailies-goto-date
  "h" help-map)
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(wakatime-api-key "460ec448-4d21-4765-8457-4444866f5f46")
- '(wakatime-cli-path "wakatime-cli"))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+
