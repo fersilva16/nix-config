@@ -281,5 +281,9 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 (localleader-def
   :states 'normal
   :keymaps 'emacs-lisp-mode-map
-  "e" '(:ignore t :wk "eval")
-  "eb" #'eval-buffer)
+  "e" #'eval-buffer)
+
+(localleader-def
+  :states 'normal
+  :keymaps 'org-mode-map
+  "l l" #'org-insert-link)
