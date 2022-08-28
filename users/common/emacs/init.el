@@ -183,6 +183,10 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   org-roam-ui-update-on-save t
   org-roam-ui-open-on-start nil))
 
+(use-package org-drill
+  :config
+  (require 'org-drill))
+
 (use-package git-gutter)
 (global-git-gutter-mode +1)
 
