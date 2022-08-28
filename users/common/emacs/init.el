@@ -14,6 +14,16 @@
 (straight-use-package 'use-package)
 (setq straight-use-package-by-default t)
 
+(defun display-startup-time ()
+  "A simple function that display in how much seconds this config has been loaded."
+  (message "Emacs loaded in %s with %d garbage collections."
+           (format "%.2f seconds"
+                   (float-time
+                    (time-subtract after-init-time before-init-time)))
+           gcs-done))
+
+(add-hook 'emacs-startup-hook #'display-startup-time)
+
 (setq inhibit-startup-message t)
 
 (scroll-bar-mode -1)
