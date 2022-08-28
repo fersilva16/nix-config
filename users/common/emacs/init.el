@@ -226,6 +226,25 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   (interactive)
   (shell-command "notes-push"))
 
+(defun my-project-root (&optional dir)
+  (let ((projectile-project-root
+         (unless dir (bound-and-true-p projectile-project-root)))
+        projectile-require-project-root)
+    (projectile-project-root dir)))
+
+(defun my-project-find-file (dir)
+  (unless (file-directory-p dir)
+    (error "Directory %S does not exist" dir))
+  (unless (file-readable-p dir)
+    (error "Directory %S isn't readable" dir))
+  (let* ((default-directory (file-truename dir))
+         (projectile-project-root (my-project-root dir)))
+    (call-interactively #'projectile-find-file)))
+
+(defun find-in-notes ()
+  (interactive)
+  (my-project-find-file org-directory))
+
 (run-with-timer 0 (* 5 60) 'notes-push)
 
 (general-create-definer leader-def
@@ -244,6 +263,7 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
  "b k" 'kill-current-buffer
  "w" evil-window-map
  "n a" 'org-agenda
+ "n f" 'find-in-notes
  "n p" 'notes-push
  "n s" 'org-save-all-org-buffers
  "n r n" 'org-roam-capture
