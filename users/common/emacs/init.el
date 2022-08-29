@@ -173,7 +173,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 
 (setq org-todo-keywords
   '((sequence "TODO(t)" "|" "DONE(d)")
-    (sequence "HOLD(h)" "PROJ(p)" "|" "CANC(k)")))
+    (sequence "HOLD(h)" "PROJ(p)" "|" "CANC(k)")
+    (sequence "HABIT(a)" "|" "CHECK(c)")))
 
 (add-hook 'org-mode-hook #'org-indent-mode)
 
