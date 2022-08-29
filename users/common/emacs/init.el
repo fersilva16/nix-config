@@ -228,6 +228,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   (interactive)
   (shell-command "notes-push"))
 
+(run-with-timer 0 (* 30 60) 'notes-push)
+
 (defun my-project-root (&optional dir)
   (let ((projectile-project-root
          (unless dir (bound-and-true-p projectile-project-root)))
@@ -246,8 +248,6 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 (defun find-in-notes ()
   (interactive)
   (my-project-find-file org-directory))
-
-(run-with-timer 0 (* 5 60) 'notes-push)
 
 (general-create-definer leader-def
   :prefix "SPC")
