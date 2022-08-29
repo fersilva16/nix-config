@@ -108,8 +108,6 @@
 (use-package emacsql)
 (use-package emacsql-sqlite)
 
-(setq org-modules '(org-habit))
-
 (defmacro letf! (bindings &rest body)
   "Temporarily rebind function, macros, and advice in BODY.
 Intended as syntax sugar for `cl-letf', `cl-labels', `cl-macrolet', and
@@ -195,6 +193,8 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   org-roam-ui-follow t
   org-roam-ui-update-on-save t
   org-roam-ui-open-on-start nil))
+
+(add-to-list 'org-modules 'org-habit)
 
 (use-package org-drill
   :config
