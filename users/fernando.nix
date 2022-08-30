@@ -45,6 +45,7 @@
     imports = [
       ./common/alacritty.nix
       ./common/android.nix
+      ./common/ani-cli.nix
       ./common/autorandr.nix
       ./common/bat.nix
       ./common/bitwarden.nix
