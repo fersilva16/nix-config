@@ -18,11 +18,13 @@
   },
 
   "[typescript]": {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.inlayHints.enabled": "on"
   },
 
   "[typescriptreact]": {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.inlayHints.enabled": "on"
   },
 
   "auto-close-tag.disableOnLanguage": ["typescript"],
@@ -229,5 +231,7 @@
   "workbench.statusBar.visible": true,
   "workbench.view.alwaysShowHeaderActions": true,
 
-  "editor.experimental.stickyScroll.enabled": true
+  "editor.experimental.stickyScroll.enabled": true,
+
+  "vscodeGoogleTranslate.preferredLanguage": "Portuguese"
 }

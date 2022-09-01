@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5683";
-    sha256 = "0m6idwbynfvqilvhnkdyiyi207vq50m6cbfi7pfwqb0b5c64771x";
+    version = "1.0.5705";
+    sha256 = "00x2g5yq32p1ay2z477xb20j0yrnfkqylanp68xjj5dbdbnzsfz1";
   }
   {
     name = "doom-one";
@@ -26,14 +26,14 @@
   {
     name = "vscodeintellicode";
     publisher = "visualstudioexptteam";
-    version = "1.2.22";
-    sha256 = "1svgrdx5p0j81k9lyn8y77rsg9c1l2i7ywwml9wrr54cbl0ynl1a";
+    version = "1.2.24";
+    sha256 = "17n30vwgdp6gcv2ycakh95ywfdxi5ip86lw915vslwjg274s9cay";
   }
   {
     name = "vscode-wakatime";
     publisher = "wakatime";
-    version = "19.0.0";
-    sha256 = "1ikrzw3dpk4c9r8k0fxc6gadc05g64hsjnk9ciiink8f200vjklx";
+    version = "19.0.1";
+    sha256 = "0fvdzv23wvrgwwh0m653mjivg40yd88wrh1vgcalffwdpv6qd5i9";
   }
   {
     name = "npm-intellisense";
@@ -50,14 +50,14 @@
   {
     name = "gitlens";
     publisher = "eamodio";
-    version = "12.1.2";
-    sha256 = "0wpmfrfpi6wl9v3dknx2qr2m74azpcw8bvhac21v67w6jxnl3jd9";
+    version = "2022.8.3105";
+    sha256 = "11axaxi06j0hb9xv35azqy4fys15pllg67gk3sqsc3s66q4qzk6w";
   }
   {
     name = "prettier-vscode";
     publisher = "esbenp";
-    version = "9.5.0";
-    sha256 = "0h5g746ij36h22v1y2883bqaphds7h1ck8mg8bywn9r723mxdy1g";
+    version = "9.8.0";
+    sha256 = "1rkjzmcvmjzd7l6bi05ymr1sibps3c6lzxhbmjp0zpzv02wl9jgv";
   }
   {
     name = "nix-ide";
@@ -86,8 +86,8 @@
   {
     name = "vscode-icons";
     publisher = "vscode-icons-team";
-    version = "11.15.0";
-    sha256 = "1kk7ggiw576fvlkmyfngfsmx7qqbhg98vyqr4ha2z1fbq08rvjif";
+    version = "11.16.0";
+    sha256 = "0fgpr356nbq8c2m8xqbhqnlgwrysc8cq78kngkmhv988hgm4kccv";
   }
   {
     name = "direnv";
@@ -116,8 +116,8 @@
   {
     name = "lean4";
     publisher = "leanprover";
-    version = "0.0.92";
-    sha256 = "068wbi4a7fi7yv7mkp4knsgw1w800kjjhnfxwhzzb8dnz2142lr0";
+    version = "0.0.95";
+    sha256 = "09d3sk6kp8v37fzary9q31wv24mabv9n20p2pg4cl2bb8is67ck6";
   }
   {
     name = "language-haskell";
@@ -148,5 +148,11 @@
     publisher = "funkyremi";
     version = "1.4.13";
     sha256 = "1klwvkwkwirbylm749rfdk14zagz0k9qn1ldrlvy3mc31abklnpm";
+  }
+  {
+    name = "vscode-twoslash-queries";
+    publisher = "orta";
+    version = "1.0.2";
+    sha256 = "03j60nq8r1igia41qry93ma65zd4hwzg4m0f6ff8sap4sq66jm51";
   }
 ]

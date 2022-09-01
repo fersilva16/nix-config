@@ -23,6 +23,7 @@ haskell.haskell
 ocamllabs.ocaml-platform
 maximedenes.vscoq
 funkyremi.vscode-google-translate
+orta.vscode-twoslash-queries
 # github.vscode-pull-request-github
 # vscodevim.vim
 # vspacecode.vspacecode
