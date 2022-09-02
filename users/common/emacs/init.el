@@ -270,27 +270,33 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 (leader-def
  :states 'normal
  :keymaps 'override
- ":" 'execute-extended-command
- "f o" 'find-file
- "f s" 'save-buffer
- "b b" 'switch-to-buffer
- "b k" 'kill-current-buffer
- "w" evil-window-map
- "n a" 'org-agenda
- "n f" 'find-in-notes
- "n p" 'notes-push
- "n s" 'org-save-all-org-buffers
- "n r n" 'org-roam-capture
- "n r f" 'org-roam-node-find
- "n d t" 'org-roam-dailies-goto-today
- "n d y" 'org-roam-dailies-goto-yesterday
- "n d m" 'org-roam-dailies-goto-tomorrow
- "n d d" 'org-roam-dailies-goto-date
- "n d T" 'org-roam-dailies-capture-today
- "n d Y" 'org-roam-dailies-capture-yesterday
- "n d M" 'org-roam-dailies-capture-tomorrow
- "n d D" 'org-roam-dailies-capture-date
- "h" help-map)
+ ":" #'execute-extended-command
+ "b" '(:ignore t :wk "buffers")
+ "b b" #'switch-to-buffer
+ "b k" #'kill-current-buffer
+ "f" '(:ignore t :wk "files")
+ "f o" #'find-file
+ "f s" #'save-buffer
+ "h" '(:keymap help-map :wk "help")
+ "m" '(:ignore t :wk "<localleader>")
+ "n" '(:ignore t :wk "notes")
+ "n a" #'org-agenda
+ "n d" '(:ignore t :wk "dailies")
+ "n d D" #'org-roam-dailies-capture-date
+ "n d d" #'org-roam-dailies-goto-date
+ "n d M" #'org-roam-dailies-capture-tomorrow
+ "n d m" #'org-roam-dailies-goto-tomorrow
+ "n d T" #'org-roam-dailies-capture-today
+ "n d t" #'org-roam-dailies-goto-today
+ "n d Y" #'org-roam-dailies-capture-yesterday
+ "n d y" #'org-roam-dailies-goto-yesterday
+ "n f" #'find-in-notes
+ "n p" #'notes-push
+ "n r" '(:ignore t :wk "roam")
+ "n r f" #'org-roam-node-find
+ "n r n" #'org-roam-capture
+ "n s" #'org-save-all-org-buffers
+ "w" '(:keymap evil-window-map :wk "windows"))
 
 (localleader-def
   :states 'normal
@@ -300,5 +306,6 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
 (localleader-def
   :states 'normal
   :keymaps 'org-mode-map
+  "l" '(:ignore t :wk "links")
   "l c" #'org-cliplink
   "l l" #'org-insert-link)
