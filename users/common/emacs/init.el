@@ -261,6 +261,10 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   (interactive)
   (my-project-find-file org-directory))
 
+(defun open-inbox ()
+  (interactive)
+  (find-file "~/org/inbox.org"))
+
 (general-create-definer leader-def
   :prefix "SPC")
 
@@ -291,6 +295,7 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
  "n d Y" #'org-roam-dailies-capture-yesterday
  "n d y" #'org-roam-dailies-goto-yesterday
  "n f" #'find-in-notes
+ "n i" #'open-inbox
  "n p" #'notes-push
  "n r" '(:ignore t :wk "roam")
  "n r f" #'org-roam-node-find
