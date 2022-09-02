@@ -46,7 +46,18 @@
   :init (which-key-mode))
 
 (use-package evil
-  :config (evil-mode 1))
+  :ensure t
+  :init
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+  :config
+  (evil-mode 1))
+
+(use-package evil-collection
+  :after evil
+  :ensure t
+  :config
+  (evil-collection-init))
 
 (use-package ivy
   :bind (("C-s" . swiper)
