@@ -84,6 +84,7 @@
       ./common/mindustry.nix
       ./common/mongodb.nix
       ./common/mov-cli.nix
+      ./common/mpv.nix
       ./common/neofetch.nix
       ./common/neovim.nix
       ./common/nix.nix
