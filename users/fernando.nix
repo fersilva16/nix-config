@@ -83,6 +83,7 @@
       ./common/libreoffice.nix
       ./common/mindustry.nix
       ./common/mongodb.nix
+      ./common/mov-cli.nix
       ./common/neofetch.nix
       ./common/neovim.nix
       ./common/nix.nix
