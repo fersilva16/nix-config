@@ -4,7 +4,5 @@ pkgs:
 
   responsively = pkgs.callPackage ./responsively.nix { };
 
-  bs4 = pkgs.callPackage ./mov-cli/bs4.nix { };
-
-  mov-cli = pkgs.callPackage ./mov-cli/mov-cli.nix { };
+  mov-cli = pkgs.callPackage ./mov-cli.nix { };
 }
