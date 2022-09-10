@@ -13,6 +13,7 @@ with python310.pkgs; buildPythonPackage {
   doCheck = false;
 
   propagatedBuildInputs = [
+    setuptools
     pandas
     click
     requests
