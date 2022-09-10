@@ -49,6 +49,7 @@
       ./common/autorandr.nix
       ./common/bat.nix
       ./common/bitwarden.nix
+      ./common/bookcut.nix
       ./common/bottom.nix
       ./common/broot.nix
       ./common/bun.nix
