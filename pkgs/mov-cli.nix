@@ -1,4 +1,4 @@
-{ lib, python310, fetchFromGitHub, bs4 }:
+{ lib, python310, fetchFromGitHub }:
 with python310.pkgs; buildPythonPackage {
   pname = "mov-cli";
   version = "0.1.3";
@@ -6,19 +6,18 @@ with python310.pkgs; buildPythonPackage {
   src = fetchFromGitHub {
     owner = "mov-cli";
     repo = "mov-cli";
-    rev = "d0a40a62521c2a08ec784f76dd7fe9e623c5dbf8";
-    sha256 = "sha256-7KK7xNWCOgUulqxvF7GQe8MPIGIH0DSLKByB8C93164=";
+    rev = "4bb8d950910a4ec97fc4759092bf8a1fb79834fa";
+    sha256 = "sha256-Sfvl2MVquWZSKplyhphyG5WvBA3/EzAOqFo6LxRxEnk=";
   };
 
   doCheck = false;
 
   propagatedBuildInputs = [
+    beautifulsoup4
     lxml
-    colorama
-    httpx
-    pypresence
     click
-    bs4
+    httpx
+    colorama
   ];
 
   meta = with lib; {
