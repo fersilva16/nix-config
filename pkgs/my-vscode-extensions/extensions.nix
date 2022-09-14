@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5705";
-    sha256 = "00x2g5yq32p1ay2z477xb20j0yrnfkqylanp68xjj5dbdbnzsfz1";
+    version = "1.0.5719";
+    sha256 = "0r3wm89y48dqrvd64ag6y0kd0smrad0qrdv7c9pfcpy9xs7iaxq9";
   }
   {
     name = "doom-one";
@@ -26,14 +26,14 @@
   {
     name = "vscodeintellicode";
     publisher = "visualstudioexptteam";
-    version = "1.2.24";
-    sha256 = "17n30vwgdp6gcv2ycakh95ywfdxi5ip86lw915vslwjg274s9cay";
+    version = "1.2.25";
+    sha256 = "0lgwvmpbcg1bngry1hh6y2lijn2wmw8ralwm7rh60j57qx19k4rj";
   }
   {
     name = "vscode-wakatime";
     publisher = "wakatime";
-    version = "19.0.1";
-    sha256 = "0fvdzv23wvrgwwh0m653mjivg40yd88wrh1vgcalffwdpv6qd5i9";
+    version = "19.3.0";
+    sha256 = "0m4q0i0dm1xr1f4p6whfq5gv3rg1wd8ymzj8xbkhwil3h44l3lvg";
   }
   {
     name = "npm-intellisense";
@@ -86,8 +86,8 @@
   {
     name = "vscode-icons";
     publisher = "vscode-icons-team";
-    version = "11.16.0";
-    sha256 = "0fgpr356nbq8c2m8xqbhqnlgwrysc8cq78kngkmhv988hgm4kccv";
+    version = "11.17.0";
+    sha256 = "1jd9q29pi6m6fng7653hfj7iy8db2lpcc1ql16lhhq1w0yf3z4ar";
   }
   {
     name = "direnv";
