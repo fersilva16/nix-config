@@ -301,6 +301,7 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
  "n p" #'notes-push
  "n r" '(:ignore t :wk "roam")
  "n r f" #'org-roam-node-find
+ "n r i" #'org-roam-node-insert
  "n r n" #'org-roam-capture
  "n s" #'org-save-all-org-buffers
  "w" '(:keymap evil-window-map :wk "windows"))
