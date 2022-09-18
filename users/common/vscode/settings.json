@@ -231,7 +231,6 @@
   "workbench.statusBar.visible": true,
   "workbench.view.alwaysShowHeaderActions": true,
 
-  "editor.experimental.stickyScroll.enabled": true,
-
-  "vscodeGoogleTranslate.preferredLanguage": "Portuguese"
+  "vscodeGoogleTranslate.preferredLanguage": "Portuguese",
+  "editor.stickyScroll.enabled": true
 }
