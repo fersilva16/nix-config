@@ -87,9 +87,16 @@
   :init
   (savehist-mode))
 
-(use-package undo-tree)
-
-(global-undo-tree-mode)
+(use-package undo-tree
+  :init (global-undo-tree-mode)
+  :config
+  (setq undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo"))
+        undo-tree-visualizer-diff t
+        undo-tree-auto-save-history t
+        undo-tree-enable-undo-in-region t
+        undo-limit 800000
+        undo-strong-limit 12000000
+        undo-outer-limit 128000000))
 
 (use-package emacs
   :init
