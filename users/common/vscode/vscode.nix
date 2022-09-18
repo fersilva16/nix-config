@@ -7,6 +7,7 @@
     extensions = (with pkgs.vscode-extensions; [
       rust-lang.rust-analyzer
       eamodio.gitlens
+      github.vscode-pull-request-github
     ]) ++ pkgs.my-vscode-extensions.allExtensions;
 
     # keybindings = import ./keybindings.nix;
