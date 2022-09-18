@@ -14,8 +14,8 @@
   {
     name = "vsliveshare";
     publisher = "ms-vsliveshare";
-    version = "1.0.5719";
-    sha256 = "0r3wm89y48dqrvd64ag6y0kd0smrad0qrdv7c9pfcpy9xs7iaxq9";
+    version = "1.0.5723";
+    sha256 = "0qd40ym05n95cqb617jxs8j9x67r2h42yz5bbbgni3qv1ryzlfmr";
   }
   {
     name = "doom-one";
@@ -26,8 +26,8 @@
   {
     name = "vscodeintellicode";
     publisher = "visualstudioexptteam";
-    version = "1.2.25";
-    sha256 = "0lgwvmpbcg1bngry1hh6y2lijn2wmw8ralwm7rh60j57qx19k4rj";
+    version = "1.2.27";
+    sha256 = "0j8ysj18c1hqihmghpms905iw7n5q03r5h5yd6qffy35sgznay9j";
   }
   {
     name = "vscode-wakatime";
@@ -46,12 +46,6 @@
     publisher = "dbaeumer";
     version = "2.2.6";
     sha256 = "0m16wi8slyj09r1y5qin9xsw4pyhfk3mj6rs5ghydfnppb45w9np";
-  }
-  {
-    name = "gitlens";
-    publisher = "eamodio";
-    version = "2022.8.3105";
-    sha256 = "11axaxi06j0hb9xv35azqy4fys15pllg67gk3sqsc3s66q4qzk6w";
   }
   {
     name = "prettier-vscode";
