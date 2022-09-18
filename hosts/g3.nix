@@ -37,6 +37,7 @@ in
     ./common/opengl.nix
     ./common/sensors.nix
     ./common/steam.nix
+    ./common/syncthing.nix
     ./common/ssh.nix
     ./common/time.nix
     ./common/utils.nix
