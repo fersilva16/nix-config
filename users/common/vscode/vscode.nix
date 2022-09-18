@@ -4,7 +4,10 @@
     enable = true;
     package = pkgs.vscode;
 
-    extensions = pkgs.my-vscode-extensions.allExtensions ++ (with pkgs.vscode-extensions; [ rust-lang.rust-analyzer ]);
+    extensions = (with pkgs.vscode-extensions; [
+      rust-lang.rust-analyzer
+      eamodio.gitlens
+    ]) ++ pkgs.my-vscode-extensions.allExtensions;
 
     # keybindings = import ./keybindings.nix;
     # userSettings = import ./settings.nix;
