@@ -101,6 +101,7 @@
       ./common/rust.nix
       ./common/slack.nix
       ./common/starship.nix
+      ./common/syncthing.nix
       ./common/vlc.nix
       ./common/vscode/vscode.nix
       ./common/wakatime.nix
