@@ -149,4 +149,10 @@
     version = "1.0.2";
     sha256 = "03j60nq8r1igia41qry93ma65zd4hwzg4m0f6ff8sap4sq66jm51";
   }
+  {
+    name = "lisp";
+    publisher = "mattn";
+    version = "0.1.12";
+    sha256 = "0k10d77ffl6ybmk7mrpmlsawzwppp87aix2a2i24jq7lqnnqb9n7";
+  }
 ]
