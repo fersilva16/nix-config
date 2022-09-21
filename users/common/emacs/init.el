@@ -249,7 +249,7 @@ NAME, ARGLIST, and BODY are the same as `defun', `defun*', `defmacro', and
   (interactive)
   (shell-command "notes-push"))
 
-(run-with-timer 0 (* 30 60) 'notes-push)
+(run-with-timer (* 30 60) (* 30 60) 'notes-push)
 
 (defun my-project-root (&optional dir)
   (let ((projectile-project-root
