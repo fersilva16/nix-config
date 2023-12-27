@@ -49,7 +49,6 @@
       ./common/autorandr.nix
       ./common/bat.nix
       ./common/bitwarden.nix
-      ./common/bookcut.nix
       ./common/bottom.nix
       ./common/broot.nix
       ./common/bun.nix
@@ -84,7 +83,6 @@
       ./common/libreoffice.nix
       ./common/mindustry.nix
       ./common/mongodb.nix
-      ./common/mov-cli.nix
       ./common/mpv.nix
       ./common/neofetch.nix
       ./common/neovim.nix
@@ -95,7 +93,6 @@
       ./common/postman.nix
       ./common/qt.nix
       # ./common/qutebrowser.nix
-      ./common/responsively.nix
       ./common/ripgrep.nix
       ./common/rofi.nix
       ./common/rust.nix
