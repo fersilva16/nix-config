@@ -1,6 +1,6 @@
 _:
 {
-  programs.exa = {
+  programs.eza = {
     enable = true;
   };
 }
