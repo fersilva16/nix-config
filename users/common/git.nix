@@ -13,7 +13,7 @@
 
     extraConfig = {
       user = {
-        signingkey = "F55076D20369DDE1";
+        signingkey = "A18F5120B7AC3113";
       };
 
       commit = {
@@ -35,8 +35,8 @@
     gh
   ];
 
-  # programs.gh = {
-  #   enable = true;
-  #   settings.git_protocol = "ssh";
-  # };
+  programs.gh = {
+    enable = true;
+    settings.git_protocol = "ssh";
+  };
 }

@@ -62,7 +62,7 @@
       ./common/discord.nix
       ./common/dunst.nix
       ./common/emacs/emacs.nix
-      ./common/exa.nix
+      ./common/eza.nix
       # ./common/fcitx/fcitx.nix
       ./common/fd.nix
       ./common/feh.nix

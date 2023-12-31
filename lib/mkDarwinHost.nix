@@ -1,6 +1,6 @@
 { inputs, overlays }:
 let
-  inherit (inputs) nixpkgs home-manager darwin;
+  inherit (inputs) nixpkgs home-manager darwin nix-homebrew;
 in
 { hostname, system, users }:
 darwin.lib.darwinSystem {
@@ -12,6 +12,7 @@ darwin.lib.darwinSystem {
 
   modules = [
     home-manager.darwinModules.home-manager
+    nix-homebrew.darwinModules.nix-homebrew
 
     (../hosts + "/${hostname}.nix")
     {

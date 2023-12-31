@@ -4,12 +4,21 @@ _:
     enable = true;
 
     interactiveShellInit = ''
+      ssh-add --apple-load-keychain 2> /dev/null
+    
       set fish_cursor_default block
       set fish_cursor_insert line
       set -U fish_greeting
 
       set -gx GPG_TTY (tty)
+
+      fish_add_path -amP /usr/bin
+      fish_add_path -amP /opt/homebrew/bin
+      fish_add_path -amP /opt/local/bin
+      fish_add_path -m /run/current-system/sw/bin
+      fish_add_path -m /Users/fernando/.nix-profile/bin
     '';
+
 
     shellAliases = {
       g = "git";
@@ -20,29 +29,19 @@ _:
       gco = "git checkout";
       gp = "git push";
       ds = "nix develop . --command $SHELL";
+
+      ls = "eza -lag";
+      cat = "bat";
+
+      ghpc = "gh pr create --fill && gh pr view --web";
+      ghpm = "gh pr merge -sd --admin";
+      ghpcm = "ghpc && ghpm";
     };
 
     functions = {
-      ls = "exa -lag $argv";
-      cat = "bat $argv";
-
-      e = "emacs &";
       pj = "cd $argv; ds";
 
       fish_command_not_found = "__fish_default_command_not_found_handler $argv";
-      fish_user_key_bindings = "fish_vi_key_bindings";
-
-      notes-push = ''
-        set prevdir (pwd)
-
-        cd "$HOME/org"
-
-        git add .
-        git commit -m "$(date -u +"%Y-%m-%d %H:%M:%S")"
-        git push
-
-        cd $prevdir
-      '';
     };
   };
 }
