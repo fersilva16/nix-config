@@ -53,6 +53,7 @@
       ./common/bat.nix
       ./common/starship.nix
       ./common/default-shell.nix
+      ./common/paisa.nix
     ];
 
     home.file.".gnupg/gpg-agent.conf" = {
