@@ -12,8 +12,12 @@
     };
 
     extraConfig = {
+      gpg = {
+        program = "/opt/homebrew/bin/gpg";
+      };
+        
       user = {
-        signingkey = "A18F5120B7AC3113";
+        signingkey = "05623174D690C511";
       };
 
       commit = {
