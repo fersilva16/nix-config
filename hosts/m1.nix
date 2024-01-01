@@ -4,7 +4,13 @@
     ./common/caskaydia-cove.nix
   ];
 
-  
+  environment.etc = {
+    "pam.d/sudo_local" = {
+      text = ''
+        auth       sufficient     pam_tid.so
+      '';
+    };
+  };
 
   nix = {
     package = pkgs.nixUnstable;
