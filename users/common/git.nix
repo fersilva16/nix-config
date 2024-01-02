@@ -15,7 +15,7 @@
       gpg = {
         program = "/opt/homebrew/bin/gpg";
       };
-        
+
       user = {
         signingkey = "05623174D690C511";
       };

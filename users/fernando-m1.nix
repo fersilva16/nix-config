@@ -13,7 +13,7 @@
     dock = {
       # Disable hot corner quick note
       wvous-br-corner = 1;
-      
+
       # Disable rearrange of desktops
       mru-spaces = false;
 
@@ -54,6 +54,7 @@
       ./common/starship.nix
       ./common/default-shell.nix
       ./common/paisa.nix
+      ./common/direnv.nix
     ];
 
     home.file.".gnupg/gpg-agent.conf" = {

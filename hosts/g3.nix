@@ -47,26 +47,27 @@ in
     (modulesPath + "/installer/scan/not-detected.nix")
   ];
 
-  boot.kernelModules = [ "kvm-intel" ];
-  boot.kernelParams = [ "resume=/var/swapfile" "resume_offset=16400" ];
+  boot = {
+    kernelModules = [ "kvm-intel" ];
+    kernelParams = [ "resume=/var/swapfile" "resume_offset=16400" ];
+    initrd = {
+      availableKernelModules = [
+        "xhci_pci"
+        "ahci"
+        "nvme"
+        "usb_storage"
+        "usbhid"
+        "sd_mod"
+      ];
 
-  boot.initrd = {
-    availableKernelModules = [
-      "xhci_pci"
-      "ahci"
-      "nvme"
-      "usb_storage"
-      "usbhid"
-      "sd_mod"
-    ];
+      kernelModules = [ ];
+      supportedFilesystems = [ "btrfs" ];
 
-    kernelModules = [ ];
-    supportedFilesystems = [ "btrfs" ];
-
-    luks.devices."lvm" = {
-      device = "/dev/nvme0n1p6";
-      preLVM = true;
-      allowDiscards = true;
+      luks.devices."lvm" = {
+        device = "/dev/nvme0n1p6";
+        preLVM = true;
+        allowDiscards = true;
+      };
     };
   };
 
