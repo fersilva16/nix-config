@@ -38,6 +38,7 @@ in
       "visual-studio-code"
       "raycast"
       "cloudflare-warp"
+      "calibre"
     ];
   };
 }
