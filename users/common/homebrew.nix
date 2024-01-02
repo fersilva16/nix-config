@@ -37,6 +37,7 @@ in
       "studio-3t"
       "visual-studio-code"
       "raycast"
+      "cloudflare-warp"
     ];
   };
 }
