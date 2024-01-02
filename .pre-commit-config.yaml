@@ -7,12 +7,6 @@ repos:
         language: system
         entry: prettier --write
 
-      - name: hlint
-        id: hlint
-        files: '(\.hs|xmobarrc)$'
-        language: system
-        entry: hlint
-
       - name: shellcheck
         id: shellcheck
         files: '\.sh$'
@@ -31,8 +25,8 @@ repos:
         language: system
         entry: statix check .
 
-      - name: nix-linter
-        id: nix-linter
-        files: '\.nix$'
-        language: system
-        entry: nix-linter
+      # - name: nix-linter
+      #   id: nix-linter
+      #   files: '\.nix$'
+      #   language: system
+      #   entry: nix-linter

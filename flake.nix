@@ -86,16 +86,6 @@
     } // utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system overlays; };
-
-        ghcWithPackages = pkgs.ghc.withPackages (haskellPackages:
-          with haskellPackages; [
-            xmonad
-            xmonad-extras
-            xmonad-contrib
-
-            hlint
-            haskell-language-server
-          ]);
       in
       {
         packages = pkgs;
@@ -104,7 +94,6 @@
           buildInputs = with pkgs; [
             rnix-lsp
             statix
-            nix-linter
             nixpkgs-fmt
 
             shellcheck
@@ -112,8 +101,6 @@
             nodePackages.prettier
 
             pre-commit
-
-            ghcWithPackages
           ];
 
           shellHook = ''
