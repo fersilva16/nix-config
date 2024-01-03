@@ -25,6 +25,8 @@ in
     brews = [
       "gpg"
       "pinentry-mac"
+      "mongosh"
+      "kubectl"
     ];
 
     casks = [
@@ -39,6 +41,7 @@ in
       "raycast"
       "cloudflare-warp"
       "calibre"
+      "orbstack"
     ];
   };
 }
