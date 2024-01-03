@@ -55,6 +55,7 @@
       ./common/default-shell.nix
       ./common/paisa.nix
       ./common/direnv.nix
+      ./common/ripgrep.nix
     ];
 
     home.file.".gnupg/gpg-agent.conf" = {
