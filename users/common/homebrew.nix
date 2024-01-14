@@ -21,12 +21,14 @@ in
 
   homebrew = {
     enable = true;
+    onActivation.cleanup = "zap";
 
     brews = [
       "gpg"
       "pinentry-mac"
       "mongosh"
       "kubectl"
+      "circleci"
     ];
 
     casks = [
@@ -42,6 +44,7 @@ in
       "cloudflare-warp"
       "calibre"
       "orbstack"
+      "whisky"
     ];
   };
 }
