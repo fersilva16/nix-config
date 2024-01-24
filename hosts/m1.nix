@@ -2,6 +2,7 @@
 {
   imports = [
     ./common/caskaydia-cove.nix
+    ./common/pkg-config.nix
   ];
 
   environment.etc = {
