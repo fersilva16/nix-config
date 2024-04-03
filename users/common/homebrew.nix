@@ -26,12 +26,10 @@ in
     brews = [
       "gpg"
       "pinentry-mac"
-      "mongosh"
-      "kubectl"
-      "circleci"
     ];
 
     casks = [
+      "microsoft-excel"
       "google-chrome"
       "discord"
       "slack"
@@ -45,6 +43,10 @@ in
       "calibre"
       "orbstack"
       "whisky"
+      "postman"
+      "selfcontrol"
+      "zoom"
+      "zed"
     ];
   };
 }
