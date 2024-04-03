@@ -56,6 +56,14 @@
       ./common/paisa.nix
       ./common/direnv.nix
       ./common/ripgrep.nix
+      ./common/circleci.nix
+      ./common/cloud-nuke.nix
+      ./common/kubectl.nix
+      ./common/mongosh.nix
+      ./common/ledger.nix
+      ./common/flyctl.nix
+      ./common/stern.nix
+      ./common/awscli.nix
     ];
 
     home.file.".gnupg/gpg-agent.conf" = {
