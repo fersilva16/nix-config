@@ -4,13 +4,6 @@
     enable = true;
     package = pkgs.gitAndTools.gitFull;
 
-    aliases = {
-      b = "branch";
-      co = "checkout";
-      cm = "commit -m";
-      p = "push";
-    };
-
     extraConfig = {
       gpg = {
         program = "/opt/homebrew/bin/gpg";
@@ -29,6 +22,8 @@
       pull.rebase = false;
 
       push.autoSetupRemote = true;
+
+      core.ignorecase = false;
     };
 
     userEmail = "fernandonsilva16@gmail.com";
