@@ -47,6 +47,7 @@ in
       "selfcontrol"
       "zoom"
       "zed"
+      "iina"
     ];
   };
 }
