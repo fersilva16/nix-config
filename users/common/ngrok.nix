@@ -1,0 +1,8 @@
+_:
+{
+  homebrew = {
+    casks = [
+      "ngrok"
+    ];
+  };
+}
