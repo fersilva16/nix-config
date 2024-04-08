@@ -2,6 +2,7 @@
 {
   imports = [
     ./common/homebrew.nix
+    ./common/ngrok.nix
   ];
 
   system.defaults = {
