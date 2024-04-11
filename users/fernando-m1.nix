@@ -65,6 +65,7 @@
       ./common/flyctl.nix
       ./common/stern.nix
       ./common/awscli.nix
+      ./common/wireguard.nix
     ];
 
     home.file.".gnupg/gpg-agent.conf" = {
