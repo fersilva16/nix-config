@@ -2,6 +2,7 @@
 {
   imports = [
     ./common/homebrew.nix
+    ./common/amie.nix
     ./common/ngrok.nix
   ];
 
