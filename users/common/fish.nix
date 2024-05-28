@@ -42,6 +42,14 @@ _:
       pj = "cd $argv; ds";
 
       fish_command_not_found = "__fish_default_command_not_found_handler $argv";
+
+      envsource = "
+        for line in (cat $argv | grep -v '^#' | grep -v '^\\s*$')
+          set item (string split -m 1 '=' $line)
+          set -gx $item[1] $item[2]
+          echo \"Exported key $item[1]\"
+        end
+      ";
     };
   };
 }
