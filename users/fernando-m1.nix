@@ -52,6 +52,7 @@
       ./common/git.nix
       ./common/neovim.nix
       ./common/fish.nix
+      ./common/bitwarden.nix
       ./common/eza.nix
       ./common/bat.nix
       ./common/starship.nix

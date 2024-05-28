@@ -33,7 +33,6 @@ in
       "google-chrome"
       "discord"
       "obsidian"
-      "bitwarden"
       "whatsapp"
       "studio-3t"
       "visual-studio-code"
@@ -46,6 +45,7 @@ in
       "zoom"
       "zed"
       "iina"
+      "warp"
     ];
   };
 }
