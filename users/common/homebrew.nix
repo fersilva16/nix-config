@@ -46,6 +46,7 @@ in
       "zed"
       "iina"
       "warp"
+      "dbeaver-community"
     ];
   };
 }
