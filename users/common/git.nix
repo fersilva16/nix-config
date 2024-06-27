@@ -2,6 +2,8 @@
 {
   programs.git = {
     enable = true;
+    lfs.enable = true;
+
     package = pkgs.gitAndTools.gitFull;
 
     extraConfig = {
