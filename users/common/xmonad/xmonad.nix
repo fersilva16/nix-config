@@ -1,8 +1,5 @@
 { pkgs, config, ... }:
 let
-  replaceColors = import ../../../lib/replaceColors.nix { inherit config; };
-  replaceWallpaper = import ../../../lib/replaceWallpaper.nix { inherit config; };
-
   extraConfig = builtins.readFile ./config.hs;
 in
 {
@@ -21,7 +18,7 @@ in
       enable = true;
       enableContribAndExtras = true;
 
-      config = pkgs.writeText "xmonad.hs" (replaceWallpaper (replaceColors extraConfig));
+      config = pkgs.writeText "xmonad.hs" extraConfig;
     };
   };
 

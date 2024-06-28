@@ -85,9 +85,9 @@ myNormColor = "%bg%"
 myFocusColor :: String
 myFocusColor = "%cyan%"
 
-myStartupHook :: X ()
-myStartupHook = do
-  spawnOnce "xwallpaper --zoom %wallpaper%"
+-- myStartupHook :: X ()
+-- myStartupHook = do
+--   spawnOnce "xwallpaper --zoom %wallpaper%"
 
 myColorizer :: Window -> Bool -> X (String, String)
 myColorizer =
