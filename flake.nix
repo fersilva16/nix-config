@@ -107,8 +107,6 @@
             pre-commit install
           '';
         };
-
-        devShells = import ./devShells/devShells.nix { inherit pkgs; };
       }
     );
 }
