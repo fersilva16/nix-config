@@ -55,7 +55,6 @@
       ./common/calibre.nix
       ./common/chromium.nix
       ./common/circleci.nix
-      ./common/colors.nix
       ./common/dbeaver.nix
       ./common/dconf.nix
       ./common/direnv.nix
@@ -101,7 +100,6 @@
       ./common/vlc.nix
       ./common/vscode/vscode.nix
       ./common/wakatime.nix
-      ./common/wallpaper/wallpaper.nix
       ./common/webstorm.nix
       ./common/xdg.nix
       ./common/xmobar/xmobar.nix

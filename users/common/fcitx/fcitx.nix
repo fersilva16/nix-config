@@ -1,7 +1,4 @@
 { pkgs, config, ... }:
-let
-  replaceColors = import ../../../lib/replaceColors.nix { inherit config; };
-in
 {
   i18n.inputMethod = {
     enabled = "fcitx5";
@@ -22,6 +19,6 @@ in
   };
 
   home.file.".local/share/fcitx5/themes/theme/theme.conf" = {
-    text = replaceColors (builtins.readFile "/dotfiles/users/common/fcitx/theme.conf");
+    text = builtins.readFile "/dotfiles/users/common/fcitx/theme.conf";
   };
 }

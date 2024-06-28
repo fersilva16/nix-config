@@ -1,7 +1,6 @@
 { pkgs, config, ... }:
 let
   inherit (config.lib.formats.rasi) mkLiteral;
-  inherit (config) colors;
 in
 {
   programs.rofi = {
@@ -20,35 +19,6 @@ in
     terminal = "kitty";
 
     theme = {
-      "*" = {
-        selected-active-foreground = mkLiteral colors.bg;
-        lightfg = mkLiteral colors.fg;
-        separator-color = mkLiteral colors.fgAlt;
-        urgent-foreground = mkLiteral colors.red;
-        alternate-urgent-background = mkLiteral colors.blue;
-        lightbg = mkLiteral colors.bg;
-        background-color = mkLiteral colors.bgAlt;
-        border-color = mkLiteral colors.cyan;
-        normal-background = mkLiteral colors.bgAlt;
-        selected-urgent-background = mkLiteral colors.orange;
-        alternate-active-background = mkLiteral colors.magenta;
-        # spacing = mkLiteral colors.;
-        alternate-normal-foreground = mkLiteral colors.fgAlt;
-        urgent-background = mkLiteral colors.bg;
-        selected-normal-foreground = mkLiteral colors.fg;
-        active-foreground = mkLiteral colors.fg;
-        background = mkLiteral colors.bgAlt;
-        selected-active-background = mkLiteral colors.bg;
-        active-background = mkLiteral colors.bg;
-        selected-normal-background = mkLiteral colors.bg;
-        alternate-normal-background = mkLiteral colors.bg;
-        foreground = mkLiteral colors.fg;
-        selected-urgent-foreground = mkLiteral colors.orange;
-        normal-foreground = mkLiteral colors.fg;
-        alternate-urgent-foreground = mkLiteral colors.magenta;
-        alternate-active-foreground = mkLiteral colors.magenta;
-      };
-
       element = {
         padding = mkLiteral "1px";
         cursor = mkLiteral "pointer";
