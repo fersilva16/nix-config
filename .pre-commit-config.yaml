@@ -24,9 +24,3 @@ repos:
         pass_filenames: false
         language: system
         entry: statix check .
-
-      # - name: nix-linter
-      #   id: nix-linter
-      #   files: '\.nix$'
-      #   language: system
-      #   entry: nix-linter
