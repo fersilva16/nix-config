@@ -1,23 +1,22 @@
 { inputs, overlays }:
 let
+  system = "aarch64-darwin";
   inherit (inputs) nixpkgs home-manager darwin nix-homebrew;
 in
-{ hostname, system, users }:
+host:
 darwin.lib.darwinSystem {
   inherit system;
 
   specialArgs = {
-    inherit inputs system hostname;
+    inherit inputs system;
   };
 
   modules = [
     home-manager.darwinModules.home-manager
     nix-homebrew.darwinModules.nix-homebrew
 
-    (../hosts + "/${hostname}.nix")
+    host
     {
-      networking.hostName = hostname;
-
       nixpkgs = {
         inherit overlays;
         config.allowUnfree = true;
@@ -27,5 +26,5 @@ darwin.lib.darwinSystem {
         useGlobalPkgs = true;
       };
     }
-  ] ++ nixpkgs.lib.forEach users (user: ../users + "/${user}.nix");
+  ];
 }

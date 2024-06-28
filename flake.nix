@@ -44,8 +44,6 @@
 
       overlays = with inputs; [
         overlay
-        # nur.overlay
-        # emacs-overlay.overlay
       ];
 
       mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs overlays; };
@@ -54,11 +52,7 @@
       inherit overlay overlays;
 
       darwinConfigurations = {
-        m1 = mkDarwinHost {
-          hostname = "m1";
-          system = "aarch64-darwin";
-          users = [ "fernando-m1" ];
-        };
+        m1 = mkDarwinHost ./modules/hosts/m1.nix;
       };
     } // utils.lib.eachDefaultSystem (system:
       let
