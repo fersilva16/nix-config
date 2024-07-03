@@ -39,5 +39,6 @@ in
     ../common/calibre.nix
     ../common/orbstack.nix
     ../darwin/pinentry-mac.nix
+    ../common/slack.nix
   ];
 }

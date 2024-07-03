@@ -75,7 +75,7 @@
           ];
 
           shellHook = ''
-            pre-commit install
+            pre-commit install -f
           '';
         };
       }
