@@ -1,236 +1,29 @@
 {
-  "[haskell]": {
-    "editor.defaultFormatter": "haskell.haskell"
-  },
+  "$schema": "vscode://schemas/settings/user",
 
-  "[md]": {
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 80
-  },
-
-  "[mdx]": {
-    "editor.wordWrap": "wordWrapColumn",
-    "editor.wordWrapColumn": 80
-  },
-
-  "[rust]": {
-    "editor.defaultFormatter": "rust-lang.rust-analyzer"
-  },
-
-  "[typescript]": {
-    "editor.formatOnSave": true,
-    "editor.inlayHints.enabled": "on"
-  },
-
-  "[typescriptreact]": {
-    "editor.formatOnSave": true,
-    "editor.inlayHints.enabled": "on"
-  },
-
-  "auto-close-tag.disableOnLanguage": ["typescript"],
-
-  "breadcrumbs.enabled": false,
-
-  "diffEditor.ignoreTrimWhitespace": false,
-
-  "editor.autoClosingBrackets": "never",
-  "editor.autoClosingQuotes": "never",
-  "editor.bracketPairColorization.enabled": true,
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": true,
-    "source.fixAll": true
-  },
-  "editor.colorDecorators": true,
-  "editor.cursorBlinking": "solid",
-  "editor.cursorStyle": "line",
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.fontFamily": "FiraCode Nerd Font",
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.cursorWidth": 2,
+  "editor.fontFamily": "CaskaydiaCove Nerd Font",
   "editor.fontLigatures": true,
-  "editor.fontSize": 16,
-  "editor.fontWeight": "500",
-  "editor.formatOnSave": true,
-  "editor.inlayHints.enabled": "off",
-  "editor.inlineSuggest.enabled": true,
-  "editor.linkedEditing": true,
-  "editor.minimap.enabled": false,
-  "editor.renderLineHighlight": "all",
-  "editor.rulers": [80],
-  "editor.scrollbar.horizontal": "hidden",
-  "editor.scrollbar.horizontalScrollbarSize": 8,
-  "editor.scrollbar.vertical": "hidden",
-  "editor.scrollbar.verticalScrollbarSize": 0,
-  "editor.selectionClipboard": false,
-  "editor.snippetSuggestions": "bottom",
+  "editor.fontSize": 14,
+  "editor.smoothScrolling": true,
+  "editor.stickyScroll.enabled": true,
   "editor.tabSize": 2,
-  "editor.tokenColorCustomizations": {
-    "textMateRules": [
-      {
-        "name": "JSON Keys",
-        "scope": "source.json meta.structure.dictionary.json support.type.property-name.json",
-        "settings": {
-          "foreground": "#51afef"
-        }
-      },
-      {
-        "scope": "comment",
-        "settings": {
-          "foreground": "#5B6268"
-        }
-      },
-      {
-        "scope": "string",
-        "settings": {
-          "foreground": "#98be65"
-        }
-      },
-      {
-        "scope": "keyword.control",
-        "settings": {
-          "foreground": "#51afef"
-        }
-      },
-      {
-        "scope": "variable",
-        "settings": {
-          "foreground": "#bbc2cf"
-        }
-      },
-      {
-        "scope": "constant",
-        "settings": {
-          "foreground": "#bbc2cf"
-        }
-      },
-      {
-        "scope": "entity.name.function",
-        "settings": {
-          "foreground": "#c678dd"
-        }
-      }
-    ]
-  },
-
-  "emmet.excludeLanguages": ["typescript", "markdown"],
-  "emmet.showSuggestionsAsSnippets": true,
 
   "explorer.compactFolders": false,
-  "explorer.openEditors.visible": 0,
-
-  "html.autoClosingTags": true,
-
-  "javascript.autoClosingTags": true,
-  "javascript.updateImportsOnFileMove.enabled": "always",
-
-  "nix.enableLanguageServer": true,
-
-  "prettier.singleQuote": true,
 
   "scm.defaultViewMode": "tree",
 
+  "search.defaultViewMode": "tree",
+
+  "terminal.integrated.cursorBlinking": true,
   "terminal.integrated.cursorStyle": "line",
+  "terminal.integrated.cursorStyleInactive": "none",
   "terminal.integrated.cursorWidth": 2,
-  "terminal.integrated.defaultProfile.linux": "fish",
-  "terminal.integrated.drawBoldTextInBrightColors": false,
-  "terminal.integrated.enableMultiLinePasteWarning": false,
-  "terminal.integrated.fontFamily": "FiraCode Nerd Font",
-  "terminal.integrated.fontSize": 16,
-  "terminal.integrated.fontWeight": "500",
-
-  "typescript.autoClosingTags": true,
-  "typescript.preferences.importModuleSpecifier": "project-relative",
-  "typescript.preferences.quoteStyle": "single",
-  "typescript.updateImportsOnFileMove.enabled": "always",
-
-  "window.menuBarVisibility": "hidden",
-
-  "workbench.activityBar.visible": true,
-  "workbench.colorCustomizations": {
-    "activityBar.background": "#21242b",
-    "activityBar.border": "#3f444a",
-    "activityBarBadge.background": "#3f444a",
-
-    "badge.background": "#21242b",
-
-    "editor.background": "#282c34",
-    "editor.findMatchHighlightBackground": "#46d9ff50",
-    "editor.findMatchHighlightBorder": "#46d9ff50",
-    "editor.lineHighlightBackground": "#21242b",
-
-    "editorGroupHeader.border": "#3f444a",
-    "editorGroupHeader.noTabsBackground": "#21242b",
-    "editorGroupHeader.tabsBackground": "#21242b",
-
-    "editorSuggestWidget.background": "#21242b",
-
-    "editorBracketHighlight.foreground1": "#51afef",
-    "editorBracketHighlight.foreground2": "#c678dd",
-    "editorBracketHighlight.foreground3": "#98be65",
-    "editorBracketHighlight.foreground4": "#ecbe7b",
-    "editorBracketHighlight.foreground5": "#a9a1e1",
-    "editorBracketHighlight.foreground6": "#da8548",
-
-    "editorWidget.background": "#21242b",
-    "editorWidget.border": "#3f444a",
-    "editorWidget.foreground": "#bbc2cf",
-    "editorWidget.resizeBorder": "#0000",
-
-    "focusBorder": "#0000",
-
-    "gitDecoration.modifiedResourceForeground": "#ecbe7b",
-    "gitDecoration.untrackedResourceForeground": "#98be65",
-    "gitDecoration.renamedResourceForeground": "#98be65",
-
-    "input.background": "#282c34",
-    "input.foreground": "#bbc2cf",
-
-    "inputOption.activeBackground": "#5699af",
-
-    "inputValidation.errorBackground": "#ff6c6b50",
-    "inputValidation.errorBorder": "#0000",
-
-    "panel.background": "#282c34",
-
-    "panelTitle.activeBorder": "#5699af",
-    "panelTitle.inactiveForeground": "#5b6268",
-
-    "quickInput.background": "#21242b",
-
-    "scrollbar.shadow": "#0000",
-
-    "sideBar.background": "#21242b",
-    "sideBar.border": "#3f444a",
-
-    "statusBar.background": "#21242b",
-    "statusBar.border": "#3f444a",
-
-    "tab.activeBackground": "#282c34",
-    "tab.activeBorderTop": "#0000",
-    "tab.inactiveBackground": "#21242b",
-
-    "terminal.ansiBlack": "#3f444a",
-    "terminal.ansiBlue": "#51afef",
-    "terminal.ansiCyan": "#46d9ff",
-    "terminal.ansiGreen": "#98be65",
-    "terminal.ansiMagenta": "#c678dd",
-    "terminal.ansiRed": "#ff6c6b",
-    "terminal.ansiWhite": "#bbc2cf",
-    "terminal.ansiYellow": "#ecbe7b",
-    "terminal.background": "#282c34",
-
-    "editorRuler.foreground": "#3f444a",
-
-    "widget.shadow": "#0000"
-  },
-
-  "workbench.colorTheme": "doom-one",
-  "workbench.editor.enablePreview": false,
-  "workbench.editor.showTabs": true,
-  "workbench.iconTheme": "vscode-icons",
+  "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font",
+  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.smoothScrolling": true,
+  
+  "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
-  "workbench.startupEditor": "none",
-  "workbench.statusBar.visible": true,
-  "workbench.view.alwaysShowHeaderActions": true,
-
-  "vscodeGoogleTranslate.preferredLanguage": "Portuguese",
-  "editor.stickyScroll.enabled": true
 }
