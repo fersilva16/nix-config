@@ -1,6 +1,6 @@
 { pkgs, ... }:
 {
-  home.packages = with pkgs; [
-    slack
+  homebrew.casks = [
+    "slack"
   ];
 }
