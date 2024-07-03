@@ -1,4 +1,4 @@
-{ username, inputs, ... }:
+{ username, inputs, config, ... }:
 let
   inherit (inputs) homebrew-core homebrew-cask homebrew-bundle;
 in
@@ -21,6 +21,9 @@ in
 
   homebrew = {
     enable = true;
+
     onActivation.cleanup = "zap";
+
+    taps = builtins.attrNames config.nix-homebrew.taps;
   };
 }

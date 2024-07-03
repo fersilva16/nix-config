@@ -1,6 +1,6 @@
 _:
 {
-  homebrew.casks = [
+  homebrew.brews = [
     "gpg"
   ];
 }
