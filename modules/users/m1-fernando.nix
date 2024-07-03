@@ -10,6 +10,7 @@ in
     ../common/arc.nix
     ../common/ngrok.nix
     ../common/home.nix
+    ../common/homebrew.nix
     ../common/git.nix
     ../common/fish.nix
     ../common/bitwarden.nix
@@ -40,5 +41,6 @@ in
     ../common/orbstack.nix
     ../darwin/pinentry-mac.nix
     ../common/slack.nix
+    ../common/vscode/vscode.nix
   ];
 }
