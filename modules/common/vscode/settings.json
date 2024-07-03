@@ -6,11 +6,14 @@
   "editor.fontFamily": "CaskaydiaCove Nerd Font",
   "editor.fontLigatures": true,
   "editor.fontSize": 14,
+  "editor.minimap.enabled": false,
   "editor.smoothScrolling": true,
   "editor.stickyScroll.enabled": true,
   "editor.tabSize": 2,
 
   "explorer.compactFolders": false,
+
+  "git.openRepositoryInParentFolders": "never",
 
   "scm.defaultViewMode": "tree",
 
@@ -26,4 +29,10 @@
   
   "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
+  "workbench.startupEditor": "none",
+
+  "[nix]": {
+    "nix.enableLanguageServer": true,
+    "nix.serverPath": "nil",
+  },
 }

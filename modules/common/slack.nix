@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+_:
 {
   homebrew.casks = [
     "slack"
