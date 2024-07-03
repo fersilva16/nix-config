@@ -42,7 +42,7 @@
     let
       overlay = import ./overlay/overlay.nix;
 
-      overlays = with inputs; [
+      overlays = [
         overlay
       ];
 
@@ -63,7 +63,7 @@
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
-            rnix-lsp
+            nil
             statix
             nixpkgs-fmt
 

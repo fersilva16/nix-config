@@ -13,7 +13,4 @@ in
       force = true;
     };
   };
-
-  # extensions
-  # raillyhugo.one-hunter
 }
