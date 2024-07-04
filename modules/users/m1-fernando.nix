@@ -42,5 +42,6 @@ in
     ../darwin/pinentry-mac.nix
     ../common/slack.nix
     ../common/vscode/vscode.nix
+    ../common/discord.nix
   ];
 }

@@ -31,8 +31,8 @@
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
 
-  "[nix]": {
-    "nix.enableLanguageServer": true,
-    "nix.serverPath": "nil",
-  },
+  "python.terminal.activateEnvironment": false,
+
+  "nix.enableLanguageServer": true,
+  "nix.serverPath": "nil",
 }
