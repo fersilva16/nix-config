@@ -43,5 +43,6 @@ in
     ../common/slack.nix
     ../common/vscode/vscode.nix
     ../common/discord.nix
+    ../security/1password.nix
   ];
 }
