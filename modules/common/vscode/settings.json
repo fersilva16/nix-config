@@ -3,9 +3,11 @@
 
   "editor.cursorSmoothCaretAnimation": "on",
   "editor.cursorWidth": 2,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.fontFamily": "CaskaydiaCove Nerd Font",
   "editor.fontLigatures": true,
   "editor.fontSize": 14,
+  "editor.formatOnSave": true,
   "editor.minimap.enabled": false,
   "editor.smoothScrolling": true,
   "editor.stickyScroll.enabled": true,
@@ -26,7 +28,7 @@
   "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font",
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.smoothScrolling": true,
-  
+
   "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
@@ -35,4 +37,6 @@
 
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nil",
+
+  "extensions.ignoreRecommendations": true
 }
