@@ -9,5 +9,6 @@ _:
     ../fonts/caskaydia-cove.nix
     ../utils/nix.nix
     ../utils/pkg-config.nix
+    ../cli/wget.nix
   ];
 }
