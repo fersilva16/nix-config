@@ -30,7 +30,6 @@ in
     ../common/obsidian.nix
     ../common/whatsapp.nix
     ../common/raycast.nix
-    ../common/zoom.nix
     ../common/dbeaver.nix
     ../common/selfcontrol.nix
     ../common/studio-3t.nix
@@ -40,9 +39,8 @@ in
     ../common/calibre.nix
     ../common/orbstack.nix
     ../darwin/pinentry-mac.nix
-    ../common/slack.nix
     ../common/vscode/vscode.nix
     ../common/discord.nix
-    ../security/1password.nix
+    ../common/firefox.nix
   ];
 }

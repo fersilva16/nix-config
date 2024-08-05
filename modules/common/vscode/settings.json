@@ -34,6 +34,7 @@
   "workbench.startupEditor": "none",
 
   "python.terminal.activateEnvironment": false,
+  "jupyter.askForKernelRestart": false,
 
   "nix.enableLanguageServer": true,
   "nix.serverPath": "nil",
@@ -41,6 +42,8 @@
   "extensions.ignoreRecommendations": true,
   "javascript.updateImportsOnFileMove.enabled": "always",
   "javascript.preferences.importModuleSpecifier": "project-relative",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.preferences.importModuleSpecifier": "project-relative",
 
   "python.analysis.indexing": true,
   "python.analysis.autoImportCompletions": true,
