@@ -9,6 +9,7 @@
       keyMode = "vi";
       mouse = true;
       baseIndex = 1;
+      historyLimit = 10000;
       extraConfig = ''
         set -ga terminal-overrides ",xterm-256color*:Tc"
 
