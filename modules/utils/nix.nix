@@ -1,7 +1,7 @@
 { pkgs, ... }:
 {
   nix = {
-    package = pkgs.nixVersions.git;
+    package = pkgs.nixVersions.latest;
 
     useDaemon = true;
 

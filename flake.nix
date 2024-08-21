@@ -6,7 +6,10 @@
       url = "github:nixos/nixpkgs/nixpkgs-unstable";
     };
 
-    utils.url = "github:numtide/flake-utils";
+    utils = {
+      url = "github:numtide/flake-utils";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -20,6 +23,7 @@
 
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     homebrew-core = {
