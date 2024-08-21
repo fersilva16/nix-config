@@ -24,7 +24,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   meta = with lib; {
     description = "Personal finance manager";
     homepage = "https://paisa.fyi/";
-    license = licenses.agpl3;
+    license = licenses.gpl3;
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     platforms = platforms.darwin;
   };
