@@ -42,5 +42,8 @@ in
     ../common/vscode/vscode.nix
     ../common/discord.nix
     ../common/firefox.nix
+    ../cli/tmux.nix
+    ../terminal/alacritty.nix
+    ../cli/nvim.nix
   ];
 }
