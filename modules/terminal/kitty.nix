@@ -5,7 +5,7 @@
       enable = true;
       shellIntegration.enableFishIntegration = true;
 
-      theme = "Catppuccin-Mocha";
+      theme = "Flexoki (Light)";
 
       settings = {
         disable_ligatures = "never";
@@ -17,6 +17,10 @@
         bold_font = "CaskaydiaCove Nerd Font";
         italic_font = "auto";
         bold_italic_font = "auto";
+        font_size = 12;
+
+        macos_titlebar_color = "#FFFCF0";
+        macos_show_window_title_in = "none";
       };
     };
   };

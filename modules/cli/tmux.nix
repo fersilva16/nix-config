@@ -20,7 +20,7 @@
       '';
 
       plugins = with pkgs; [
-        tmuxPlugins.catppuccin
+        flexoki-tmux
         tmuxPlugins.better-mouse-mode
         {
           plugin = tmuxPlugins.resurrect;
@@ -34,7 +34,6 @@
           plugin = tmuxPlugins.continuum;
           extraConfig = ''
             set -g @continuum-restore 'on'
-            set -g @continuum-boot 'on'
             set -g @continuum-save-interval '10'
           '';
         }

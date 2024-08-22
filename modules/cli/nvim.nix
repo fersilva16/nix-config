@@ -1,5 +1,16 @@
 { username, pkgs, lib, ... }:
 let
+  flexoki-neovim = pkgs.vimUtils.buildVimPlugin {
+    pname = "flexoki-neovim";
+    version = "2023-05-01";
+    src = pkgs.fetchFromGitHub {
+      owner = "kepano";
+      repo = "flexoki-neovim";
+      rev = "975654bce67514114db89373539621cff42befb5";
+      sha256 = "sha256-D8FZXkeoyOzIHjvT/0ubMfLPk691s8xDcAiCagEtMro=";
+    };
+  };
+
   nvim-treesitter = pkgs.vimPlugins.nvim-treesitter.withPlugins (treesitter-plugins:
     with treesitter-plugins; [
       bash
@@ -58,10 +69,10 @@ in
 
       plugins = with pkgs; [
         {
-          plugin = vimPlugins.catppuccin-nvim;
+          plugin = flexoki-neovim;
           config = ''
             lua << EOF
-              vim.cmd.colorscheme "catppuccin"
+              vim.cmd.colorscheme "flexoki-light"
             EOF
           '';
         }

@@ -29,8 +29,7 @@
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.smoothScrolling": true,
 
-  "workbench.colorTheme": "Catppuccin Mocha",
-  "workbench.iconTheme": "catppuccin-mocha",
+  "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
 
