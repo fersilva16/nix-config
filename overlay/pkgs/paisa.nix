@@ -1,7 +1,7 @@
 { lib, stdenvNoCC, fetchurl, undmg }:
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "paisa";
-  version = "0.6.6";
+  version = "0.7.0";
 
   src = fetchurl {
     url = "https://github.com/ananthakumaran/paisa/releases/download/v${finalAttrs.version}/paisa-app-macos-amd64.dmg";

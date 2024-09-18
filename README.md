@@ -9,4 +9,6 @@
    experimental-features = nix-command flakes
    EOF
    ```
-4. nix run nix-darwin -- switch --flake .
+4. `nix run nix-darwin -- switch --flake .`
+
+Rebuild: `darwin-rebuild switch --flake .#m1`
