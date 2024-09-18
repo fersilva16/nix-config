@@ -5,7 +5,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   src = fetchurl {
     url = "https://github.com/ananthakumaran/paisa/releases/download/v${finalAttrs.version}/paisa-app-macos-amd64.dmg";
-    hash = "sha256-ifiomEKCu//j59UGp7klcNGLpie8ONP9bNBYkFPeQGo=";
+    hash = "sha256-zCV6vrmhCYhoNvQdBuA5mcDx0Flz2i5JEV6hWGfpoYk=";
   };
 
   sourceRoot = ".";
