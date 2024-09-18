@@ -45,5 +45,6 @@ in
     ../cli/tmux.nix
     ../cli/nvim.nix
     ../terminal/kitty.nix
+    ../common/word.nix
   ];
 }

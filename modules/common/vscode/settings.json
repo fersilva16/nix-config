@@ -48,6 +48,8 @@
   "prettier.singleQuote": true,
   "prettier.trailingComma": "all",
 
+  "emmet.showExpandedAbbreviation": "never",
+
   "[python]": {
     "editor.tabSize": 4
   },

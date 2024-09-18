@@ -9,3 +9,4 @@
    experimental-features = nix-command flakes
    EOF
    ```
+4. nix run nix-darwin -- switch --flake .
