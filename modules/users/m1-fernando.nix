@@ -7,7 +7,6 @@ in
 {
   imports = mkUserImports username [
     ../common/amie.nix
-    ../common/arc.nix
     ../common/ngrok.nix
     ../common/home.nix
     ../common/homebrew.nix
@@ -41,7 +40,8 @@ in
     ../darwin/pinentry-mac.nix
     ../common/vscode/vscode.nix
     ../common/discord.nix
-    ../common/firefox.nix
+    ../browser/firefox.nix
+    ../browser/chrome.nix
     ../cli/tmux.nix
     ../cli/nvim.nix
     ../terminal/kitty.nix
