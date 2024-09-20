@@ -57,5 +57,9 @@
   "[nix]": {
     "nix.enableLanguageServer": true,
     "nix.serverPath": "nil"
+  },
+
+  "[go]": {
+    "editor.defaultFormatter": "golang.go"
   }
 }
