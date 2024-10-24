@@ -34,7 +34,6 @@ in
     ../common/studio-3t.nix
     ../common/postman.nix
     ../common/iina.nix
-    ../common/warp.nix
     ../common/calibre.nix
     ../common/orbstack.nix
     ../darwin/pinentry-mac.nix
@@ -46,5 +45,7 @@ in
     ../cli/nvim.nix
     ../terminal/kitty.nix
     ../common/word.nix
+    ../security/1password.nix
+    ../chat/slack.nix
   ];
 }
