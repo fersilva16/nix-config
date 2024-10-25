@@ -6,6 +6,7 @@ _:
     ../users/m1-fernando.nix
 
     ../darwin/sudo-touchid.nix
+    ../darwin/watcher.nix
     ../fonts/caskaydia-cove.nix
     ../utils/nix.nix
     ../utils/pkg-config.nix

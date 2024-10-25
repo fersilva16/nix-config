@@ -15,6 +15,13 @@
 
   "explorer.compactFolders": false,
 
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.hg/store/**": true,
+    ".direnv/**": true
+  },
+
   "git.openRepositoryInParentFolders": "never",
 
   "scm.defaultViewMode": "tree",
@@ -41,6 +48,7 @@
   "javascript.preferences.importModuleSpecifier": "project-relative",
   "typescript.updateImportsOnFileMove.enabled": "always",
   "typescript.preferences.importModuleSpecifier": "project-relative",
+  "typescript.tsserver.maxTsServerMemory": 4096,
 
   "python.analysis.indexing": true,
   "python.analysis.autoImportCompletions": true,
