@@ -25,7 +25,6 @@ in
     ../common/stern.nix
     ../common/awscli.nix
     ../common/wireguard.nix
-    ../common/gpg.nix
     ../common/obsidian.nix
     ../common/whatsapp.nix
     ../common/raycast.nix
@@ -36,7 +35,6 @@ in
     ../common/iina.nix
     ../common/calibre.nix
     ../common/orbstack.nix
-    ../darwin/pinentry-mac.nix
     ../common/vscode/vscode.nix
     ../common/discord.nix
     ../browser/firefox.nix
