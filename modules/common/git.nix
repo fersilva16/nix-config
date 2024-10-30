@@ -8,25 +8,37 @@
       package = pkgs.gitAndTools.gitFull;
 
       extraConfig = {
-        gpg = {
-          program = "/opt/homebrew/bin/gpg";
+        user = {
+          signingkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJYJzdB1rfmSCEOISYTmGcSi43YD+bzTuPAad98IQOuc";
         };
 
-        user = {
-          signingkey = "05623174D690C511";
+        gpg = {
+          format = "ssh";
+        };
+
+        "gpg \"ssh\"" = {
+          program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
         };
 
         commit = {
           gpgsign = true;
         };
 
-        init.defaultBranch = "main";
+        init = {
+          defaultBranch = "main";
+        };
 
-        pull.rebase = false;
+        pull = {
+          rebase = false;
+        };
 
-        push.autoSetupRemote = true;
+        push = {
+          autoSetupRemote = true;
+        };
 
-        core.ignorecase = false;
+        core = {
+          ignorecase = false;
+        };
       };
 
       userEmail = "fernandonsilva16@gmail.com";

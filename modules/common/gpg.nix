@@ -1,6 +1,0 @@
-_:
-{
-  homebrew.brews = [
-    "gpg"
-  ];
-}
