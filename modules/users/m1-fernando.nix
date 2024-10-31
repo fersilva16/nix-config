@@ -45,5 +45,6 @@ in
     ../security/1password.nix
     ../chat/slack.nix
     ../browser/zen.nix
+    ../common/libreoffice.nix
   ];
 }
