@@ -44,5 +44,6 @@ in
     ../common/word.nix
     ../security/1password.nix
     ../chat/slack.nix
+    ../browser/zen.nix
   ];
 }
