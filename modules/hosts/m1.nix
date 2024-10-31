@@ -5,6 +5,7 @@ _:
   imports = [
     ../users/m1-fernando.nix
 
+    ../darwin/darwin-default.nix
     ../darwin/sudo-touchid.nix
     ../darwin/watcher.nix
     ../fonts/caskaydia-cove.nix
