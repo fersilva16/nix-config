@@ -5,7 +5,7 @@
       enable = true;
       shellIntegration.enableFishIntegration = true;
 
-      theme = "Flexoki (Light)";
+      themeFile = "Flexoki (Light)";
 
       settings = {
         disable_ligatures = "never";

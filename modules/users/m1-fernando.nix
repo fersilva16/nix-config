@@ -12,7 +12,6 @@ in
     ../common/homebrew.nix
     ../common/git.nix
     ../common/fish.nix
-    ../common/bitwarden.nix
     ../common/eza.nix
     ../common/bat.nix
     ../common/starship.nix

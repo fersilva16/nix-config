@@ -1,5 +1,6 @@
 _:
 {
+  system.stateVersion = 5;
   system.defaults = {
     trackpad = {
       Clicking = true;
