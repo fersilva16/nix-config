@@ -50,13 +50,13 @@
 
         ls = "eza -lag";
         cat = "bat";
-
-        ghpc = "gh pr create --fill && gh pr view --web";
-        ghpm = "gh pr merge -sd --admin";
-        ghpcm = "ghpc && ghpm";
       };
 
       functions = {
+        ghpc = "gh pr create --fill $argv && gh pr view --web";
+        ghpm = "gh pr merge -sd --admin $argv";
+        ghpcm = "ghpc $argv && ghpm";
+
         pj = "cd $argv; ds";
 
         fish_command_not_found = "__fish_default_command_not_found_handler $argv";
