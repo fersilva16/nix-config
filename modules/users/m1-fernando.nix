@@ -46,5 +46,6 @@ in
     ../chat/slack.nix
     ../browser/zen.nix
     ../common/libreoffice.nix
+    ../common/netnewswire.nix
   ];
 }
