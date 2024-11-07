@@ -47,5 +47,6 @@ in
     ../browser/zen.nix
     ../common/libreoffice.nix
     ../common/netnewswire.nix
+    ../common/figma.nix
   ];
 }
