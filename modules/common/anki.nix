@@ -1,0 +1,6 @@
+_:
+{
+  homebrew.casks = [
+    "anki"
+  ];
+}
