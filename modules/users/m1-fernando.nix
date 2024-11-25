@@ -49,5 +49,6 @@ in
     ../common/netnewswire.nix
     ../common/figma.nix
     ../games/sony.nix
+    ../common/anki.nix
   ];
 }
