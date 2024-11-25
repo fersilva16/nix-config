@@ -48,5 +48,6 @@ in
     ../common/libreoffice.nix
     ../common/netnewswire.nix
     ../common/figma.nix
+    ../games/sony.nix
   ];
 }
