@@ -9,14 +9,15 @@
       keyMode = "vi";
       mouse = true;
       baseIndex = 1;
-      historyLimit = 10000;
+      historyLimit = 50000;
+      sensibleOnTop = false;
       extraConfig = ''
-        set -ga terminal-overrides ",xterm-256color*:Tc"
-
-        bind-key h select-pane -L
-        bind-key j select-pane -D
-        bind-key k select-pane -U
-        bind-key l select-pane -R
+        set -g  escape-time 1
+        set -g display-time 4000
+        set -g status-interval 5
+        set -g focus-events on
+        setw -g aggressive-resize on
+        set -ga terminal-overrides ",*-256color*:Tc"
       '';
 
       plugins = with pkgs; [
