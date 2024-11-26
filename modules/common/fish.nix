@@ -33,8 +33,6 @@
         fish_add_path -amP /opt/local/bin
         fish_add_path -m /run/current-system/sw/bin
         fish_add_path -m /Users/fernando/.nix-profile/bin
-
-        printf '\eP$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "fish"}}\x9c'
       '';
 
 
