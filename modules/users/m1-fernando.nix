@@ -6,7 +6,6 @@ let
 in
 {
   imports = mkUserImports username [
-    ../common/amie.nix
     ../common/ngrok.nix
     ../common/home.nix
     ../common/homebrew.nix
