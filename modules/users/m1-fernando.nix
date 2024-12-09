@@ -14,11 +14,9 @@ in
     ../common/eza.nix
     ../common/bat.nix
     ../common/starship.nix
-    ../common/paisa.nix
     ../common/direnv.nix
     ../common/ripgrep.nix
     ../common/mongosh.nix
-    ../common/ledger.nix
     ../common/flyctl.nix
     ../common/stern.nix
     ../common/awscli.nix
@@ -49,5 +47,7 @@ in
     ../common/figma.nix
     ../games/sony.nix
     ../common/anki.nix
+    ../ledger/paisa.nix
+    ../ledger/ledger.nix
   ];
 }
