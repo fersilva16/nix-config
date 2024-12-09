@@ -1,0 +1,31 @@
+journal_path: /Users/fernando/paisa/main.ledger
+db_path: /Users/fernando/paisa/paisa.db
+readonly: false
+ledger_cli: ledger
+default_currency: R$
+display_precision: 2
+amount_alignment_column: 52
+locale: en-US
+time_zone: America/Sao_Paulo
+financial_year_starting_month: 1
+week_starting_day: 0
+strict: "no"
+budget:
+  rollover: "yes"
+schedule_al: []
+allocation_targets: []
+commodities:
+  - name: SOL
+    type: unknown
+    price:
+      provider: com-yahoo
+      code: SOL-USD
+    harvest: 0
+    tax_category: unlisted_equity
+import_templates: []
+accounts: []
+goals:
+  retirement: []
+  savings: []
+user_accounts: []
+credit_cards: []
