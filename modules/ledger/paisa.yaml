@@ -1,5 +1,5 @@
-journal_path: /Users/fernando/paisa/main.ledger
-db_path: /Users/fernando/paisa/paisa.db
+journal_path: /Users/fernando/ledger/main.ledger
+db_path: /Users/fernando/ledger/paisa.db
 readonly: false
 ledger_cli: ledger
 default_currency: R$
