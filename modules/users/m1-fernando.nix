@@ -49,5 +49,6 @@ in
     ../common/anki.nix
     ../ledger/paisa.nix
     ../ledger/ledger.nix
+    ../common/notion-calendar.nix
   ];
 }
