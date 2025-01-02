@@ -9,6 +9,7 @@ fi
 cd "$WATCH_DIR" || exit 1
 
 if [ -n "$(git status --porcelain)" ]; then
+    rm -rf -- **/*.backup.*
     git add .
     git commit -m "$(date +%Y-%m-%d)"
     git push origin main
