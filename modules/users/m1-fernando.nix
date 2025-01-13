@@ -50,5 +50,6 @@ in
     ../ledger/paisa.nix
     ../ledger/ledger.nix
     ../common/notion-calendar.nix
+    ../cli/minikube.nix
   ];
 }
