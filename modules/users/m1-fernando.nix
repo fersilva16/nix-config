@@ -51,5 +51,6 @@ in
     ../ledger/ledger.nix
     ../common/notion-calendar.nix
     ../cli/minikube.nix
+    ../common/keyboardcleantool.nix
   ];
 }
