@@ -52,5 +52,6 @@ in
     ../common/notion-calendar.nix
     ../cli/minikube.nix
     ../common/keyboardcleantool.nix
+    ../common/anytype.nix
   ];
 }
