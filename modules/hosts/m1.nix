@@ -12,5 +12,6 @@ _:
     ../utils/nix.nix
     ../utils/pkg-config.nix
     ../cli/wget.nix
+    ../cli/unrar.nix
   ];
 }
