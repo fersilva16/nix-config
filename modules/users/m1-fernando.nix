@@ -53,5 +53,6 @@ in
     ../cli/minikube.nix
     ../common/keyboardcleantool.nix
     ../common/anytype.nix
+    ../editor/intellij.nix
   ];
 }
