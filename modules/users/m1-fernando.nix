@@ -54,5 +54,6 @@ in
     ../common/keyboardcleantool.nix
     ../common/anytype.nix
     ../editor/intellij.nix
+    ../chat/teams.nix
   ];
 }
