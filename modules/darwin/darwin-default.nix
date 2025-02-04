@@ -22,6 +22,8 @@ _: {
       AppleShowAllFiles = true;
     };
 
-    menuExtraClock = { ShowAMPM = true; };
+    menuExtraClock = {
+      ShowAMPM = true;
+    };
   };
 }

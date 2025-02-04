@@ -1,1 +1,5 @@
-_: { homebrew = { casks = [ "cloudflare-warp" ]; }; }
+_: {
+  homebrew = {
+    casks = [ "cloudflare-warp" ];
+  };
+}

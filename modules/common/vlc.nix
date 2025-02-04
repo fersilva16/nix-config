@@ -1,1 +1,4 @@
-{ pkgs, ... }: { home.packages = with pkgs; [ vlc ]; }
+{ pkgs, ... }:
+{
+  home.packages = with pkgs; [ vlc ];
+}

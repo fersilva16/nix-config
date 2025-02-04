@@ -1,1 +1,4 @@
-{ pkgs, ... }: { environment.systemPackages = with pkgs; [ unrar ]; }
+{ pkgs, ... }:
+{
+  environment.systemPackages = with pkgs; [ unrar ];
+}

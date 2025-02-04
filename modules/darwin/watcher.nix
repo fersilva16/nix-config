@@ -1,4 +1,5 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+{
   environment.etc = {
     "sysctl.conf" = {
       enable = true;

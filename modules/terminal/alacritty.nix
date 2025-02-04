@@ -1,6 +1,8 @@
 { username, pkgs, ... }:
-let family = "CaskaydiaCove Nerd Font";
-in {
+let
+  family = "CaskaydiaCove Nerd Font";
+in
+{
   home-manager.users.${username} = {
     programs.alacritty = {
       enable = true;
