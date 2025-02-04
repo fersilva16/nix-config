@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "libreoffice"
-  ];
-}
+_: { homebrew.casks = [ "libreoffice" ]; }

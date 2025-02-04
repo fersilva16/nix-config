@@ -1,6 +1,1 @@
-{ pkgs, ... }:
-{
-  home.packages = with pkgs; [
-    glab
-  ];
-}
+{ pkgs, ... }: { home.packages = with pkgs; [ glab ]; }

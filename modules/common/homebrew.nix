@@ -1,8 +1,6 @@
 { username, inputs, config, ... }:
-let
-  inherit (inputs) homebrew-core homebrew-cask homebrew-bundle;
-in
-{
+let inherit (inputs) homebrew-core homebrew-cask homebrew-bundle;
+in {
   nix-homebrew = {
     enable = true;
 

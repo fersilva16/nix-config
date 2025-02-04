@@ -1,5 +1,4 @@
-_:
-{
+_: {
   networking.hostName = "m1";
 
   imports = [

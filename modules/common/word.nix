@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "microsoft-word"
-  ];
-}
+_: { homebrew.casks = [ "microsoft-word" ]; }

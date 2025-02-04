@@ -1,6 +1,1 @@
-_:
-{
-  programs.broot = {
-    enable = true;
-  };
-}
+_: { programs.broot = { enable = true; }; }

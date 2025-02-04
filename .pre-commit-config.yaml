@@ -13,11 +13,11 @@ repos:
         language: system
         entry: shellcheck
 
-      - name: nixpkgs-fmt
-        id: nixpkgs-fmt
+      - name: nixfmt
+        id: nixfmt
         files: '\.nix$'
         language: system
-        entry: nixpkgs-fmt
+        entry: nixfmt
 
       - name: statix
         id: statix

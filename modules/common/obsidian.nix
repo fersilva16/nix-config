@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "obsidian"
-  ];
-}
+_: { homebrew.casks = [ "obsidian" ]; }

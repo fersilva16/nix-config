@@ -1,6 +1,1 @@
-{ pkgs, ... }:
-{
-  home.packages = with pkgs; [
-    insomnia
-  ];
-}
+{ pkgs, ... }: { home.packages = with pkgs; [ insomnia ]; }

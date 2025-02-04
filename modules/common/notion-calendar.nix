@@ -1,8 +1,1 @@
-_:
-{
-  homebrew = {
-    casks = [
-      "notion-calendar"
-    ];
-  };
-}
+_: { homebrew = { casks = [ "notion-calendar" ]; }; }

@@ -2,9 +2,7 @@
   description = "My NixOS configuration";
 
   inputs = {
-    nixpkgs = {
-      url = "github:nixos/nixpkgs/nixpkgs-unstable";
-    };
+    nixpkgs = { url = "github:nixos/nixpkgs/nixpkgs-unstable"; };
 
     utils = {
       url = "github:numtide/flake-utils";
@@ -46,30 +44,23 @@
     let
       overlay = import ./overlay/overlay.nix;
 
-      overlays = [
-        overlay
-      ];
+      overlays = [ overlay ];
 
       mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs overlays; };
-    in
-    {
+    in {
       inherit overlay overlays;
 
-      darwinConfigurations = {
-        m1 = mkDarwinHost ./modules/hosts/m1.nix;
-      };
+      darwinConfigurations = { m1 = mkDarwinHost ./modules/hosts/m1.nix; };
     } // utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system overlays; };
-      in
-      {
+      let pkgs = import nixpkgs { inherit system overlays; };
+      in {
         packages = pkgs;
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
             nil
             statix
-            nixpkgs-fmt
+            nixfmt
 
             shellcheck
 
@@ -82,6 +73,5 @@
             pre-commit install -f
           '';
         };
-      }
-    );
+      });
 }

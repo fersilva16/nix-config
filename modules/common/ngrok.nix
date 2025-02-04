@@ -1,8 +1,1 @@
-_:
-{
-  homebrew = {
-    casks = [
-      "ngrok"
-    ];
-  };
-}
+_: { homebrew = { casks = [ "ngrok" ]; }; }

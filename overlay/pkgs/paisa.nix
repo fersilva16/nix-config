@@ -4,7 +4,8 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   version = "0.7.0";
 
   src = fetchurl {
-    url = "https://github.com/ananthakumaran/paisa/releases/download/v${finalAttrs.version}/paisa-app-macos-amd64.dmg";
+    url =
+      "https://github.com/ananthakumaran/paisa/releases/download/v${finalAttrs.version}/paisa-app-macos-amd64.dmg";
     hash = "sha256-zCV6vrmhCYhoNvQdBuA5mcDx0Flz2i5JEV6hWGfpoYk=";
   };
 
