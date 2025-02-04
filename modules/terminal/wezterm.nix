@@ -1,5 +1,4 @@
-{ username, pkgs, inputs, ... }:
-{
+{ username, pkgs, inputs, ... }: {
   home-manager.users.${username} = {
     programs.wezterm = {
       enable = true;

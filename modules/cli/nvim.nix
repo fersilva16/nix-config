@@ -11,23 +11,23 @@ let
     };
   };
 
-  nvim-treesitter = pkgs.vimPlugins.nvim-treesitter.withPlugins (treesitter-plugins:
-    with treesitter-plugins; [
-      bash
-      css
-      html
-      javascript
-      json
-      lua
-      markdown
-      nix
-      python
-      tsx
-      typescript
-      yaml
-    ]);
-in
-{
+  nvim-treesitter = pkgs.vimPlugins.nvim-treesitter.withPlugins
+    (treesitter-plugins:
+      with treesitter-plugins; [
+        bash
+        css
+        html
+        javascript
+        json
+        lua
+        markdown
+        nix
+        python
+        tsx
+        typescript
+        yaml
+      ]);
+in {
   home-manager.users.${username} = {
     programs.neovim = {
       enable = true;

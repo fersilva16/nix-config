@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "netnewswire"
-  ];
-}
+_: { homebrew.casks = [ "netnewswire" ]; }

@@ -1,2 +1,1 @@
-self: super:
-{ } // import ./pkgs/pkgs.nix self
+self: super: { } // import ./pkgs/pkgs.nix self

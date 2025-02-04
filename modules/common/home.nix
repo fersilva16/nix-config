@@ -1,8 +1,6 @@
 { username, ... }:
-let
-  homeDirectory = "/Users/${username}";
-in
-{
+let homeDirectory = "/Users/${username}";
+in {
   users.users.${username}.home = homeDirectory;
 
   home-manager.users.${username} = {

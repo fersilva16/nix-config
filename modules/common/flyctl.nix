@@ -1,8 +1,3 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
-    home.packages = with pkgs; [
-      flyctl
-    ];
-  };
+{ username, pkgs, ... }: {
+  home-manager.users.${username} = { home.packages = with pkgs; [ flyctl ]; };
 }

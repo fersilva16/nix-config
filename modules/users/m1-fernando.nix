@@ -3,8 +3,7 @@ let
   mkUserImports = import ../../lib/mkUserImports.nix args;
 
   username = "fernando";
-in
-{
+in {
   imports = mkUserImports username [
     ../common/ngrok.nix
     ../common/home.nix

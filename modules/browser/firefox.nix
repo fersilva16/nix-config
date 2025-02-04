@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "firefox"
-  ];
-}
+_: { homebrew.casks = [ "firefox" ]; }

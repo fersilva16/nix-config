@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "raycast"
-  ];
-}
+_: { homebrew.casks = [ "raycast" ]; }

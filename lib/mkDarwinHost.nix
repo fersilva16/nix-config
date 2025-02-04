@@ -2,14 +2,11 @@
 let
   system = "aarch64-darwin";
   inherit (inputs) nixpkgs home-manager darwin nix-homebrew;
-in
-host:
+in host:
 darwin.lib.darwinSystem {
   inherit system;
 
-  specialArgs = {
-    inherit inputs system;
-  };
+  specialArgs = { inherit inputs system; };
 
   modules = [
     home-manager.darwinModules.home-manager
@@ -22,9 +19,7 @@ darwin.lib.darwinSystem {
         config.allowUnfree = true;
       };
 
-      home-manager = {
-        useGlobalPkgs = true;
-      };
+      home-manager = { useGlobalPkgs = true; };
     }
   ];
 }

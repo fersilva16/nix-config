@@ -1,5 +1,4 @@
-{ username, pkgs, ... }:
-{
+{ username, pkgs, ... }: {
   home-manager.users.${username} = {
     programs.tmux = {
       enable = true;

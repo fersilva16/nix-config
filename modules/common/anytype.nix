@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "anytype"
-  ];
-}
+_: { homebrew.casks = [ "anytype" ]; }

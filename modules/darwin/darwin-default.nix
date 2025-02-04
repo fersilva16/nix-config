@@ -1,5 +1,4 @@
-_:
-{
+_: {
   system.stateVersion = 5;
   system.defaults = {
     trackpad = {
@@ -23,8 +22,6 @@ _:
       AppleShowAllFiles = true;
     };
 
-    menuExtraClock = {
-      ShowAMPM = true;
-    };
+    menuExtraClock = { ShowAMPM = true; };
   };
 }

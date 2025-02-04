@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "intellij-idea-ce"
-  ];
-}
+_: { homebrew.casks = [ "intellij-idea-ce" ]; }

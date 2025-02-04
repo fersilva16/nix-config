@@ -1,6 +1,1 @@
-_:
-{
-  services.flameshot = {
-    enable = true;
-  };
-}
+_: { services.flameshot = { enable = true; }; }

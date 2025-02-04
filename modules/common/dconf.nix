@@ -1,6 +1,1 @@
-{ pkgs, ... }:
-{
-  home.packages = with pkgs; [
-    dconf
-  ];
-}
+{ pkgs, ... }: { home.packages = with pkgs; [ dconf ]; }

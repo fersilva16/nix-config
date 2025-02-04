@@ -1,5 +1,4 @@
-{ username, pkgs, ... }:
-{
+{ username, pkgs, ... }: {
   home-manager.users.${username} = {
     programs.kitty = {
       enable = true;

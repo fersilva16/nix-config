@@ -1,16 +1,12 @@
 { username, pkgs, ... }:
-let
-  family = "CaskaydiaCove Nerd Font";
-in
-{
+let family = "CaskaydiaCove Nerd Font";
+in {
   home-manager.users.${username} = {
     programs.alacritty = {
       enable = true;
 
       settings = {
-        import = [
-          "${pkgs.alacritty-theme}/catppuccin.toml"
-        ];
+        import = [ "${pkgs.alacritty-theme}/catppuccin.toml" ];
 
         cursor = {
           style = {

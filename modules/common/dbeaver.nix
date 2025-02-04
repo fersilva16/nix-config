@@ -1,6 +1,1 @@
-_:
-{
-  homebrew.casks = [
-    "dbeaver-community"
-  ];
-}
+_: { homebrew.casks = [ "dbeaver-community" ]; }
