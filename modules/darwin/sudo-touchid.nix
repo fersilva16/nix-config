@@ -1,8 +1,8 @@
-{ pkgs, ... }: {
-  environment.systemPackages = with pkgs;
-    [
-      pam-reattach # for tmux
-    ];
+{ pkgs, ... }:
+{
+  environment.systemPackages = with pkgs; [
+    pam-reattach # for tmux
+  ];
 
   environment.etc = {
     "pam.d/sudo_local" = {

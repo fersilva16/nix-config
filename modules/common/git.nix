@@ -1,4 +1,5 @@
-{ username, pkgs, ... }: {
+{ username, pkgs, ... }:
+{
   home-manager.users.${username} = {
     programs.git = {
       enable = true;
@@ -8,25 +9,36 @@
 
       extraConfig = {
         user = {
-          signingkey =
-            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJYJzdB1rfmSCEOISYTmGcSi43YD+bzTuPAad98IQOuc";
+          signingkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJYJzdB1rfmSCEOISYTmGcSi43YD+bzTuPAad98IQOuc";
         };
 
-        gpg = { format = "ssh"; };
+        gpg = {
+          format = "ssh";
+        };
 
         "gpg \"ssh\"" = {
           program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
         };
 
-        commit = { gpgsign = true; };
+        commit = {
+          gpgsign = true;
+        };
 
-        init = { defaultBranch = "main"; };
+        init = {
+          defaultBranch = "main";
+        };
 
-        pull = { rebase = false; };
+        pull = {
+          rebase = false;
+        };
 
-        push = { autoSetupRemote = true; };
+        push = {
+          autoSetupRemote = true;
+        };
 
-        core = { ignorecase = false; };
+        core = {
+          ignorecase = false;
+        };
       };
 
       userEmail = "fernandonsilva16@gmail.com";

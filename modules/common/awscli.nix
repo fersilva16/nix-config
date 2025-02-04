@@ -1,3 +1,6 @@
-{ username, pkgs, ... }: {
-  home-manager.users.${username} = { home.packages = with pkgs; [ awscli2 ]; };
+{ username, pkgs, ... }:
+{
+  home-manager.users.${username} = {
+    home.packages = with pkgs; [ awscli2 ];
+  };
 }

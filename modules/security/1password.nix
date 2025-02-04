@@ -1,1 +1,6 @@
-_: { homebrew.casks = [ "1password" "1password-cli" ]; }
+_: {
+  homebrew.casks = [
+    "1password"
+    "1password-cli"
+  ];
+}

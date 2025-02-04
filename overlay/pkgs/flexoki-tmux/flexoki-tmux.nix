@@ -17,4 +17,3 @@ pkgs.tmuxPlugins.mkTmuxPlugin {
     sha256 = "sha256-rAuOnr5E1TgLbMe5jrGSYh41VE6uM5ZoOmwXOYb4ftc=";
   };
 }
-

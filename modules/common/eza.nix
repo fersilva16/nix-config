@@ -1,3 +1,8 @@
-{ username, ... }: {
-  home-manager.users.${username} = { programs.eza = { enable = true; }; };
+{ username, ... }:
+{
+  home-manager.users.${username} = {
+    programs.eza = {
+      enable = true;
+    };
+  };
 }

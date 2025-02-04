@@ -1,1 +1,5 @@
-_: { programs.bottom = { enable = true; }; }
+_: {
+  programs.bottom = {
+    enable = true;
+  };
+}
