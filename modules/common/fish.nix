@@ -14,13 +14,9 @@
     shell = pkgs.fish;
   };
 
-  home-manager.users.${username} = {
-    home.activation = {
-      defaultShell = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        sudo chsh -s /run/current-system/sw${pkgs.fish.shellPath} $USER
-      '';
-    };
+  programs.fish.enable = true;
 
+  home-manager.users.${username} = {
     programs.fish = {
       enable = true;
 
@@ -61,7 +57,13 @@
 
         fish_command_not_found = "__fish_default_command_not_found_handler $argv";
 
-        envsource = "\n          for line in (cat $argv | grep -v '^#' | grep -v '^\\s*$')\n            set item (string split -m 1 '=' $line)\n            set -gx $item[1] $item[2]\n            echo \"Exported key $item[1]\"\n          end\n        ";
+        envsource = ''
+          for line in (cat $argv | grep -v '^#' | grep -v '^\s*$')
+            set item (string split -m 1 '=' $line)
+            set -gx $item[1] $item[2]
+            echo \"Exported key $item[1]\"
+          end
+        '';
       };
     };
   };
