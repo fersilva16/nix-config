@@ -9,7 +9,7 @@ in
     home = {
       inherit homeDirectory username;
 
-      stateVersion = "22.05";
+      stateVersion = "24.05";
     };
   };
 }
