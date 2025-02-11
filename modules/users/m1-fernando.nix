@@ -55,5 +55,6 @@ in
     ../common/anytype.nix
     ../editor/intellij.nix
     ../chat/teams.nix
+    ../common/printul.nix
   ];
 }
