@@ -56,5 +56,6 @@ in
     ../editor/intellij.nix
     ../chat/teams.nix
     ../common/printul.nix
+    ../common/windows-app.nix
   ];
 }
