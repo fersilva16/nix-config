@@ -42,6 +42,7 @@
   "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
+  "workbench.activityBar.orientation": "vertical",
 
   "python.terminal.activateEnvironment": false,
   "jupyter.askForKernelRestart": false,
@@ -60,6 +61,8 @@
   "prettier.trailingComma": "all",
 
   "emmet.showExpandedAbbreviation": "never",
+
+  "github.copilot.editor.enableAutoCompletions": false,
 
   "[python]": {
     "editor.tabSize": 4
