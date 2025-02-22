@@ -59,7 +59,7 @@
 
         envsource = ''
           for line in (cat $argv | grep -v '^#' | grep -v '^\s*$')
-            set item (string split -m 1 '=' $line)
+            set item (string trim $line | string replace -r '\s*=\s*' '=' | string split -m 1 '=')
             set -gx $item[1] $item[2]
             echo \"Exported key $item[1]\"
           end
