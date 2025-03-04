@@ -59,5 +59,6 @@ in
     ../common/windows-app.nix
     ../common/sparkmail.nix
     ../common/karabiner/karabiner.nix
+    ../editor/cursor.nix
   ];
 }
