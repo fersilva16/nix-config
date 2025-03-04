@@ -15,6 +15,9 @@
           format = "via [$symbol]($style) ";
           symbol = " ";
         };
+
+        aws.disabled = true;
+        gcloud.disabled = true;
       };
     };
   };
