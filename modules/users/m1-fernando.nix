@@ -60,5 +60,6 @@ in
     ../common/sparkmail.nix
     ../common/karabiner/karabiner.nix
     ../editor/cursor.nix
+    ../common/loom.nix
   ];
 }
