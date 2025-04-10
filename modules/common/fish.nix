@@ -40,7 +40,6 @@
         gaa = "git add .";
         gb = "git branch";
         gc = "git commit";
-        gco = "git checkout";
         gp = "git push";
         ds = "nix develop . --command $SHELL";
 
@@ -56,6 +55,13 @@
         pj = "cd $argv; ds";
 
         fish_command_not_found = "__fish_default_command_not_found_handler $argv";
+
+        gco = ''
+          set current_branch (git rev-parse --abbrev-ref HEAD)
+          git checkout $argv; and if not string match -q -- '-*' $argv && test "$current_branch" != "$argv"
+            git pull
+          end
+        '';
 
         envsource = ''
           for line in (cat $argv | grep -v '^#' | grep -v '^\s*$')
