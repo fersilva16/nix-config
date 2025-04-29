@@ -71,6 +71,11 @@
           end
         '';
       };
+
+      shellInit = ''
+        # Completion for gco function
+        complete -f -c gco -a '(git branch --all | string replace -r "^[\*\s]+" "" | string replace -r "^remotes/" "")'
+      '';
     };
   };
 }
