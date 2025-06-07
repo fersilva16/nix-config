@@ -6,6 +6,7 @@ let
 in
 {
   imports = mkUserImports username [
+    ../darwin/primary-user.nix
     ../common/ngrok.nix
     ../common/home.nix
     ../common/homebrew.nix
@@ -41,7 +42,6 @@ in
     ../common/word.nix
     ../security/1password.nix
     ../chat/slack.nix
-    ../browser/zen.nix
     ../common/libreoffice.nix
     ../common/netnewswire.nix
     ../common/figma.nix
