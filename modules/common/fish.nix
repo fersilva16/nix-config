@@ -48,7 +48,7 @@
       };
 
       functions = {
-        ghpc = "gh pr create --fill $argv && gh pr view --web";
+        ghpc = "git push && gh pr create --fill $argv && gh pr view --web";
         ghpm = "gh pr merge -sd --admin $argv";
         ghpcm = "ghpc $argv && ghpm";
 
