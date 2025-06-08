@@ -61,5 +61,6 @@ in
     ../common/karabiner/karabiner.nix
     ../editor/cursor.nix
     ../common/loom.nix
+    ../cli/zoxide.nix
   ];
 }
