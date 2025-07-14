@@ -62,5 +62,6 @@ in
     ../editor/cursor.nix
     ../common/loom.nix
     ../cli/zoxide.nix
+    ../common/spotify.nix
   ];
 }

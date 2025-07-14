@@ -11,4 +11,4 @@
    ```
 4. `nix run nix-darwin -- switch --flake .`
 
-Rebuild: `darwin-rebuild switch --flake .#m1`
+Rebuild: `sudo darwin-rebuild switch --flake .#m1`
