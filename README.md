@@ -2,13 +2,8 @@
 
 ## Darwin installation
 
-1. `curl -L https://nixos.org/nix/install | sh`
-2. `mkdir -p ~/.config/nix` (optional)
-3. ```sh
-   cat <<EOF > ~/.config/nix/nix.conf
-   experimental-features = nix-command flakes
-   EOF
-   ```
-4. `nix run nix-darwin -- switch --flake .`
+1. Install Nix: https://nixos.org/download/
+2. `softwareupdate --install-rosetta`
+3. `sudo nix run nix-darwin --extra-experimental-features nix-command --extra-experimental-features flakes -- switch --flake .#m1`
 
 Rebuild: `sudo darwin-rebuild switch --flake .#m1`
