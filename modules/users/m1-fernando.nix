@@ -63,5 +63,6 @@ in
     ../common/loom.nix
     ../cli/zoxide.nix
     ../common/spotify.nix
+    ../cli/claude-code.nix
   ];
 }
