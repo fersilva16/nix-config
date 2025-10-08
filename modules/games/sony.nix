@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "sony-ps-remote-play" ]; }
+_: {
+  homebrew.casks = [ "sony-ps-remote-play" ];
+}

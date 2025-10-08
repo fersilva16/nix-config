@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "studio-3t" ]; }
+_: {
+  homebrew.casks = [ "studio-3t" ];
+}

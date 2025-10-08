@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "google-chrome" ]; }
+_: {
+  homebrew.casks = [ "google-chrome" ];
+}

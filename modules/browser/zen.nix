@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "zen-browser" ]; }
+_: {
+  homebrew.casks = [ "zen-browser" ];
+}

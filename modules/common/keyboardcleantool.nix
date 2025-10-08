@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "keyboardcleantool" ]; }
+_: {
+  homebrew.casks = [ "keyboardcleantool" ];
+}

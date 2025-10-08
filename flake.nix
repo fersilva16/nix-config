@@ -77,7 +77,8 @@
 
             nodePackages.prettier
 
-            pre-commit
+            # TODO: Fix dotnet building
+            # pre-commit
           ];
 
           shellHook = ''

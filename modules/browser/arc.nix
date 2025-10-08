@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "arc" ]; }
+_: {
+  homebrew.casks = [ "arc" ];
+}
