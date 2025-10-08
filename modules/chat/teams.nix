@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "microsoft-teams" ]; }
+_: {
+  homebrew.casks = [ "microsoft-teams" ];
+}

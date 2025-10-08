@@ -1,1 +1,3 @@
-_: { homebrew.casks = [ "figma" ]; }
+_: {
+  homebrew.casks = [ "figma" ];
+}
