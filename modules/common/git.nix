@@ -7,8 +7,10 @@
 
       package = pkgs.gitAndTools.gitFull;
 
-      extraConfig = {
+      settings = {
         user = {
+          email = "fernandonsilva16@gmail.com";
+          name = "Fernando Silva";
           signingkey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJYJzdB1rfmSCEOISYTmGcSi43YD+bzTuPAad98IQOuc";
         };
 
@@ -40,9 +42,6 @@
           ignorecase = false;
         };
       };
-
-      userEmail = "fernandonsilva16@gmail.com";
-      userName = "Fernando Silva";
     };
 
     home.packages = with pkgs; [ gh ];
