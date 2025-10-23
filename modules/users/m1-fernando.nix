@@ -64,5 +64,6 @@ in
     ../cli/zoxide.nix
     ../common/spotify.nix
     ../cli/claude-code.nix
+    ../games/prismlauncher.nix
   ];
 }
