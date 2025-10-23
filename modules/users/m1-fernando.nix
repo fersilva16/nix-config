@@ -65,5 +65,6 @@ in
     ../common/spotify.nix
     ../cli/claude-code.nix
     ../games/prismlauncher.nix
+    ../common/java-25.nix
   ];
 }
