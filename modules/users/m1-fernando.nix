@@ -66,5 +66,6 @@ in
     ../cli/claude-code.nix
     ../games/prismlauncher.nix
     ../common/java-25.nix
+    ../common/tailscale.nix
   ];
 }
