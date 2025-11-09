@@ -67,5 +67,6 @@ in
     ../games/prismlauncher.nix
     ../common/java-25.nix
     ../common/tailscale.nix
+    ../games/steam.nix
   ];
 }
