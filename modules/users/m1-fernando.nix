@@ -68,5 +68,6 @@ in
     ../common/java-25.nix
     ../common/tailscale.nix
     ../games/steam.nix
+    ../cli/ollama.nix
   ];
 }
