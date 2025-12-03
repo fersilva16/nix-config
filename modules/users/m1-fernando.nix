@@ -69,5 +69,6 @@ in
     ../common/tailscale.nix
     ../games/steam.nix
     ../cli/ollama.nix
+    ../chat/telegram.nix
   ];
 }
