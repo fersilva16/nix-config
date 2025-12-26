@@ -70,5 +70,6 @@ in
     ../games/steam.nix
     ../cli/ollama.nix
     ../chat/telegram.nix
+    ../security/yubikey.nix
   ];
 }
