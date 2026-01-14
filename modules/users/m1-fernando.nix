@@ -71,5 +71,6 @@ in
     ../cli/ollama.nix
     ../chat/telegram.nix
     ../security/yubikey.nix
+    ../common/cloudflare-warp.nix
   ];
 }
