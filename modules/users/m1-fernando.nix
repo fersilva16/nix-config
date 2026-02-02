@@ -72,5 +72,6 @@ in
     ../security/yubikey.nix
     ../common/cloudflare-warp.nix
     ../cli/doppler.nix
+    ../editor/conductor.nix
   ];
 }
