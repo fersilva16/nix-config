@@ -71,5 +71,6 @@ in
     ../chat/telegram.nix
     ../security/yubikey.nix
     ../common/cloudflare-warp.nix
+    ../cli/doppler.nix
   ];
 }
