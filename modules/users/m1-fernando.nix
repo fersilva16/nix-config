@@ -55,7 +55,6 @@ in
     ../common/anytype.nix
     ../editor/intellij.nix
     ../chat/teams.nix
-    ../common/printul.nix
     ../common/windows-app.nix
     ../common/sparkmail.nix
     ../common/karabiner/karabiner.nix
