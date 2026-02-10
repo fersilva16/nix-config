@@ -74,5 +74,6 @@ in
     ../cli/doppler.nix
     ../editor/conductor.nix
     ../editor/android-studio.nix
+    ../common/stremio.nix
   ];
 }
