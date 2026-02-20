@@ -42,7 +42,7 @@ in
       vimAlias = true;
       vimdiffAlias = true;
 
-      extraLuaConfig = ''
+      initLua = ''
         vim.g.mapleader = ' '
         vim.g.maplocalleader = ' '
 
