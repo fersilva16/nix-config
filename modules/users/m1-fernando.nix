@@ -75,5 +75,6 @@ in
     ../editor/conductor.nix
     ../editor/android-studio.nix
     ../common/stremio.nix
+    ../common/openclaw.nix
   ];
 }
