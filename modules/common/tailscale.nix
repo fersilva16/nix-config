@@ -1,5 +1,5 @@
 _: {
   homebrew = {
-    casks = [ "tailscale" ];
+    casks = [ "tailscale-app" ];
   };
 }
