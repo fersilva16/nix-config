@@ -76,5 +76,6 @@ in
     ../editor/android-studio.nix
     ../common/stremio.nix
     ../common/openclaw.nix
+    ../common/cold-turkey-blocker.nix
   ];
 }
