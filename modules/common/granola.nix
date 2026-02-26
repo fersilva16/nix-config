@@ -1,0 +1,4 @@
+{ pkgs, ... }:
+{
+  homebrew.casks = [ "granola" ];
+}

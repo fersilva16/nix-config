@@ -77,5 +77,6 @@ in
     ../common/stremio.nix
     ../common/openclaw.nix
     ../common/cold-turkey-blocker.nix
+    ../common/granola.nix
   ];
 }
