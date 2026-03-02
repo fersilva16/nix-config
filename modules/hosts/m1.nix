@@ -8,8 +8,8 @@ _: {
     ../darwin/sudo-touchid.nix
     ../darwin/watcher.nix
     ../fonts/caskaydia-cove.nix
-    ../utils/nix.nix
-    ../utils/pkg-config.nix
+    ../system/nix.nix
+    ../system/pkg-config.nix
     ../cli/wget.nix
     ../cli/unrar.nix
   ];

@@ -6,78 +6,104 @@ let
 in
 {
   imports = mkUserImports username [
+    # System
+    ../system/home.nix
     ../darwin/primary-user.nix
-    ../common/ngrok.nix
-    ../common/home.nix
-    ../common/homebrew.nix
-    ../common/git.nix
-    ../common/fish.nix
-    ../common/eza.nix
-    ../common/bat.nix
-    ../common/starship.nix
-    ../common/direnv.nix
-    ../common/ripgrep.nix
-    ../common/mongosh.nix
-    ../common/flyctl.nix
-    ../common/stern.nix
-    ../common/awscli.nix
-    ../common/wireguard.nix
-    ../common/obsidian.nix
-    ../common/whatsapp.nix
-    ../common/raycast.nix
-    ../common/dbeaver.nix
-    ../common/selfcontrol.nix
-    ../common/studio-3t.nix
-    ../common/postman.nix
-    ../common/iina.nix
-    ../common/calibre.nix
-    ../common/orbstack.nix
-    ../common/vscode/vscode.nix
-    ../common/discord.nix
-    ../browser/firefox.nix
-    ../browser/chrome.nix
+    ../darwin/homebrew.nix
+    ../darwin/karabiner/karabiner.nix
+    ../darwin/keyboardcleantool.nix
+    ../darwin/raycast.nix
+
+    # Shell & CLI
+    ../cli/fish.nix
+    ../cli/starship.nix
+    ../cli/direnv.nix
     ../cli/tmux.nix
-    ../cli/nvim.nix
-    ../terminal/kitty.nix
-    ../common/word.nix
-    ../security/1password.nix
-    ../chat/slack.nix
-    ../common/libreoffice.nix
-    ../common/netnewswire.nix
-    ../common/figma.nix
-    ../games/sony.nix
-    ../common/anki.nix
-    ../ledger/paisa.nix
-    ../ledger/ledger.nix
-    ../common/notion-calendar.nix
-    ../cli/minikube.nix
-    ../common/keyboardcleantool.nix
-    ../common/anytype.nix
-    ../editor/intellij.nix
-    ../chat/teams.nix
-    ../common/windows-app.nix
-    ../common/sparkmail.nix
-    ../common/karabiner/karabiner.nix
-    ../editor/cursor.nix
-    ../common/loom.nix
     ../cli/zoxide.nix
-    ../common/spotify.nix
-    ../cli/claude-code.nix
-    ../games/prismlauncher.nix
-    ../common/java-25.nix
-    ../common/tailscale.nix
-    ../games/steam.nix
-    ../cli/ollama.nix
-    ../chat/telegram.nix
-    ../security/yubikey.nix
-    ../common/cloudflare-warp.nix
-    ../cli/doppler.nix
+    ../cli/bat.nix
+    ../cli/eza.nix
+    ../cli/fzf.nix
+    ../cli/ripgrep.nix
+
+    # Dev tools
+    ../dev/git.nix
+    ../dev/awscli.nix
+    ../dev/flyctl.nix
+    ../dev/mongosh.nix
+    ../dev/stern.nix
+    ../dev/dbeaver.nix
+    ../dev/studio-3t.nix
+    ../dev/postman.nix
+    ../dev/ngrok.nix
+    ../dev/orbstack.nix
+    ../dev/java-25.nix
+    ../dev/minikube.nix
+    ../dev/doppler.nix
+    ../dev/claude-code.nix
+    ../dev/opencode.nix
+    ../dev/ollama.nix
+
+    # Editors
+    ../editor/nvim.nix
+    ../editor/vscode/vscode.nix
+    ../editor/cursor.nix
+    ../editor/intellij.nix
     ../editor/conductor.nix
     ../editor/android-studio.nix
-    ../common/stremio.nix
-    ../common/openclaw.nix
-    ../common/cold-turkey-blocker.nix
-    ../common/granola.nix
-    ../cli/opencode.nix
+
+    # Browsers
+    ../browser/firefox.nix
+    ../browser/chrome.nix
+
+    # Terminal
+    ../terminal/kitty.nix
+
+    # Chat & communication
+    ../chat/slack.nix
+    ../chat/teams.nix
+    ../chat/telegram.nix
+    ../chat/whatsapp.nix
+    ../chat/discord.nix
+
+    # Media
+    ../media/iina.nix
+    ../media/spotify.nix
+    ../media/stremio.nix
+
+    # Productivity
+    ../productivity/anki.nix
+    ../productivity/anytype.nix
+    ../productivity/calibre.nix
+    ../productivity/obsidian.nix
+    ../productivity/notion-calendar.nix
+    ../productivity/loom.nix
+    ../productivity/netnewswire.nix
+    ../productivity/sparkmail.nix
+    ../productivity/figma.nix
+    ../productivity/libreoffice.nix
+    ../productivity/word.nix
+    ../productivity/windows-app.nix
+    ../productivity/openclaw.nix
+    ../productivity/granola.nix
+    ../productivity/cold-turkey-blocker.nix
+    ../productivity/selfcontrol.nix
+
+    # Networking
+    ../networking/tailscale.nix
+    ../networking/cloudflare-warp.nix
+    ../networking/wireguard.nix
+
+    # Security
+    ../security/1password.nix
+    ../security/yubikey.nix
+
+    # Finance
+    ../ledger/paisa.nix
+    ../ledger/ledger.nix
+
+    # Games
+    ../games/sony.nix
+    ../games/prismlauncher.nix
+    ../games/steam.nix
   ];
 }
