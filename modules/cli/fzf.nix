@@ -1,5 +1,6 @@
-_: {
-  programs.fzf = {
-    enable = true;
+{ username, pkgs, ... }:
+{
+  home-manager.users.${username} = {
+    home.packages = with pkgs; [ fzf ];
   };
 }
