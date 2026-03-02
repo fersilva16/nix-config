@@ -78,5 +78,6 @@ in
     ../common/openclaw.nix
     ../common/cold-turkey-blocker.nix
     ../common/granola.nix
+    ../cli/opencode.nix
   ];
 }
