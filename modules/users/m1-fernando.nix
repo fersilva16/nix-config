@@ -43,6 +43,7 @@ in
     ../dev/opencode.nix
     ../dev/ollama.nix
     ../dev/linear.nix
+    ../dev/opencode-desktop.nix
 
     # Editors
     ../editor/nvim.nix
