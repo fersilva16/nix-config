@@ -42,6 +42,7 @@ in
     ../dev/claude-code.nix
     ../dev/opencode.nix
     ../dev/ollama.nix
+    ../dev/linear.nix
 
     # Editors
     ../editor/nvim.nix
