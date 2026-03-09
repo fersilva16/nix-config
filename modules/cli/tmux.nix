@@ -1,4 +1,7 @@
 { username, pkgs, ... }:
+let
+  inherit (pkgs) tmux-extras;
+in
 {
   home-manager.users.${username} = {
     programs.tmux = {
@@ -18,10 +21,23 @@
         set -g focus-events on
         setw -g aggressive-resize on
         set -ga terminal-overrides ",*-256color*:Tc"
+
+        # Reload config with prefix + R
+        bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
       '';
 
       plugins = with pkgs; [
-        flexoki-tmux
+        {
+          plugin = flexoki-tmux;
+          extraConfig = ''
+            # Override status-right with widgets from tmux-extras
+            set -g status-right "#(${tmux-extras}/bin/tmux-path-widget #{pane_current_path})#(${tmux-extras}/bin/tmux-git-status #{pane_current_path})#[fg=#ce5d97,bg=#f2f0e5]  %Y-%m-%d #[fg=#8b7ec8,bg=#f2f0e5]  %H:%M "
+            set -g status-right-length 200
+
+            # Cheatsheet popup on prefix + ?
+            bind-key '?' display-popup -w 54 -h 47 -E "${tmux-extras}/bin/tmux-cheatsheet"
+          '';
+        }
         tmuxPlugins.better-mouse-mode
         {
           plugin = tmuxPlugins.resurrect;
