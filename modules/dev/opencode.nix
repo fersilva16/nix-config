@@ -21,7 +21,7 @@ in
       jsonFormat.generate "opencode-notifier.json"
         {
           sound = true;
-          notification = true;
+          notification = false;
           suppressWhenFocused = true;
         };
   };
