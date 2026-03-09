@@ -57,7 +57,7 @@ in
     ../browser/chrome.nix
 
     # Terminal
-    ../terminal/kitty.nix
+    ../terminal/ghostty.nix
 
     # Chat & communication
     ../chat/slack.nix
