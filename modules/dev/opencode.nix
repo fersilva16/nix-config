@@ -7,6 +7,7 @@ in
     programs.opencode = {
       enable = true;
       settings = {
+        theme = "flexoki";
         plugin = [
           "@simonwjackson/opencode-direnv"
           "@mohak34/opencode-notifier@latest"
