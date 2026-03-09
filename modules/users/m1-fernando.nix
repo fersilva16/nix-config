@@ -10,7 +10,7 @@ in
     ../system/home.nix
     ../darwin/primary-user.nix
     ../darwin/homebrew.nix
-    ../darwin/karabiner/karabiner.nix
+    ../darwin/hammerspoon/hammerspoon.nix
     ../darwin/keyboardcleantool.nix
     ../darwin/raycast.nix
 
