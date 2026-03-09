@@ -50,7 +50,6 @@ in
     ../editor/vscode/vscode.nix
     ../editor/cursor.nix
     ../editor/intellij.nix
-    ../editor/conductor.nix
     ../editor/android-studio.nix
 
     # Browsers
@@ -85,7 +84,6 @@ in
     ../productivity/libreoffice.nix
     ../productivity/word.nix
     ../productivity/windows-app.nix
-    ../productivity/openclaw.nix
     ../productivity/granola.nix
     ../productivity/cold-turkey-blocker.nix
     ../productivity/selfcontrol.nix
