@@ -15,83 +15,78 @@ local f18Down = false
 -- Hyper + hjkl → Arrow keys
 -- Hyper + ; → Cmd+Right (end of line)
 local hyperBindings = {
-	{ "h", {}, "left" },
-	{ "j", {}, "down" },
-	{ "k", {}, "up" },
-	{ "l", {}, "right" },
-	{ ";", { "cmd" }, "right" },
+  { "h", {},        "left" },
+  { "j", {},        "down" },
+  { "k", {},        "up" },
+  { "l", {},        "right" },
+  { ";", { "cmd" }, "right" },
 }
 
 -- Hyper + T → Open a new Ghostty window (auto-attaches to tmux session group)
 hyperMode:bind({}, "t", function()
-	hyperUsedAsModifier = true
-	hs.execute("open -na Ghostty", true)
+  hyperUsedAsModifier = true
+  hs.execute("open -na Ghostty", true)
 end)
 
 -- Hyper + N → Focus Ghostty and jump to last tmux notification (prefix + N)
 hyperMode:bind({}, "n", function()
-	hyperUsedAsModifier = true
-	local app = hs.application.get("Ghostty")
-	if app then
-		app:activate()
-		-- Small delay to ensure Ghostty has focus before sending keys
-		hs.timer.doAfter(0.05, function()
-			hs.eventtap.keyStroke({ "ctrl" }, "space", 0)
-			hs.timer.doAfter(0.05, function()
-				hs.eventtap.keyStroke({ "shift" }, "n", 0)
-			end)
-		end)
-	else
-		hs.execute("open -na Ghostty", true)
-	end
+  hyperUsedAsModifier = true
+  local app = hs.application.get("Ghostty")
+  if app then
+    app:activate()
+    -- Small delay to ensure Ghostty has focus before sending keys
+    hs.timer.doAfter(0.05, function()
+      hs.eventtap.keyStroke({ "ctrl" }, "space", 0)
+      hs.timer.doAfter(0.05, function()
+        hs.eventtap.keyStroke({ "shift" }, "n", 0)
+      end)
+    end)
+  else
+    hs.execute("open -na Ghostty", true)
+  end
 end)
 
 for _, binding in ipairs(hyperBindings) do
-	local key, mods, arrow = binding[1], binding[2], binding[3]
-	hyperMode:bind({}, key, function()
-		hyperUsedAsModifier = true
-		hs.eventtap.keyStroke(mods, arrow, 0)
-	end, nil, function()
-		hs.eventtap.keyStroke(mods, arrow, 0)
-	end)
+  local key, mods, arrow = binding[1], binding[2], binding[3]
+  hyperMode:bind({}, key, function()
+    hyperUsedAsModifier = true
+    hs.eventtap.keyStroke(mods, arrow, 0)
+  end, nil, function()
+    hs.eventtap.keyStroke(mods, arrow, 0)
+  end)
 end
 
 -- Watch for F18 key events
-local f18Watcher = hs.eventtap.new({ hs.eventtap.event.types.flagsChanged, hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp }, function(event)
-	local keyCode = event:getKeyCode()
+local f18Watcher = hs.eventtap.new(
+{ hs.eventtap.event.types.flagsChanged, hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp }, function(event)
+  local keyCode = event:getKeyCode()
 
-	-- F18 = keyCode 79
-	if keyCode ~= 79 then
-		return false
-	end
+  -- F18 = keyCode 79
+  if keyCode ~= 79 then
+    return false
+  end
 
-	local eventType = event:getType()
+  local eventType = event:getType()
 
-	if eventType == hs.eventtap.event.types.keyDown then
-		if not f18Down then
-			f18Down = true
-			hyperUsedAsModifier = false
-			hyperMode:enter()
-		end
-		return true
-	elseif eventType == hs.eventtap.event.types.keyUp then
-		f18Down = false
-		hyperMode:exit()
+  if eventType == hs.eventtap.event.types.keyDown then
+    if not f18Down then
+      f18Down = true
+      hyperUsedAsModifier = false
+      hyperMode:enter()
+    end
+    return true
+  elseif eventType == hs.eventtap.event.types.keyUp then
+    f18Down = false
+    hyperMode:exit()
 
-		-- If F18 was tapped alone, toggle Caps Lock
-		if not hyperUsedAsModifier then
-			hs.hid.capslock.toggle()
-		end
-		return true
-	end
+    -- If F18 was tapped alone, toggle Caps Lock
+    if not hyperUsedAsModifier then
+      hs.hid.capslock.toggle()
+    end
+    return true
+  end
 
-	return false
+  return false
 end)
 
 f18Watcher:start()
-
--- Reload config on changes to ~/.hammerspoon (catches nix rebuild symlink swaps)
-local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon", function()
-	hs.reload()
-end)
-configWatcher:start()
