@@ -67,6 +67,7 @@ sep
 
 header "Misc"
 key "prefix ?" "this cheatsheet"
+key "prefix n" "notification panel"
 key "prefix :" "command prompt"
 key "prefix t" "show clock"
 key "prefix ~" "show messages"

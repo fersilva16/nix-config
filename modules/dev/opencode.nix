@@ -1,6 +1,7 @@
 { username, pkgs, ... }:
 let
   jsonFormat = pkgs.formats.json { };
+  inherit (pkgs) tmux-extras;
 in
 {
   home-manager.users.${username} = {
@@ -24,6 +25,17 @@ in
           sound = true;
           notification = false;
           suppressWhenFocused = true;
+          command = {
+            enabled = true;
+            path = "${tmux-extras}/bin/tmux-notify";
+            args = [
+              "add"
+              "--event"
+              "{event}"
+              "{message}"
+            ];
+            minDuration = 0;
+          };
         };
   };
 }
