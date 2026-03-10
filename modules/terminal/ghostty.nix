@@ -1,4 +1,7 @@
 { username, pkgs, ... }:
+let
+  inherit (pkgs) tmux-extras;
+in
 {
   home-manager.users.${username} = {
     programs.ghostty = {
@@ -7,6 +10,7 @@
       package = pkgs.ghostty-bin;
 
       settings = {
+        command = "${tmux-extras}/bin/tmux-attach";
         theme = "Flexoki Light";
 
         font-family = "CaskaydiaCove Nerd Font";

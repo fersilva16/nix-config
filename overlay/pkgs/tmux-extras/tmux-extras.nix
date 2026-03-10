@@ -17,6 +17,9 @@ pkgs.stdenvNoCC.mkDerivation {
     cp notify.sh $out/bin/tmux-notify
     cp notify-panel.sh $out/bin/tmux-notify-panel
     cp notify-widget.sh $out/bin/tmux-notify-widget
+    cp tmux-attach.sh $out/bin/tmux-attach
+    cp tmux-group.sh $out/bin/tmux-group
+    cp tmux-ungroup.sh $out/bin/tmux-ungroup
     chmod +x $out/bin/*
 
     # Wrap notification scripts to ensure dependencies are on PATH
@@ -40,6 +43,12 @@ pkgs.stdenvNoCC.mkDerivation {
       --prefix PATH : $out/bin
     wrapProgram $out/bin/tmux-notify-widget \
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.jq ]}
+    wrapProgram $out/bin/tmux-attach \
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
+    wrapProgram $out/bin/tmux-group \
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
+    wrapProgram $out/bin/tmux-ungroup \
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
   '';
 
   meta = {
