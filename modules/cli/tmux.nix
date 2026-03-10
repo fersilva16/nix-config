@@ -15,6 +15,7 @@ in
       historyLimit = 50000;
       sensibleOnTop = false;
       extraConfig = ''
+        set -g renumber-windows on
         set -g  escape-time 1
         set -g display-time 4000
         set -g status-interval 5
