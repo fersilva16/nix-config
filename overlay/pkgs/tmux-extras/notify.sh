@@ -95,6 +95,16 @@ cmd_add() {
   target=""
   if command -v tmux &>/dev/null; then
     local pane_target="${TMUX_PANE:-}"
+
+    # Skip notification if the pane is in the currently active window
+    if [[ -n "$pane_target" ]]; then
+      local pane_active
+      pane_active="$(tmux display-message -p -t "$pane_target" '#{window_active}' 2>/dev/null || true)"
+      if [[ "$pane_active" == "1" ]]; then
+        exit 0
+      fi
+    fi
+
     if [[ -n "$pane_target" ]]; then
       if [[ -z "$session" ]]; then
         session="$(tmux display-message -p -t "$pane_target" '#S' 2>/dev/null || true)"
@@ -204,10 +214,13 @@ cmd_goto() {
     cmd_dismiss "$id"
   fi
 
-  # Switch to the target window
-  if [[ -n "$target" ]] && command -v tmux &>/dev/null; then
-    tmux select-window -t "$target" 2>/dev/null || true
-    tmux switch-client -t "$target" 2>/dev/null || true
+  # Switch to the target window and refresh status bar
+  if command -v tmux &>/dev/null; then
+    tmux refresh-client -S 2>/dev/null || true
+    if [[ -n "$target" ]]; then
+      tmux select-window -t "$target" 2>/dev/null || true
+      tmux switch-client -t "$target" 2>/dev/null || true
+    fi
   fi
 }
 
