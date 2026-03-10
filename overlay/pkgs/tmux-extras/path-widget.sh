@@ -22,4 +22,4 @@ if [[ ${PATH_FORMAT} == "relative" ]]; then
   current_path="${current_path/#$HOME/~}"
 fi
 
-echo "#[fg=${BLUE},bg=${BG}]  ${RESET}${current_path} "
+echo "#[fg=${BLUE},bg=${BG}]  ${RESET}${current_path} "
