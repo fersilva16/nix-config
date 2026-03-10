@@ -48,6 +48,14 @@
       };
 
       functions = {
+        tmux = ''
+          if set -q TMUX
+            echo "Already inside tmux. Use prefix + c for a new window, or prefix + % / \" for splits."
+            return 1
+          end
+          command tmux $argv
+        '';
+
         ghpc = "git push && gh pr create --fill $argv && gh pr view --web";
         ghpm = "gh pr merge -sd --admin $argv";
         ghpcm = "ghpc $argv && ghpm";

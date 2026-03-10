@@ -22,6 +22,30 @@ local hyperBindings = {
 	{ ";", { "cmd" }, "right" },
 }
 
+-- Hyper + T → Open a new Ghostty window (auto-attaches to tmux session group)
+hyperMode:bind({}, "t", function()
+	hyperUsedAsModifier = true
+	hs.execute("open -na Ghostty", true)
+end)
+
+-- Hyper + N → Focus Ghostty and jump to last tmux notification (prefix + N)
+hyperMode:bind({}, "n", function()
+	hyperUsedAsModifier = true
+	local app = hs.application.get("Ghostty")
+	if app then
+		app:activate()
+		-- Small delay to ensure Ghostty has focus before sending keys
+		hs.timer.doAfter(0.05, function()
+			hs.eventtap.keyStroke({ "ctrl" }, "space", 0)
+			hs.timer.doAfter(0.05, function()
+				hs.eventtap.keyStroke({ "shift" }, "n", 0)
+			end)
+		end)
+	else
+		hs.execute("open -na Ghostty", true)
+	end
+end)
+
 for _, binding in ipairs(hyperBindings) do
 	local key, mods, arrow = binding[1], binding[2], binding[3]
 	hyperMode:bind({}, key, function()
@@ -66,16 +90,8 @@ end)
 
 f18Watcher:start()
 
--- Reload config on file changes
-local configWatcher = hs.pathwatcher.new(hs.configdir, function(files)
-	local doReload = false
-	for _, file in pairs(files) do
-		if file:sub(-4) == ".lua" then
-			doReload = true
-		end
-	end
-	if doReload then
-		hs.reload()
-	end
+-- Reload config on changes to ~/.hammerspoon (catches nix rebuild symlink swaps)
+local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon", function()
+	hs.reload()
 end)
 configWatcher:start()
