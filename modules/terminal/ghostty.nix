@@ -23,12 +23,20 @@ in
         cursor-style-blink = true;
         adjust-cursor-thickness = 2;
 
+        macos-option-as-alt = true;
         macos-titlebar-style = "transparent";
         window-theme = "auto";
         gtk-titlebar = false;
 
         window-padding-x = 8;
         window-padding-y = 8;
+
+        # Pass Cmd keybindings through to Neovim as escape sequences
+        keybind = [
+          "super+p=text:\\x1b[80;6u"
+          "super+shift+f=text:\\x1b[70;6u"
+
+        ];
       };
     };
   };
