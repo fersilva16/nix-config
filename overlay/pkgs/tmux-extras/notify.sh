@@ -11,7 +11,7 @@
 #   tmux-notify open                             Open the notification panel popup
 #
 # Events:
-#   Only "completed" events are recorded. Subagent and cancelled events are ignored.
+#   Only "complete", "permission", "error", "question" events are recorded. Subagent and user_cancelled events are ignored.
 #
 # Environment:
 #   TMUX_NOTIFY_FILE   Override notification file path (default: /tmp/tmux-notifications.json)
@@ -70,12 +70,15 @@ cmd_add() {
   fi
 
   # Filter: only allow task completion events through
-  # Known events: complete, subagent_complete, error, permission, question
+  # Known events: complete, subagent_complete, error, permission, question, user_cancelled
   if [[ -n "$event" ]]; then
     case "$event" in
       complete) ;; # allow
+      permission) ;; # allow
+      error) ;; # allow
+      question) ;; # allow
       *)
-        # Silently ignore subagent, error, permission, question events
+        # Silently ignore subagent and user_cancelled events
         exit 0
         ;;
     esac
@@ -180,15 +183,44 @@ cmd_open() {
   tmux display-popup -w 60 -h 20 -E "$panel_script"
 }
 
+# Jump to the most recent notification's window and dismiss it
+cmd_goto() {
+  init_file
+
+  local count
+  count=$(jq 'length' "$NOTIFY_FILE")
+  if [[ "$count" -eq 0 ]]; then
+    tmux display-message "No notifications" 2>/dev/null || true
+    return
+  fi
+
+  # Get the newest notification (last in the array)
+  local target id
+  target=$(jq -r '.[-1].target // empty' "$NOTIFY_FILE")
+  id=$(jq -r '.[-1].id' "$NOTIFY_FILE")
+
+  # Dismiss it
+  if [[ -n "$id" && "$id" != "null" ]]; then
+    cmd_dismiss "$id"
+  fi
+
+  # Switch to the target window
+  if [[ -n "$target" ]] && command -v tmux &>/dev/null; then
+    tmux select-window -t "$target" 2>/dev/null || true
+    tmux switch-client -t "$target" 2>/dev/null || true
+  fi
+}
+
 # Main dispatch
 case "${1:-}" in
   add)     shift; cmd_add "$@" ;;
   dismiss) shift; cmd_dismiss "$@" ;;
+  goto)    cmd_goto ;;
   list)    cmd_list ;;
   count)   cmd_count ;;
   open)    cmd_open ;;
   *)
-    echo "Usage: tmux-notify <add|dismiss|list|count|open> [args...]" >&2
+    echo "Usage: tmux-notify <add|dismiss|goto|list|count|open> [args...]" >&2
     exit 1
     ;;
 esac
