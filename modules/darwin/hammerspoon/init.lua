@@ -59,6 +59,30 @@ if tCode then
   end
 end
 
+-- Hyper + Space → Toggle between Ghostty and Cursor; default to Ghostty
+local spaceCode = hs.keycodes.map["space"]
+if spaceCode then
+  hyperActionsByKeyCode[spaceCode] = function()
+    local front = hs.application.frontmostApplication()
+    local name = front and front:name() or ""
+    if name == "Ghostty" then
+      local cursor = hs.application.get("Cursor")
+      if cursor then
+        cursor:activate()
+      else
+        hs.execute("open -na Cursor", true)
+      end
+    else
+      local ghostty = hs.application.get("Ghostty")
+      if ghostty then
+        ghostty:activate()
+      else
+        hs.execute("open -na Ghostty", true)
+      end
+    end
+  end
+end
+
 -- Hyper + N → Focus Ghostty and jump to last tmux notification (prefix + N)
 local nCode = hs.keycodes.map["n"]
 if nCode then
