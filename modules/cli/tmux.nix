@@ -43,6 +43,11 @@ in
         # Jump to last notification on prefix + N
         bind-key 'N' run-shell "${tmux-extras}/bin/tmux-notify goto"
 
+        # New windows/panes inherit current pane's working directory
+        bind-key c new-window -c "#{pane_current_path}"
+        bind-key '"' split-window -c "#{pane_current_path}"
+        bind-key % split-window -h -c "#{pane_current_path}"
+
         # Group session (multi-monitor): prefix + g to create, prefix + G to leave
         bind-key 'g' run-shell "${tmux-extras}/bin/tmux-group"
         bind-key 'G' run-shell "${tmux-extras}/bin/tmux-ungroup"
