@@ -4,6 +4,16 @@ let
 in
 {
   home-manager.users.${username} = {
+    xdg.configFile."tmux/tmux-nerd-font-window-name.yml".text = ''
+      config:
+        fallback-icon: "?"
+        show-name: false
+        always-show-fallback-name: true
+
+      icons:
+        .opencode-wrapp: ""
+    '';
+
     programs.tmux = {
       enable = true;
       shell = "${pkgs.fish}/bin/fish";
@@ -32,7 +42,7 @@ in
         bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
 
         # Status bar right side (after all plugins to avoid being overwritten)
-        set -g status-right "#(${tmux-extras}/bin/tmux-notify-widget)#(${tmux-extras}/bin/tmux-path-widget #{pane_current_path})#(${tmux-extras}/bin/tmux-git-status #{pane_current_path})#[fg=#ce5d97,bg=#f2f0e5]  %Y-%m-%d #[fg=#8b7ec8,bg=#f2f0e5]  %H:%M "
+        set -g status-right "#(${tmux-extras}/bin/tmux-notify-widget)#(${tmux-extras}/bin/tmux-path-widget #{pane_current_path})#(${tmux-extras}/bin/tmux-git-status #{pane_current_path})#[fg=#ce5d97,bg=#f2f0e5]  %Y-%m-%d #[fg=#8b7ec8,bg=#f2f0e5]  %H:%M "
         set -g status-right-length 200
 
         # Cheatsheet popup on prefix + ?
@@ -59,6 +69,9 @@ in
           plugin = flexoki-tmux;
         }
         tmuxPlugins.better-mouse-mode
+        {
+          plugin = tmux-nerd-font-window-name;
+        }
         {
           plugin = tmuxPlugins.resurrect;
           extraConfig = ''
