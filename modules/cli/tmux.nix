@@ -24,19 +24,21 @@ in
 
         # Reload config with prefix + R
         bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
+
+        # Status bar right side (after all plugins to avoid being overwritten)
+        set -g status-right "#(${tmux-extras}/bin/tmux-notify-widget)#(${tmux-extras}/bin/tmux-path-widget #{pane_current_path})#(${tmux-extras}/bin/tmux-git-status #{pane_current_path})#[fg=#ce5d97,bg=#f2f0e5]  %Y-%m-%d #[fg=#8b7ec8,bg=#f2f0e5]  %H:%M "
+        set -g status-right-length 200
+
+        # Cheatsheet popup on prefix + ?
+        bind-key '?' display-popup -w 54 -h 47 -E "${tmux-extras}/bin/tmux-cheatsheet"
+
+        # Notification panel on prefix + n
+        bind-key 'n' display-popup -w 60 -h 20 -E "${tmux-extras}/bin/tmux-notify-panel"
       '';
 
       plugins = with pkgs; [
         {
           plugin = flexoki-tmux;
-          extraConfig = ''
-            # Override status-right with widgets from tmux-extras
-            set -g status-right "#(${tmux-extras}/bin/tmux-path-widget #{pane_current_path})#(${tmux-extras}/bin/tmux-git-status #{pane_current_path})#[fg=#ce5d97,bg=#f2f0e5]  %Y-%m-%d #[fg=#8b7ec8,bg=#f2f0e5]  %H:%M "
-            set -g status-right-length 200
-
-            # Cheatsheet popup on prefix + ?
-            bind-key '?' display-popup -w 54 -h 47 -E "${tmux-extras}/bin/tmux-cheatsheet"
-          '';
         }
         tmuxPlugins.better-mouse-mode
         {
