@@ -24,7 +24,7 @@ in
         {
           sound = true;
           notification = false;
-          suppressWhenFocused = true;
+          suppressWhenFocused = false;
           command = {
             enabled = true;
             path = "${tmux-extras}/bin/tmux-notify";
