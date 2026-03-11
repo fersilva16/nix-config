@@ -59,6 +59,20 @@ if tCode then
   end
 end
 
+-- Hyper + C → Open Cursor in the current tmux pane directory
+local cCode = hs.keycodes.map["c"]
+if cCode then
+  hyperActionsByKeyCode[cCode] = function()
+    local dir = hs.execute("tmux display-message -p '#{pane_current_path}' 2>/dev/null", true)
+    dir = dir and dir:gsub("%s+$", "") or ""
+    if dir ~= "" then
+      hs.execute(string.format("open -a Cursor '%s'", dir), true)
+    else
+      hs.execute("open -a Cursor", true)
+    end
+  end
+end
+
 -- Hyper + Space → Toggle between Ghostty and Cursor; default to Ghostty
 local spaceCode = hs.keycodes.map["space"]
 if spaceCode then
