@@ -19,7 +19,9 @@ current_path="${1}"
 PATH_FORMAT="${PATH_FORMAT:-relative}"
 
 if [[ ${PATH_FORMAT} == "relative" ]]; then
-  current_path="${current_path/#$HOME/~}"
+  home_dir="${HOME:-$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}')}"
+  home_dir="${home_dir:-/Users/$(id -un)}"
+  current_path="${current_path/#${home_dir}/\~}"
 fi
 
 echo "#[fg=${BLUE},bg=${BG}]  ${RESET}${current_path} "
