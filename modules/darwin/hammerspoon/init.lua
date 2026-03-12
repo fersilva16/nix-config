@@ -59,14 +59,17 @@ if tCode then
   end
 end
 
--- Hyper + C → Open Cursor in the current tmux pane directory
+-- Hyper + C → Open Cursor at the git root of the current tmux pane directory
 local cCode = hs.keycodes.map["c"]
 if cCode then
   hyperActionsByKeyCode[cCode] = function()
     local dir = hs.execute("tmux display-message -p '#{pane_current_path}' 2>/dev/null", true)
     dir = dir and dir:gsub("%s+$", "") or ""
     if dir ~= "" then
-      hs.execute(string.format("open -a Cursor '%s'", dir), true)
+      local gitRoot = hs.execute(string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir), true)
+      gitRoot = gitRoot and gitRoot:gsub("%s+$", "") or ""
+      local target = gitRoot ~= "" and gitRoot or dir
+      hs.execute(string.format("open -a Cursor '%s'", target), true)
     else
       hs.execute("open -a Cursor", true)
     end
