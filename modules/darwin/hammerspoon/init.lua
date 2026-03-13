@@ -119,71 +119,94 @@ if nCode then
   end
 end
 
-local f18Watcher = hs.eventtap.new(
-  { hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp },
-  function(event)
-    local keyCode = event:getKeyCode()
+-- Eventtap callback, extracted so we can recreate the tap without duplication.
+local function f18Callback(event)
+  local keyCode = event:getKeyCode()
 
-    -- F18 = keyCode 79
-    if keyCode == 79 then
-      local eventType = event:getType()
-      if eventType == hs.eventtap.event.types.keyDown then
-        if not hyperDown then
-          hyperDown = true
-          hyperUsedAsModifier = false
-        end
-        return true
-      elseif eventType == hs.eventtap.event.types.keyUp then
-        local wasTap = not hyperUsedAsModifier
-        resetHyper()
-        if wasTap then
-          hs.hid.capslock.toggle()
-        end
-        return true
+  -- F18 = keyCode 79
+  if keyCode == 79 then
+    local eventType = event:getType()
+    if eventType == hs.eventtap.event.types.keyDown then
+      if not hyperDown then
+        hyperDown = true
+        hyperUsedAsModifier = false
       end
-    end
-
-    -- Fast path: if hyper is not held, bail immediately (one boolean check).
-    if not hyperDown then
-      return false
-    end
-
-    -- Hyper is held — only care about keyDown events for bindings.
-    if event:getType() ~= hs.eventtap.event.types.keyDown then
-      return false
-    end
-
-    -- Check arrow/key remappings (integer-keyed table lookup, no string ops).
-    local binding = hyperBindingsByKeyCode[keyCode]
-    if binding then
-      hyperUsedAsModifier = true
-      -- Return events from the callback: uses CGEventTapPostEvent (no
-      -- reentrancy, no 1ms usleep per :post() call).
-      return true, {
-        newKeyEvent(binding[1], binding[2], true),
-        newKeyEvent(binding[1], binding[2], false),
-      }
-    end
-
-    -- Check action bindings.
-    local action = hyperActionsByKeyCode[keyCode]
-    if action then
-      hyperUsedAsModifier = true
-      action()
+      return true
+    elseif eventType == hs.eventtap.event.types.keyUp then
+      local wasTap = not hyperUsedAsModifier
+      resetHyper()
+      if wasTap then
+        hs.hid.capslock.toggle()
+      end
       return true
     end
+  end
 
+  -- Fast path: if hyper is not held, bail immediately (one boolean check).
+  if not hyperDown then
     return false
   end
-)
 
-f18Watcher:start()
+  -- Hyper is held — only care about keyDown events for bindings.
+  if event:getType() ~= hs.eventtap.event.types.keyDown then
+    return false
+  end
 
--- Monitor eventtap health: macOS can silently disable eventtaps that take too
--- long to return. If our watcher gets disabled, restart it.
-local healthCheck = hs.timer.new(5, function()
-  if not f18Watcher:isEnabled() then
-    f18Watcher:start()
+  -- Check arrow/key remappings (integer-keyed table lookup, no string ops).
+  local binding = hyperBindingsByKeyCode[keyCode]
+  if binding then
+    hyperUsedAsModifier = true
+    -- Return events from the callback: uses CGEventTapPostEvent (no
+    -- reentrancy, no 1ms usleep per :post() call).
+    return true, {
+      newKeyEvent(binding[1], binding[2], true),
+      newKeyEvent(binding[1], binding[2], false),
+    }
+  end
+
+  -- Check action bindings.
+  -- Actions are deferred to the next run-loop iteration so the eventtap
+  -- callback returns immediately. macOS silently disables CGEventTaps
+  -- whose callbacks exceed ~300ms; hs.execute() can easily hit that.
+  local action = hyperActionsByKeyCode[keyCode]
+  if action then
+    hyperUsedAsModifier = true
+    hs.timer.doAfter(0, function()
+      local ok, err = pcall(action)
+      if not ok then
+        hs.alert.show("Hyper action error: " .. tostring(err), 3)
+      end
+    end)
+    return true
+  end
+
+  return false
+end
+
+local f18Watcher = nil
+local tapEventTypes = { hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp }
+
+-- Destroy the current tap and create a fresh one. macOS can permanently
+-- invalidate a CGEventTap handle; re-enabling it via :start() does nothing
+-- in that case. Recreating from scratch gets a new Mach port.
+local function recreateWatcher()
+  if f18Watcher then
+    f18Watcher:stop()
+    f18Watcher = nil
+  end
+  f18Watcher = hs.eventtap.new(tapEventTypes, f18Callback)
+  f18Watcher:start()
+  resetHyper()
+end
+
+recreateWatcher()
+
+-- Monitor eventtap health every 2 seconds. If the tap has been silently
+-- disabled by macOS, destroy it and create a brand new one.
+local healthCheck = hs.timer.new(2, function()
+  if not f18Watcher or not f18Watcher:isEnabled() then
+    hs.alert.show("⌨️ Hyper key recovered", 1.5)
+    recreateWatcher()
   end
 end)
 healthCheck:start()
@@ -192,9 +215,24 @@ healthCheck:start()
 local caffeinate = hs.caffeinate.watcher.new(function(event)
   if event == hs.caffeinate.watcher.systemDidWake then
     resetHyper()
-    if not f18Watcher:isEnabled() then
-      f18Watcher:start()
+    if not f18Watcher or not f18Watcher:isEnabled() then
+      recreateWatcher()
     end
   end
 end)
 caffeinate:start()
+
+-- Auto-reload config on changes with debounce. The config is a nix store
+-- symlink, so darwin-rebuild changes the symlink target which can fire
+-- multiple events in quick succession. A 2-second debounce collapses them
+-- into a single reload.
+local reloadTimer = nil
+local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", function()
+  if reloadTimer then
+    reloadTimer:stop()
+  end
+  reloadTimer = hs.timer.doAfter(2, function()
+    hs.reload()
+  end)
+end)
+configWatcher:start()
