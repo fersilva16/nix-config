@@ -146,6 +146,19 @@ cmd_add() {
     tmux set -g message-style "fg=#da702c,bg=#f2f0e5" 2>/dev/null || true
     tmux display-message -d 5000 "󰂞  ${session}: ${message}" 2>/dev/null || true
   fi
+
+  # Send terminal bell when remote mode is active.
+  # Termius (and most iOS SSH clients) surface BEL as an iOS notification
+  # when the app is backgrounded, providing a vibration/alert on the phone.
+  if [[ -f "/tmp/tmux-remote-state" ]]; then
+    # Send BEL to all tmux clients so the SSH session receives it
+    local pane_target="${TMUX_PANE:-}"
+    if [[ -n "$pane_target" ]]; then
+      tmux send-keys -t "$pane_target" "" 2>/dev/null || true
+    else
+      printf '\a'
+    fi
+  fi
 }
 
 # Dismiss (remove) one or all notifications

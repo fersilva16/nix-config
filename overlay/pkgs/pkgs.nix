@@ -5,4 +5,5 @@ pkgs: {
   tmux-nerd-font-window-name =
     pkgs.callPackage ./tmux-nerd-font-window-name/tmux-nerd-font-window-name.nix
       { };
+  figma-developer-mcp = pkgs.callPackage ./figma-developer-mcp.nix { };
 }

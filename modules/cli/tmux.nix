@@ -42,7 +42,8 @@ in
         bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
 
         # Status bar right side (after all plugins to avoid being overwritten)
-        set -g status-right "#(${tmux-extras}/bin/tmux-notify-widget)#(${tmux-extras}/bin/tmux-path-widget #{pane_current_path})#(${tmux-extras}/bin/tmux-git-status #{pane_current_path})#[fg=#ce5d97,bg=#f2f0e5]  %Y-%m-%d #[fg=#8b7ec8,bg=#f2f0e5]  %H:%M "
+        # Uses a single script that switches between full/minimal bar based on remote mode
+        set -g status-right "#(${tmux-extras}/bin/tmux-status-right #{pane_current_path})"
         set -g status-right-length 200
 
         # Cheatsheet popup on prefix + ?
@@ -62,6 +63,9 @@ in
         # Group session (multi-monitor): prefix + g to create, prefix + G to leave
         bind-key 'g' run-shell "${tmux-extras}/bin/tmux-group"
         bind-key 'G' run-shell "${tmux-extras}/bin/tmux-ungroup"
+
+        # Remote access mode: prefix + C-R to toggle (SSH + lid-close safe + battery saving)
+        bind-key 'C-R' run-shell "${tmux-extras}/bin/tmux-remote toggle"
       '';
 
       plugins = with pkgs; [

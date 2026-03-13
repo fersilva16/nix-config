@@ -20,6 +20,10 @@ pkgs.stdenvNoCC.mkDerivation {
     cp tmux-attach.sh $out/bin/tmux-attach
     cp tmux-group.sh $out/bin/tmux-group
     cp tmux-ungroup.sh $out/bin/tmux-ungroup
+    cp remote.sh $out/bin/tmux-remote
+    cp remote-widget.sh $out/bin/tmux-remote-widget
+    cp battery-widget.sh $out/bin/tmux-battery-widget
+    cp status-right.sh $out/bin/tmux-status-right
     chmod +x $out/bin/*
 
     # Wrap notification scripts to ensure dependencies are on PATH
@@ -49,6 +53,16 @@ pkgs.stdenvNoCC.mkDerivation {
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
     wrapProgram $out/bin/tmux-ungroup \
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
+    wrapProgram $out/bin/tmux-remote \
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
+    wrapProgram $out/bin/tmux-status-right \
+      --prefix PATH : ${
+        pkgs.lib.makeBinPath [
+          pkgs.jq
+          pkgs.coreutils
+        ]
+      } \
+      --prefix PATH : $out/bin
   '';
 
   meta = {
