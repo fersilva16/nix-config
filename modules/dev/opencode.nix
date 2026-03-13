@@ -12,6 +12,7 @@ in
         plugin = [
           "@simonwjackson/opencode-direnv"
           "@mohak34/opencode-notifier@latest"
+          "@kdcokenny/opencode-worktree@latest"
           "oh-my-opencode@latest"
         ];
         permission = {
@@ -24,6 +25,9 @@ in
       "$schema" =
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json";
       agents = {
+        build = {
+          model = "anthropic/claude-opus-4-6";
+        };
         sisyphus = {
           model = "anthropic/claude-opus-4-6";
           variant = "max";
