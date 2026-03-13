@@ -55,8 +55,8 @@ in
         # Jump to last notification on prefix + N
         bind-key 'N' run-shell "${tmux-extras}/bin/tmux-notify goto"
 
-        # New windows/panes inherit current pane's working directory
-        bind-key c new-window -c "#{pane_current_path}"
+        # New windows open at nearest git root; panes inherit current directory
+        bind-key c run-shell 'tmux new-window -c "$(${tmux-extras}/bin/tmux-git-root-path "#{pane_current_path}")"'
         bind-key '"' split-window -c "#{pane_current_path}"
         bind-key % split-window -h -c "#{pane_current_path}"
 

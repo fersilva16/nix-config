@@ -24,6 +24,7 @@ pkgs.stdenvNoCC.mkDerivation {
     cp remote-widget.sh $out/bin/tmux-remote-widget
     cp battery-widget.sh $out/bin/tmux-battery-widget
     cp status-right.sh $out/bin/tmux-status-right
+    cp git-root-path.sh $out/bin/tmux-git-root-path
     chmod +x $out/bin/*
 
     # Wrap notification scripts to ensure dependencies are on PATH
