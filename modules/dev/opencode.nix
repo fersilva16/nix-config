@@ -1,7 +1,7 @@
 { username, pkgs, ... }:
 let
   jsonFormat = pkgs.formats.json { };
-  inherit (pkgs) tmux-extras;
+  inherit (pkgs) tmux-extras figma-developer-mcp;
 in
 {
   home-manager.users.${username} = {
@@ -17,6 +17,17 @@ in
         ];
         permission = {
           external_directory = "allow";
+        };
+        mcp = {
+          framelink = {
+            type = "local";
+            command = [
+              "${figma-developer-mcp}/bin/figma-developer-mcp"
+              "--stdio"
+              "--env"
+              "/Users/${username}/.config/figma/.env"
+            ];
+          };
         };
       };
     };
