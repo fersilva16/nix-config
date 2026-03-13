@@ -76,6 +76,10 @@ trap 'rm -f "$CONTENT"' EXIT
   key "prefix G" "leave grouped session"
   sep
 
+  header "Remote Access"
+  key "prefix Ctrl+R" "toggle remote mode"
+  sep
+
   header "Misc"
   key "prefix ?" "this cheatsheet"
   key "prefix n" "notification panel"
