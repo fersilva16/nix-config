@@ -163,12 +163,17 @@ local function f18Callback(event)
   end
 
   -- Check action bindings.
+  -- Actions are one-shot; ignore key repeats (bindings above allow repeats
+  -- intentionally — e.g. holding Hyper+H sends repeated Left arrows).
   -- Actions are deferred to the next run-loop iteration so the eventtap
   -- callback returns immediately. macOS silently disables CGEventTaps
   -- whose callbacks exceed ~300ms; hs.execute() can easily hit that.
   local action = hyperActionsByKeyCode[keyCode]
   if action then
     hyperUsedAsModifier = true
+    if event:getProperty(hs.eventtap.event.properties.keyboardEventAutorepeat) ~= 0 then
+      return true
+    end
     hs.timer.doAfter(0, function()
       local ok, err = pcall(action)
       if not ok then
