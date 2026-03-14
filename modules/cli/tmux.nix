@@ -60,6 +60,9 @@ in
         bind-key '"' split-window -c "#{pane_current_path}"
         bind-key % split-window -h -c "#{pane_current_path}"
 
+        # Session picker sorted by name (worktree sessions stay grouped with parent)
+        bind-key s choose-tree -sZO name
+
         # Group session (multi-monitor): prefix + g to create, prefix + G to leave
         bind-key 'g' run-shell "${tmux-extras}/bin/tmux-group"
         bind-key 'G' run-shell "${tmux-extras}/bin/tmux-ungroup"
