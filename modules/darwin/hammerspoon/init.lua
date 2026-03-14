@@ -144,11 +144,21 @@ local function f18Callback(event)
   local binding = hyperBindingsByKeyCode[keyCode]
   if binding then
     hyperUsedAsModifier = true
-    -- Return events from the callback: uses CGEventTapPostEvent (no
-    -- reentrancy, no 1ms usleep per :post() call).
+    -- Pass through modifier flags (shift, option, cmd) so that e.g.
+    -- Hyper+Shift+h → Shift+Left (select), Hyper+Option+h → Option+Left
+    -- (word jump), Hyper+Cmd+h → Cmd+Left (line start), and any
+    -- combination thereof.
+    local flags = event:getFlags()
+    local mods = {}
+    for _, m in ipairs(binding[1]) do
+      mods[#mods + 1] = m
+    end
+    if flags.shift then mods[#mods + 1] = "shift" end
+    if flags.alt then mods[#mods + 1] = "alt" end
+    if flags.cmd then mods[#mods + 1] = "cmd" end
     return true, {
-      newKeyEvent(binding[1], binding[2], true),
-      newKeyEvent(binding[1], binding[2], false),
+      newKeyEvent(mods, binding[2], true),
+      newKeyEvent(mods, binding[2], false),
     }
   end
 
