@@ -97,10 +97,12 @@ cmd_add() {
     local pane_target="${TMUX_PANE:-}"
 
     # Skip notification if the pane is in the currently active window
+    # of an attached session (i.e., the user is actually looking at it)
     if [[ -n "$pane_target" ]]; then
-      local pane_active
+      local pane_active session_attached
       pane_active="$(tmux display-message -p -t "$pane_target" '#{window_active}' 2>/dev/null || true)"
-      if [[ "$pane_active" == "1" ]]; then
+      session_attached="$(tmux display-message -p -t "$pane_target" '#{session_attached}' 2>/dev/null || true)"
+      if [[ "$pane_active" == "1" && "${session_attached:-0}" -gt 0 ]]; then
         exit 0
       fi
     fi
