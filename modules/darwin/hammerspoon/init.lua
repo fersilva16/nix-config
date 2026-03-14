@@ -199,13 +199,15 @@ local healthCheck = hs.timer.new(2, function()
 end)
 healthCheck:start()
 
--- Reset hyper state on system wake (sleep/wake often drops key events).
+-- Full reload on system wake. Sleep can permanently invalidate eventtap
+-- Mach ports, freeze timers, and leave watchers unresponsive. A clean
+-- reload is the only reliable recovery.
 local caffeinate = hs.caffeinate.watcher.new(function(event)
-  if event == hs.caffeinate.watcher.systemDidWake then
-    resetHyper()
-    if not f18Watcher or not f18Watcher:isEnabled() then
-      recreateWatcher()
-    end
+  if event == hs.caffeinate.watcher.systemDidWake or
+    event == hs.caffeinate.watcher.screensDidWake then
+    hs.timer.doAfter(2, function()
+      hs.reload()
+    end)
   end
 end)
 caffeinate:start()
