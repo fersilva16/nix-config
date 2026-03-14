@@ -91,19 +91,31 @@ if spaceCode then
 end
 
 -- Hyper + N → Focus Ghostty and jump to last tmux notification (prefix + N)
+-- Keys are posted directly to Ghostty via :post(app) (CGEventPostToPSN) so
+-- they bypass our eventtap — otherwise Ctrl+Space triggers hyper+space.
 local nCode = hs.keycodes.map["n"]
 if nCode then
   hyperActionsByKeyCode[nCode] = function()
-    local wasRunning = hs.application.get("com.mitchellh.ghostty") ~= nil
-    hs.application.open("Ghostty")
-    if wasRunning then
-      hs.timer.doAfter(0.1, function()
-        hs.eventtap.keyStroke({ "ctrl" }, "space", 0)
-        hs.timer.doAfter(0.05, function()
-          hs.eventtap.keyStroke({ "shift" }, "n", 0)
-        end)
-      end)
+    local ghostty = hs.application.get("com.mitchellh.ghostty")
+    if not ghostty then
+      hs.application.open("Ghostty")
+      return
     end
+    ghostty:activate()
+    hs.timer.doAfter(0.1, function()
+      local g = hs.application.get("com.mitchellh.ghostty")
+      if g then
+        newKeyEvent({ "ctrl" }, "space", true):post(g)
+        newKeyEvent({ "ctrl" }, "space", false):post(g)
+        hs.timer.doAfter(0.05, function()
+          local g2 = hs.application.get("com.mitchellh.ghostty")
+          if g2 then
+            newKeyEvent({ "shift" }, "n", true):post(g2)
+            newKeyEvent({ "shift" }, "n", false):post(g2)
+          end
+        end)
+      end
+    end)
   end
 end
 
