@@ -81,21 +81,11 @@ local spaceCode = hs.keycodes.map["space"]
 if spaceCode then
   hyperActionsByKeyCode[spaceCode] = function()
     local front = hs.application.frontmostApplication()
-    local name = front and front:name() or ""
-    if name == "Ghostty" then
-      local cursor = hs.application.get("Cursor")
-      if cursor then
-        cursor:activate()
-      else
-        hs.execute("open -na Cursor", true)
-      end
+    local bid = front and front:bundleID() or ""
+    if bid == "com.mitchellh.ghostty" then
+      hs.application.open("Cursor")
     else
-      local ghostty = hs.application.get("Ghostty")
-      if ghostty then
-        ghostty:activate()
-      else
-        hs.execute("open -na Ghostty", true)
-      end
+      hs.application.open("Ghostty")
     end
   end
 end
@@ -104,17 +94,15 @@ end
 local nCode = hs.keycodes.map["n"]
 if nCode then
   hyperActionsByKeyCode[nCode] = function()
-    local app = hs.application.get("Ghostty")
-    if app then
-      app:activate()
-      hs.timer.doAfter(0.05, function()
+    local wasRunning = hs.application.get("com.mitchellh.ghostty") ~= nil
+    hs.application.open("Ghostty")
+    if wasRunning then
+      hs.timer.doAfter(0.1, function()
         hs.eventtap.keyStroke({ "ctrl" }, "space", 0)
         hs.timer.doAfter(0.05, function()
           hs.eventtap.keyStroke({ "shift" }, "n", 0)
         end)
       end)
-    else
-      hs.execute("open -na Ghostty", true)
     end
   end
 end
