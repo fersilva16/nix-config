@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # tmux-status-right: Unified status bar right side.
-# When remote mode is active, shows a minimal bar (SSH + battery + time).
-# When inactive, shows the full bar (notifications + path + git + date + time).
+# When remote mode is active, shows a minimal bar (SSH + battery).
+# When inactive, shows the full bar (notifications + path + git).
 
 STATE_FILE="/tmp/tmux-remote-state"
 PANE_PATH="${1:-}"
@@ -14,8 +14,6 @@ RED="#d14d41"
 GREEN="#879a39"
 YELLOW="#d0a215"
 ORANGE="#da702c"
-MAGENTA="#ce5d97"
-PURPLE="#8b7ec8"
 
 RESET="#[fg=${FG},bg=${BG},nobold,noitalics,nounderscore,nodim]"
 
@@ -56,9 +54,8 @@ if [[ -f "$STATE_FILE" ]]; then
   # SSH indicator + battery + time
   SSH="#[fg=${RED},bg=${BG},bold] 󰣀 SSH${RESET}"
   BATT=$(battery_widget)
-  TIME="#[fg=${PURPLE},bg=${BG}]  %H:%M "
 
-  echo "${SSH}${BATT}${TIME}"
+  echo "${SSH}${BATT}"
 else
   # ---- Normal mode: full bar ----
   # Notifications + path + git + date + time
@@ -68,8 +65,6 @@ else
   NOTIFY=$("${SELF_DIR}/tmux-notify-widget")
   PATH_W=$("${SELF_DIR}/tmux-path-widget" "$PANE_PATH")
   GIT=$("${SELF_DIR}/tmux-git-status" "$PANE_PATH")
-  DATE="#[fg=${MAGENTA},bg=${BG}]  %Y-%m-%d "
-  TIME="#[fg=${PURPLE},bg=${BG}]  %H:%M "
 
-  echo "${NOTIFY}${PATH_W}${GIT}${DATE}${TIME}"
+  echo "${NOTIFY}${PATH_W}${GIT}"
 fi
