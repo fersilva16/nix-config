@@ -55,6 +55,9 @@ in
         # Jump to last notification on prefix + N
         bind-key 'N' run-shell "${tmux-extras}/bin/tmux-notify goto"
 
+        # Open opencode in a new pane at nearest git root
+        bind-key o run-shell 'tmux split-window -h -c "$(${tmux-extras}/bin/tmux-git-root-path "#{pane_current_path}")" opencode'
+
         # New windows open at nearest git root; panes inherit current directory
         bind-key c run-shell 'tmux new-window -c "$(${tmux-extras}/bin/tmux-git-root-path "#{pane_current_path}")"'
         bind-key '"' split-window -c "#{pane_current_path}"

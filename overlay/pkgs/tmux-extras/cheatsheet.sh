@@ -54,6 +54,7 @@ trap 'rm -f "$CONTENT"' EXIT
   header "Panes"
   key "prefix %" "split vertical"
   key "prefix \"" "split horizontal"
+  key "prefix o" "open opencode pane"
   key "prefix arrow" "move between panes"
   key "prefix z" "toggle zoom"
   key "prefix x" "close pane"
