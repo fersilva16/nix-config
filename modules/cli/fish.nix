@@ -116,32 +116,27 @@
           # Create worktree if dir doesn't exist
           if not test -d "$wt_path"
             git fetch origin 2>/dev/null
+            set base_branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
+            if test -z "$base_branch" -o "$base_branch" = "HEAD"
+              echo "wt: detached HEAD — checkout a branch first"
+              return 1
+            end
 
             if test -n "$branch"
-              # Use existing branch, or create new branch from default
+              # Use existing branch, or create new branch from current
               if git show-ref --verify --quiet "refs/heads/$branch"
                 git worktree add "$wt_path" "$branch"
               else if git show-ref --verify --quiet "refs/remotes/origin/$branch"
                 git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
               else
-                set default_branch (git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | string replace 'refs/remotes/origin/' "")
-                if test -z "$default_branch"
-                  echo "wt: cannot determine default branch (run: git remote set-head origin --auto)"
-                  return 1
-                end
-                git worktree add -b "$branch" "$wt_path" "origin/$default_branch"
+                git worktree add -b "$branch" "$wt_path" "$base_branch"
               end
             else
-              # New branch (named after worktree) from default branch
-              set default_branch (git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | string replace 'refs/remotes/origin/' "")
-              if test -z "$default_branch"
-                echo "wt: cannot determine default branch (run: git remote set-head origin --auto)"
-                return 1
-              end
-              git worktree add -b "$name" "$wt_path" "origin/$default_branch"
+              # New branch (named after worktree) from current branch
+              git worktree add -b "$name" "$wt_path" "$base_branch"
             end
             or begin; echo "wt: failed to create worktree"; return 1; end
-            echo "Created worktree at $wt_path"
+            echo "Created worktree at $wt_path (from $base_branch)"
             direnv allow "$wt_path" 2>/dev/null
           end
 
