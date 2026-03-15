@@ -4,6 +4,40 @@
     programs.lazygit = {
       enable = true;
       settings = {
+        customCommands = [
+          {
+            key = "O";
+            context = "localBranches";
+            command = "git push && gh pr create --web";
+            description = "Create PR (push + open in browser)";
+            output = "log";
+            loadingText = "Creating PR...";
+          }
+          {
+            key = "<c-o>";
+            context = "localBranches";
+            command = "git push && gh pr create --fill && gh pr view --web";
+            description = "Create PR (push + fill + open)";
+            output = "log";
+            loadingText = "Creating PR...";
+          }
+          {
+            key = "<c-x>";
+            context = "localBranches";
+            command = "gh pr merge -sd --admin";
+            description = "Merge PR (squash + delete branch)";
+            output = "log";
+            loadingText = "Merging PR...";
+          }
+          {
+            key = "<c-p>";
+            context = "localBranches";
+            command = "git push && gh pr create --fill && gh pr merge -sd --admin";
+            description = "Create + Merge PR";
+            output = "log";
+            loadingText = "Creating and merging PR...";
+          }
+        ];
         gui = {
           nerdFontsVersion = "3";
           theme = {
