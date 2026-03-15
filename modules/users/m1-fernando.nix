@@ -27,6 +27,7 @@ in
 
     # Dev tools
     ../dev/git.nix
+    ../dev/lazygit.nix
     ../dev/awscli.nix
     ../dev/flyctl.nix
     ../dev/mongosh.nix
