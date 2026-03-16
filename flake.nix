@@ -41,6 +41,11 @@
       url = "github:homebrew/homebrew-bundle";
       flake = false;
     };
+
+    homebrew-schpet-tap = {
+      url = "github:schpet/homebrew-tap";
+      flake = false;
+    };
   };
 
   outputs =

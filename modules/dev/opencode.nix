@@ -15,6 +15,12 @@ in
           "@kdcokenny/opencode-worktree@latest"
           "oh-my-opencode@latest"
         ];
+        command = {
+          lin = {
+            template = "Here is the Linear issue for this branch:\n\n!`linear issue view $ARGUMENTS`\n\nSummarize the issue and ask what I want to work on.";
+            description = "Load Linear issue context";
+          };
+        };
         permission = {
           external_directory = "allow";
         };

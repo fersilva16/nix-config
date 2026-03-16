@@ -5,7 +5,12 @@
   ...
 }:
 let
-  inherit (inputs) homebrew-core homebrew-cask homebrew-bundle;
+  inherit (inputs)
+    homebrew-core
+    homebrew-cask
+    homebrew-bundle
+    homebrew-schpet-tap
+    ;
 in
 {
   nix-homebrew = {
@@ -19,6 +24,7 @@ in
       "homebrew/homebrew-core" = homebrew-core;
       "homebrew/homebrew-cask" = homebrew-cask;
       "homebrew/homebrew-bundle" = homebrew-bundle;
+      "schpet/homebrew-tap" = homebrew-schpet-tap;
     };
 
     mutableTaps = false;
