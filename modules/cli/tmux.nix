@@ -12,6 +12,7 @@ in
 
       icons:
         .opencode-wrapp: ""
+        task: "󱓞"
     '';
 
     programs.tmux = {
