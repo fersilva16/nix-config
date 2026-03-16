@@ -209,7 +209,17 @@
           set git_root (git rev-parse --show-toplevel 2>/dev/null)
           or begin; echo "wtrm: not a git repo"; return 1; end
 
-          set name $argv[1]
+          set -l force 0
+          set -l args
+          for arg in $argv
+            if test "$arg" = "--force" -o "$arg" = "-f"
+              set force 1
+            else
+              set -a args $arg
+            end
+          end
+
+          set name $args[1]
 
           set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
           set repo_name (basename $main_root)
@@ -250,14 +260,22 @@
           set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
 
           # Remove worktree (fails if dirty, protecting uncommitted work)
-          git worktree remove "$wt_path"
-          or begin; echo "wtrm: worktree has changes — use 'git worktree remove --force $wt_path' to force"; return 1; end
+          if test $force -eq 1
+            git worktree remove --force "$wt_path"
+          else
+            git worktree remove "$wt_path"
+          end
+          or begin; echo "wtrm: worktree has changes — use 'wtrm --force $name' to force"; return 1; end
 
           # Delete the branch
           if test -n "$branch" -a "$branch" != "HEAD"
-            git branch -d "$branch" 2>/dev/null
+            if test $force -eq 1
+              git branch -D "$branch" 2>/dev/null
+            else
+              git branch -d "$branch" 2>/dev/null
+            end
             and echo "Removed worktree '$name' and branch '$branch'"
-            or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'git branch -D $branch' to force)"
+            or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'wtrm --force $name' to force)"
           else
             echo "Removed worktree '$name'"
           end
@@ -280,7 +298,8 @@
         # Completion for lin: linear issue subcommands
         complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list start create pr"
 
-        # Completion for wtrm: existing worktree names
+        # Completion for wtrm: existing worktree names + --force flag
+        complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"
         complete -f -c wtrm -a '(
           set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
           set -l rn (basename $mr 2>/dev/null)
