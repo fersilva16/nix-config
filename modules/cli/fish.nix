@@ -71,9 +71,23 @@
           end
         '';
 
+        _git_clean_stale_lock = ''
+          set -l git_dir (git rev-parse --git-dir 2>/dev/null)
+          or return 0
+          set -l lock "$git_dir/index.lock"
+          if test -f "$lock"
+            if not lsof "$lock" >/dev/null 2>&1
+              rm -f "$lock"
+              echo "Removed stale index.lock"
+            end
+          end
+        '';
+
         wt = ''
           set git_root (git rev-parse --show-toplevel 2>/dev/null)
           or begin; echo "wt: not a git repo"; return 1; end
+
+          _git_clean_stale_lock
 
           set name $argv[1]
           set branch $argv[2]
@@ -158,6 +172,8 @@
         '';
 
         wtl = ''
+          _git_clean_stale_lock
+
           set issue_id $argv[1]
 
           # No args: fzf picker from your Linear issues
