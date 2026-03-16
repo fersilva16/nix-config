@@ -149,6 +149,60 @@
           end
         '';
 
+        lin = ''
+          if test (count $argv) -eq 0
+            linear issue view
+          else
+            linear issue $argv
+          end
+        '';
+
+        wtl = ''
+          set issue_id $argv[1]
+
+          # No args: fzf picker from your Linear issues
+          if test -z "$issue_id"
+            set -l selection (linear issue list --no-pager 2>/dev/null | fzf --ansi --prompt="issue> " --height=40%)
+            or return 1
+            set issue_id (string match -r '[A-Z]+-\d+' -- $selection)
+          end
+
+          # Get worktree name (2nd arg or prompt)
+          set name $argv[2]
+          if test -z "$name"
+            read -P "worktree name> " name
+            or return 1
+            if test -z "$name"
+              echo "wtl: name required"
+              return 1
+            end
+          end
+
+          if not set -q TMUX
+            echo "wtl: requires tmux"
+            return 1
+          end
+
+          set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
+          set session_name "$parent_session/$name"
+
+          # Session already exists: just switch
+          if command tmux has-session -t "=$session_name" 2>/dev/null
+            command tmux switch-client -t "=$session_name"
+            return 0
+          end
+
+          # Start issue — marks In Progress and creates Linear's branch
+          set original_branch (git rev-parse --abbrev-ref HEAD)
+          linear issue start $issue_id
+          or return 1
+          set branch_name (git rev-parse --abbrev-ref HEAD)
+          git checkout $original_branch 2>/dev/null
+
+          # Create worktree (custom name) with Linear's branch
+          wt $name $branch_name
+        '';
+
         wtls = "git worktree list $argv";
 
         wtrm = ''
@@ -192,11 +246,21 @@
             end
           end
 
+          # Get the branch before removing the worktree
+          set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
           # Remove worktree (fails if dirty, protecting uncommitted work)
           git worktree remove "$wt_path"
           or begin; echo "wtrm: worktree has changes — use 'git worktree remove --force $wt_path' to force"; return 1; end
 
-          echo "Removed worktree '$name'"
+          # Delete the branch
+          if test -n "$branch" -a "$branch" != "HEAD"
+            git branch -d "$branch" 2>/dev/null
+            and echo "Removed worktree '$name' and branch '$branch'"
+            or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'git branch -D $branch' to force)"
+          else
+            echo "Removed worktree '$name'"
+          end
         '';
       };
 
@@ -212,6 +276,9 @@
           test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
         )'
         complete -f -c wt -n "test (count (commandline -opc)) -eq 2" -a '(git branch -a --format="%(refname:short)" 2>/dev/null | string replace -r "^origin/" "" | sort -u | grep -v "^HEAD")'
+
+        # Completion for lin: linear issue subcommands
+        complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list start create pr"
 
         # Completion for wtrm: existing worktree names
         complete -f -c wtrm -a '(

@@ -106,6 +106,22 @@
         "type": "github"
       }
     },
+    "homebrew-schpet-tap": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1773210445,
+        "narHash": "sha256-TBQgaPr4v5HyBADorln3G2gXRX3Eei1v31ZOvwOWTjU=",
+        "owner": "schpet",
+        "repo": "homebrew-tap",
+        "rev": "e5929483dda0bdcbeb43aa1e15a3112dfe68f915",
+        "type": "github"
+      },
+      "original": {
+        "owner": "schpet",
+        "repo": "homebrew-tap",
+        "type": "github"
+      }
+    },
     "nix-homebrew": {
       "inputs": {
         "brew-src": "brew-src"
@@ -147,6 +163,7 @@
         "homebrew-bundle": "homebrew-bundle",
         "homebrew-cask": "homebrew-cask",
         "homebrew-core": "homebrew-core",
+        "homebrew-schpet-tap": "homebrew-schpet-tap",
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs",
         "utils": "utils"
