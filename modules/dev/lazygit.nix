@@ -32,7 +32,7 @@
           {
             key = "<c-p>";
             context = "localBranches";
-            command = "git push && gh pr create --fill && gh pr merge -sd --admin";
+            command = "git push && gh pr create --fill && gh pr view --web && gh pr merge -sd --admin";
             description = "Create + Merge PR";
             output = "log";
             loadingText = "Creating and merging PR...";
