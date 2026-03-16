@@ -6,6 +6,13 @@
       settings = {
         customCommands = [
           {
+            key = "<c-a>";
+            context = "files";
+            command = ''opencode run "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
+            output = "terminal";
+            description = "Generate commit with OpenCode";
+          }
+          {
             key = "O";
             context = "localBranches";
             command = "git push && gh pr create --web";
