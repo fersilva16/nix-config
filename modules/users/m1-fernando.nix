@@ -43,6 +43,7 @@ in
     ../dev/doppler.nix
     ../dev/claude-code.nix
     ../dev/opencode.nix
+    ../dev/rtk.nix
     ../dev/ollama.nix
     ../dev/linear.nix
 
