@@ -128,6 +128,7 @@
           end
 
           # Create worktree if dir doesn't exist
+          set -l is_new 0
           if not test -d "$wt_path"
             git fetch origin 2>/dev/null
             set base_branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -152,11 +153,21 @@
             or begin; echo "wt: failed to create worktree"; return 1; end
             echo "Created worktree at $wt_path (from $base_branch)"
             direnv allow "$wt_path" 2>/dev/null
+            set is_new 1
           end
 
           # Create tmux session and switch
           if set -q TMUX
             command tmux new-session -d -s "$session_name" -c "$wt_path"
+
+            # Run setup script for new worktrees
+            if test $is_new -eq 1
+              set -l setup_file "$wt_base/$repo_name.worktrees/.setup"
+              if test -f "$setup_file"
+                command tmux send-keys -t "=$session_name" "sh '$setup_file'" Enter
+              end
+            end
+
             command tmux switch-client -t "=$session_name"
           else
             echo "Not in tmux — run: cd $wt_path && opencode"
