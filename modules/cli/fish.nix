@@ -241,7 +241,18 @@
           set repo_name (basename $main_root)
           set wt_base (dirname $main_root)
 
-          # No arg: pick from existing worktrees
+          # No arg: self-remove if in a worktree session, otherwise fzf picker
+          set -l auto_name 0
+          if test -z "$name"
+            if set -q TMUX
+              set -l current (command tmux display-message -p '#{session_name}')
+              if string match -q '*/*' -- "$current"
+                set name (string split -m 1 '/' -- "$current")[2]
+                set auto_name 1
+              end
+            end
+          end
+
           if test -z "$name"
             set wt_dir "$wt_base/$repo_name.worktrees"
             if not test -d "$wt_dir"; or test (count (command ls "$wt_dir" 2>/dev/null)) -eq 0
@@ -260,40 +271,91 @@
             return 1
           end
 
-          # Kill tmux session if it exists
+          # Confirm when name was auto-detected from session
+          if test $auto_name -eq 1
+            read -P "wtrm: remove worktree '$name'? [y/N] " confirm
+            if not string match -qi 'y' -- "$confirm"
+              return 0
+            end
+          end
+
+          # Detect if we're removing our own session (self-remove)
+          set -l self_rm 0
+          set -l current_session ""
+          set -l parent_session ""
           if set -q TMUX
             set current_session (command tmux display-message -p '#{session_name}')
-            set target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
-            if test -n "$target_session"
-              if test "$current_session" = "$target_session"
-                command tmux switch-client -l 2>/dev/null; or command tmux switch-client -n
+            set -l target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
+            if test -n "$target_session" -a "$current_session" = "$target_session"
+              set self_rm 1
+              set parent_session (string split -m 1 '/' -- "$current_session")[1]
+            end
+          end
+
+          if test $self_rm -eq 1
+            # Self-remove: parent session must exist to return to
+            if not command tmux has-session -t "=$parent_session" 2>/dev/null
+              echo "wtrm: parent session '$parent_session' not found"
+              return 1
+            end
+
+            set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+            # Pre-check for uncommitted changes (can't report errors after switching away)
+            if test $force -eq 0
+              if test -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)"
+                echo "wtrm: worktree has uncommitted changes — use 'wtrm --force' to force"
+                return 1
               end
-              command tmux kill-session -t "=$target_session"
             end
-          end
 
-          # Get the branch before removing the worktree
-          set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-          # Remove worktree (fails if dirty, protecting uncommitted work)
-          if test $force -eq 1
-            git worktree remove --force "$wt_path"
-          else
-            git worktree remove "$wt_path"
-          end
-          or begin; echo "wtrm: worktree has changes — use 'wtrm --force $name' to force"; return 1; end
-
-          # Delete the branch
-          if test -n "$branch" -a "$branch" != "HEAD"
+            # Build cleanup command (POSIX shell, runs server-side via tmux run-shell -b)
+            set -l cleanup "tmux kill-session -t '=$current_session'"
             if test $force -eq 1
-              git branch -D "$branch" 2>/dev/null
+              set cleanup "$cleanup; git -C '$main_root' worktree remove --force '$wt_path'"
             else
-              git branch -d "$branch" 2>/dev/null
+              set cleanup "$cleanup; git -C '$main_root' worktree remove '$wt_path'"
             end
-            and echo "Removed worktree '$name' and branch '$branch'"
-            or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'wtrm --force $name' to force)"
+            if test -n "$branch" -a "$branch" != "HEAD"
+              if test $force -eq 1
+                set cleanup "$cleanup; git -C '$main_root' branch -D '$branch' 2>/dev/null"
+              else
+                set cleanup "$cleanup; git -C '$main_root' branch -d '$branch' 2>/dev/null"
+              end
+            end
+
+            # Switch to parent, then schedule cleanup in background
+            command tmux switch-client -t "=$parent_session"
+            command tmux run-shell -b "$cleanup"
           else
-            echo "Removed worktree '$name'"
+            # Regular remove (from a different session)
+            if set -q TMUX
+              set -l target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
+              if test -n "$target_session"
+                command tmux kill-session -t "=$target_session"
+              end
+            end
+
+            set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+            if test $force -eq 1
+              git worktree remove --force "$wt_path"
+            else
+              git worktree remove "$wt_path"
+            end
+            or begin; echo "wtrm: worktree has changes — use 'wtrm --force $name' to force"; return 1; end
+
+            if test -n "$branch" -a "$branch" != "HEAD"
+              if test $force -eq 1
+                git branch -D "$branch" 2>/dev/null
+              else
+                git branch -d "$branch" 2>/dev/null
+              end
+              and echo "Removed worktree '$name' and branch '$branch'"
+              or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'wtrm --force $name' to force)"
+            else
+              echo "Removed worktree '$name'"
+            end
           end
         '';
       };
