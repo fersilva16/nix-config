@@ -8,9 +8,23 @@
           {
             key = "<c-a>";
             context = "files";
-            command = ''opencode run "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
+            command = ''opencode run -m "opencode/minimax-m2.5-free" "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
             output = "terminal";
             description = "Generate commit with OpenCode";
+          }
+          {
+            key = "<c-h>";
+            context = "global";
+            command = ''opencode run -m "opencode/minimax-m2.5-free" "{{.Form.Prompt}}"'';
+            output = "terminal";
+            description = "AI help (minimax)";
+            prompts = [
+              {
+                type = "input";
+                title = "AI Help";
+                key = "Prompt";
+              }
+            ];
           }
           {
             key = "O";
