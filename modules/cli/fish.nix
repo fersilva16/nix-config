@@ -215,7 +215,11 @@
 
         lin = ''
           if test (count $argv) -eq 0
-            linear-cli context
+            set -l branch_issue (linear-cli context)
+            if test (count $branch_issue) -eq 0
+              return 1
+            end
+            linear-cli i get $branch_issue
             return
           end
 
@@ -229,16 +233,69 @@
 
             case list
               set -l me (_lin_me)
-              linear-cli i list --assignee "$me" --filter "state.name!=Done" --filter "state.name!=Canceled" --filter "state.name!=Duplicate" $argv[2..-1]
+              set -l fmt '{{identifier}}  [{{state.name}}]  {{priorityLabel}}  {{title}}'
+              set -l filter_args --assignee "$me" --filter "state.name!=Done" --filter "state.name!=Canceled" --filter "state.name!=Duplicate" --format "$fmt" --no-pager --quiet
+              if test (count $argv) -ge 2
+                linear-cli i list $filter_args | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list $filter_args
+              end
+
+            case all
+              set -l fmt '{{identifier}}  [{{state.name}}]  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --format "$fmt" --no-pager --quiet
+              end
 
             case backlog
-              linear-cli i list --assignee (_lin_me) --filter "state.name=Backlog" $argv[2..-1]
+              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Backlog" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Backlog" --format "$fmt" --no-pager --quiet
+              end
 
             case todo
-              linear-cli i list --assignee (_lin_me) --filter "state.name=Todo" $argv[2..-1]
+              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Todo" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Todo" --format "$fmt" --no-pager --quiet
+              end
 
             case progress inprogress
-              linear-cli i list --assignee (_lin_me) --filter "state.name=In Progress" $argv[2..-1]
+              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --filter "state.name=In Progress" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --filter "state.name=In Progress" --format "$fmt" --no-pager --quiet
+              end
+
+            case done
+              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Done" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Done" --format "$fmt" --no-pager --quiet
+              end
+
+            case cancelled canceled
+              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Canceled" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Canceled" --format "$fmt" --no-pager --quiet
+              end
+
+            case duplicate
+              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
+              if test (count $argv) -ge 2
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Duplicate" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
+              else
+                linear-cli i list --assignee (_lin_me) --filter "state.name=Duplicate" --format "$fmt" --no-pager --quiet
+              end
 
             case create
               set -l title
@@ -256,7 +313,7 @@
               set -l team (gum input --value "ENG" --header "Team" --width 20)
               or set team ENG
 
-              set -l pri (gum choose --header "Priority" "1 - Urgent" "2 - High" "3 - Medium" "4 - Low" "0 - None")
+              set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
               set -l priority (string match -r '^\d' -- $pri)
 
               set -l cmd linear-cli i create "$title" -t $team
@@ -269,11 +326,11 @@
               set -l desc (gum write --placeholder "Description (Esc to skip)" --header "Description" --width 80)
               if test -n "$desc"; set -a cmd -d "$desc"; end
 
-              set -l label_list (linear-cli l list --format "{{name}}" --no-pager --quiet 2>/dev/null)
+              set -l label_list (linear-cli l list --type issue --all --format "{{name}}" --no-pager --quiet 2>/dev/null)
               if test (count $label_list) -gt 0
-                set -l labels (printf '%s\n' $label_list | gum choose --no-limit --header "Labels (Space to select)")
+                set -l labels (printf '%s\n' $label_list | gum filter --no-limit --header "Labels (Tab to select)")
                 for lbl in $labels
-                  set -a cmd -l "$lbl"
+                  test -n "$lbl"; and set -a cmd -l "$lbl"
                 end
               end
 
@@ -317,8 +374,13 @@
               linear-cli g pr $id --web $argv[2..-1]
 
             case open
-              set -l id (_lin_issue_id)
-              or return 1
+              set -l id
+              if test (count $argv) -ge 2
+                set id $argv[2]
+              else
+                set id (_lin_issue_id)
+                or return 1
+              end
               linear-cli i open $id
 
             case ai
@@ -328,7 +390,7 @@
               end
 
               set -l task (string join " " -- $argv[2..-1])
-              set -l available_labels (linear-cli l list --format "{{name}}" --no-pager --quiet 2>/dev/null | string join ", ")
+              set -l available_labels (linear-cli l list --type issue --all --format "{{name}}" --no-pager --quiet 2>/dev/null | string join ", ")
 
               set -l prompt "Generate a Linear issue from this task. Return ONLY a raw JSON object (no markdown, no code blocks) with fields: title (concise string), description (markdown string with context and acceptance criteria), priority (integer: 1=urgent, 2=high, 3=medium, 4=low), labels (array of strings from available: $available_labels). Task: $task"
 
@@ -374,7 +436,7 @@
                   set -l team (gum input --value "ENG" --header "Team" --width 20)
                   or set team ENG
 
-                  set -l pri (gum choose --header "Priority" "1 - Urgent" "2 - High" "3 - Medium" "4 - Low" "0 - None")
+                  set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
                   set -l priority (string match -r '^\d' -- $pri)
 
                   set -l desc (gum write --header "Description (Esc when done)" --width 80 --value "$ai_desc")
@@ -383,11 +445,11 @@
                   if test -n "$priority"; set -a cmd -p $priority; end
                   if test -n "$desc"; set -a cmd -d "$desc"; end
 
-                  set -l label_list (linear-cli l list --format "{{name}}" --no-pager --quiet 2>/dev/null)
+                  set -l label_list (linear-cli l list --type issue --all --format "{{name}}" --no-pager --quiet 2>/dev/null)
                   if test (count $label_list) -gt 0
-                    set -l labels (printf '%s\n' $label_list | gum choose --no-limit --header "Labels")
+                    set -l labels (printf '%s\n' $label_list | gum filter --no-limit --header "Labels (Tab to select)")
                     for lbl in $labels
-                      set -a cmd -l "$lbl"
+                      test -n "$lbl"; and set -a cmd -l "$lbl"
                     end
                   end
 
@@ -607,7 +669,7 @@
         complete -f -c wt -n "test (count (commandline -opc)) -eq 2" -a '(git branch -a --format="%(refname:short)" 2>/dev/null | string replace -r "^origin/" "" | sort -u | grep -v "^HEAD")'
 
         # Completion for lin: linear-cli issue subcommands
-        complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list create ai start done comment pr open backlog todo progress"
+        complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list all create ai start done cancelled duplicate comment pr open backlog todo progress"
 
         # Completion for wtrm: existing worktree names + --force flag
         complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"
