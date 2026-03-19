@@ -49,7 +49,24 @@
 
       functions = {
         ghpc = "git push && gh pr create --fill $argv && gh pr view --web";
-        ghpm = "gh pr merge -sd --admin $argv";
+        ghpm = ''
+          gh pr merge -s --admin $argv
+          or return 1
+
+          set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
+          set current_root (git rev-parse --show-toplevel)
+
+          if test "$main_root" != "$current_root"; and set -q TMUX
+            # In a worktree: schedule pull + cleanup in parent session, then switch
+            set wt_name (basename $current_root)
+            set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
+            command tmux send-keys -t "=$parent_session" "git pull && wtrm $wt_name" Enter
+            command tmux switch-client -t "=$parent_session"
+          else
+            # On main or not in tmux: just pull
+            git pull
+          end
+        '';
         ghpcm = "ghpc $argv && ghpm";
 
         pj = "cd $argv; ds";

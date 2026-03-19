@@ -23,7 +23,7 @@
           {
             key = "<c-o>";
             context = "localBranches";
-            command = "git push && gh pr create --fill && gh pr view --web";
+            command = ''fish -c "ghpc"'';
             description = "Create PR (push + fill + open)";
             output = "log";
             loadingText = "Creating PR...";
@@ -31,17 +31,17 @@
           {
             key = "<c-x>";
             context = "localBranches";
-            command = "gh pr merge -sd --admin";
-            description = "Merge PR (squash + delete branch)";
+            command = ''fish -c "ghpm"'';
+            description = "Merge PR (squash)";
             output = "log";
             loadingText = "Merging PR...";
           }
           {
             key = "<c-p>";
             context = "localBranches";
-            command = "git push && gh pr create --fill && gh pr view --web && gh pr merge -sd --admin";
+            command = ''fish -c "ghpcm"'';
             description = "Create + Merge PR";
-            output = "log";
+            output = "terminal";
             loadingText = "Creating and merging PR...";
           }
         ];
