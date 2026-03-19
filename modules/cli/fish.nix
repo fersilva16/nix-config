@@ -56,15 +56,13 @@
           set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
           set current_root (git rev-parse --show-toplevel)
 
+          # Pull latest into main
+          git -C "$main_root" pull
+
+          # If in a worktree, clean up via wtrm
           if test "$main_root" != "$current_root"; and set -q TMUX
-            # In a worktree: schedule pull + cleanup in parent session, then switch
             set wt_name (basename $current_root)
-            set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
-            command tmux send-keys -t "=$parent_session" "git pull && wtrm $wt_name" Enter
-            command tmux switch-client -t "=$parent_session"
-          else
-            # On main or not in tmux: just pull
-            git pull
+            wtrm --force $wt_name
           end
         '';
         ghpcm = "ghpc $argv && ghpm";
@@ -321,10 +319,14 @@
           end
 
           if test $self_rm -eq 1
-            # Self-remove: parent session must exist to return to
+            # Self-remove: need a session to return to
             if not command tmux has-session -t "=$parent_session" 2>/dev/null
-              echo "wtrm: parent session '$parent_session' not found"
-              return 1
+              # Fall back to any other session
+              set parent_session (command tmux list-sessions -F '#{session_name}' | grep -v "^$current_session\$" | head -1)
+              if test -z "$parent_session"
+                echo "wtrm: no other session to switch to"
+                return 1
+              end
             end
 
             set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
