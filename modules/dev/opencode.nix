@@ -14,7 +14,28 @@ in
           "@mohak34/opencode-notifier@latest"
           "@kdcokenny/opencode-worktree@latest"
           "oh-my-opencode@latest"
+          "@rama_nigg/open-cursor@latest"
         ];
+        provider = {
+          cursor-acp = {
+            name = "Cursor ACP";
+            npm = "@ai-sdk/openai-compatible";
+            options = {
+              baseURL = "http://127.0.0.1:32124/v1";
+            };
+            models = {
+              "cursor-acp/auto" = {
+                name = "Auto";
+              };
+              "cursor-acp/composer-1.5" = {
+                name = "Composer 1.5";
+              };
+              "cursor-acp/composer-1" = {
+                name = "Composer 1";
+              };
+            };
+          };
+        };
         command = {
           lin = {
             template = "Here is the Linear issue for this branch:\n\n!`[ -n \"$ARGUMENTS\" ] && linear-cli i get $ARGUMENTS || linear-cli context`\n\nSummarize the issue and ask what I want to work on.";
