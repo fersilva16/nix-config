@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# tmux-remote: Toggle "remote access" mode for lid-closed SSH from iPhone.
+# tmux-remote: Toggle "remote access" mode for lid-closed SSH.
 #
 # When enabled:
 #   - Prevents sleep on lid close (pmset disablesleep)
@@ -8,19 +8,22 @@
 #   - Enables SSH (Remote Login)
 #   - Closes resource-heavy GUI apps to save battery
 #   - Stores list of closed apps for restoration on disable
+#   - Shows Tailscale IP for outside-network access
 #
 # When disabled:
 #   - Re-enables normal sleep behavior
 #   - Disables SSH
 #   - Reopens apps that were closed
 #
+# Network access:
+#   - LAN: ssh user@<local-ip>
+#   - Outside network: ssh user@<tailscale-ip> (requires Tailscale on both ends)
+#
 # Usage: tmux-remote on|off|toggle|status
 
 STATE_FILE="/tmp/tmux-remote-state"
 CLOSED_APPS_FILE="/tmp/tmux-remote-closed-apps"
-
-# Apps to close for battery savings (process names as seen by osascript/pkill)
-# These are the resource-heavy GUI apps; system utilities are left running.
+TAILSCALE_CLI="tailscale"
 APPS_TO_CLOSE=(
   # Browsers
   "Firefox"
@@ -66,6 +69,27 @@ APPS_TO_CLOSE=(
 
 is_active() {
   [[ -f "$STATE_FILE" ]]
+}
+
+get_tailscale_ip() {
+  if ! command -v "$TAILSCALE_CLI" &>/dev/null; then
+    return 1
+  fi
+  $TAILSCALE_CLI ip -4 2>/dev/null
+}
+
+get_tailscale_status() {
+  if ! command -v "$TAILSCALE_CLI" &>/dev/null; then
+    echo "not-installed"
+    return
+  fi
+  local state
+  state=$($TAILSCALE_CLI status --json 2>/dev/null | grep -o '"BackendState":"[^"]*"' | cut -d'"' -f4)
+  echo "${state:-unknown}"
+}
+
+get_local_ip() {
+  ipconfig getifaddr en0 2>/dev/null || echo "unavailable"
 }
 
 get_running_apps() {
@@ -140,12 +164,25 @@ enable_remote() {
   # Mark as active
   touch "$STATE_FILE"
 
-  # Notify via tmux
+  local ts_status ts_ip local_ip msg
+  ts_status=$(get_tailscale_status)
+  local_ip=$(get_local_ip)
+  msg="Remote ON — closed ${closed} apps"
+
+  if [[ "$ts_status" == "Running" ]]; then
+    ts_ip=$(get_tailscale_ip)
+    msg="${msg} — LAN: ${local_ip} / Tailscale: ${ts_ip}"
+  elif [[ "$ts_status" == "not-installed" ]]; then
+    msg="${msg} — LAN only: ${local_ip} (Tailscale not found)"
+  else
+    msg="${msg} — LAN: ${local_ip} (Tailscale: ${ts_status})"
+  fi
+
   if [[ -n "$TMUX" ]]; then
-    tmux display-message "Remote access ON — closed ${closed} apps — safe to close lid"
+    tmux display-message "$msg"
     tmux refresh-client -S
   else
-    echo "Remote access ON — closed ${closed} apps — safe to close lid"
+    echo "$msg"
   fi
 }
 
