@@ -46,6 +46,11 @@
       url = "github:schpet/homebrew-tap";
       flake = false;
     };
+
+    direnv-instant = {
+      url = "github:Mic92/direnv-instant";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
