@@ -13,7 +13,7 @@
             description = "Generate commit with OpenCode";
           }
           {
-            key = "<c-h>";
+            key = "H";
             context = "global";
             command = ''opencode run -m "opencode/minimax-m2.5-free" "{{.Form.Prompt}}"'';
             output = "terminal";
