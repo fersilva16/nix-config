@@ -6,4 +6,5 @@ pkgs: {
     pkgs.callPackage ./tmux-nerd-font-window-name/tmux-nerd-font-window-name.nix
       { };
   figma-developer-mcp = pkgs.callPackage ./figma-developer-mcp.nix { };
+  linear-cli = pkgs.callPackage ./linear-cli.nix { };
 }

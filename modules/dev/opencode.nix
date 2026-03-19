@@ -17,7 +17,7 @@ in
         ];
         command = {
           lin = {
-            template = "Here is the Linear issue for this branch:\n\n!`linear issue view $ARGUMENTS`\n\nSummarize the issue and ask what I want to work on.";
+            template = "Here is the Linear issue for this branch:\n\n!`[ -n \"$ARGUMENTS\" ] && linear-cli i get $ARGUMENTS || linear-cli context`\n\nSummarize the issue and ask what I want to work on.";
             description = "Load Linear issue context";
           };
         };
