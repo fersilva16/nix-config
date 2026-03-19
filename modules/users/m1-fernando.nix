@@ -15,6 +15,7 @@ in
     ../darwin/raycast.nix
 
     # Shell & CLI
+    ../cli/ssh.nix
     ../cli/fish.nix
     ../cli/starship.nix
     ../cli/direnv.nix

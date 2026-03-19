@@ -10,6 +10,7 @@ _: {
     ../fonts/caskaydia-cove.nix
     ../system/nix.nix
     ../system/pkg-config.nix
+    ../system/sshd.nix
     ../cli/wget.nix
     ../cli/unrar.nix
   ];
