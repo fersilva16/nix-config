@@ -56,13 +56,21 @@
           set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
           set current_root (git rev-parse --show-toplevel)
 
-          # Pull latest into main
-          git -C "$main_root" pull
-
-          # If in a worktree, clean up via wtrm
           if test "$main_root" != "$current_root"; and set -q TMUX
+            # In a worktree: pull main, then clean up
+            git -C "$main_root" pull
             set wt_name (basename $current_root)
             wtrm --force $wt_name
+          else
+            # In the main repo: switch to default branch, pull, delete feature branch
+            set feature_branch (git rev-parse --abbrev-ref HEAD)
+            set default_branch (git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | string replace 'refs/remotes/origin/' "")
+            if test -z "$default_branch"
+              set default_branch main
+            end
+            git checkout "$default_branch"
+            git pull
+            git branch -D "$feature_branch" 2>/dev/null
           end
         '';
         ghpcm = "ghpc $argv && ghpm";
