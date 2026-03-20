@@ -10,11 +10,12 @@ in
       settings = {
         theme = "flexoki";
         plugin = [
-          "@simonwjackson/opencode-direnv"
+          "@simonwjackson/opencode-direnv@latest"
           "@mohak34/opencode-notifier@latest"
           "@kdcokenny/opencode-worktree@latest"
           "oh-my-opencode@latest"
           "@rama_nigg/open-cursor@latest"
+          "opencode-anthropic-login-via-cli@latest"
         ];
         provider = {
           cursor-acp = {
