@@ -49,6 +49,16 @@
       url = "github:Mic92/direnv-instant";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    opencode = {
+      url = "github:anomalyco/opencode/production";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    bun2nix = {
+      url = "github:nix-community/bun2nix?tag=2.0.8";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -56,7 +66,10 @@
     let
       overlay = import ./overlay/overlay.nix;
 
-      overlays = [ overlay ];
+      overlays = [
+        inputs.bun2nix.overlays.default
+        overlay
+      ];
 
       mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs overlays; };
     in
