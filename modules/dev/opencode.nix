@@ -1,21 +1,36 @@
-{ username, pkgs, ... }:
+{
+  username,
+  pkgs,
+  inputs,
+  system,
+  ...
+}:
 let
   jsonFormat = pkgs.formats.json { };
-  inherit (pkgs) tmux-extras figma-developer-mcp;
+  inherit (pkgs)
+    tmux-extras
+    figma-developer-mcp
+    opencode-anthropic-auth
+    ;
 in
 {
   home-manager.users.${username} = {
     programs.opencode = {
       enable = true;
+      package = (inputs.opencode.packages.${system}.default).overrideAttrs (old: {
+        node_modules = old.node_modules.overrideAttrs {
+          outputHash = "sha256-kZGUAE0fxFkFYrarWLQ6e40r5ZAF+GkRF2oZM8/erOM=";
+        };
+      });
       settings = {
         theme = "flexoki";
         plugin = [
+          "file://${opencode-anthropic-auth}"
           "@simonwjackson/opencode-direnv@latest"
           "@mohak34/opencode-notifier@latest"
           "@kdcokenny/opencode-worktree@latest"
           "oh-my-opencode@latest"
           "@rama_nigg/open-cursor@latest"
-          "opencode-anthropic-login-via-cli@latest"
         ];
         provider = {
           cursor-acp = {
@@ -45,6 +60,16 @@ in
         };
         permission = {
           external_directory = "allow";
+          read = {
+            "*" = "allow";
+            "*.env" = "deny";
+            "*.env.*" = "allow";
+          };
+          edit = {
+            "*" = "allow";
+            "*.env" = "deny";
+            "*.env.*" = "allow";
+          };
         };
         mcp = {
           framelink = {

@@ -7,4 +7,7 @@ pkgs: {
       { };
   figma-developer-mcp = pkgs.callPackage ./figma-developer-mcp.nix { };
   linear-cli = pkgs.callPackage ./linear-cli.nix { };
+  opencode-anthropic-auth =
+    pkgs.callPackage ./opencode-anthropic-auth/opencode-anthropic-auth.nix
+      { };
 }
