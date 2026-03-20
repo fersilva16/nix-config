@@ -3,9 +3,7 @@
 
   inputs = {
     nixpkgs = {
-      # TODO: use nixpkgs-unstable when resurrect fix is merged
-      url = "github:nixos/nixpkgs/master";
-      # url = "github:nixos/nixpkgs/nixpkgs-unstable";
+      url = "github:nixos/nixpkgs/nixpkgs-unstable";
     };
 
     utils = {
