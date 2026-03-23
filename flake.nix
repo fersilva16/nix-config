@@ -90,7 +90,7 @@
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nil
+            nixd
             statix
             nixfmt-rfc-style
 
