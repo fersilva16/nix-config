@@ -17,7 +17,7 @@ in
   home-manager.users.${username} = {
     programs.opencode = {
       enable = true;
-      package = (inputs.opencode.packages.${system}.default).overrideAttrs (old: {
+      package = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
         node_modules = old.node_modules.overrideAttrs {
           outputHash = "sha256-kZGUAE0fxFkFYrarWLQ6e40r5ZAF+GkRF2oZM8/erOM=";
         };
