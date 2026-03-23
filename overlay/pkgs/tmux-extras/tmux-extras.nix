@@ -55,7 +55,8 @@ pkgs.stdenvNoCC.mkDerivation {
     wrapProgram $out/bin/tmux-ungroup \
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
     wrapProgram $out/bin/tmux-remote \
-      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]} \
+      --prefix PATH : /opt/homebrew/bin
     wrapProgram $out/bin/tmux-status-right \
       --prefix PATH : ${
         pkgs.lib.makeBinPath [

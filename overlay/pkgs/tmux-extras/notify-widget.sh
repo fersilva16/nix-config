@@ -20,5 +20,7 @@ fi
 COUNT=$(jq 'length' "$NOTIFY_FILE" 2>/dev/null || echo 0)
 
 if [[ "$COUNT" -gt 0 ]]; then
-  echo "#[fg=${ORANGE},bg=${BG},bold] 󰂞 ${COUNT} ${RESET}"
+  ICON="󰂞"
+  [[ "$1" == "--plain" ]] && ICON="!"
+  echo "#[fg=${ORANGE},bg=${BG},bold] ${ICON} ${COUNT} ${RESET}"
 fi
