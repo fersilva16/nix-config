@@ -78,7 +78,7 @@ trap 'rm -f "$CONTENT"' EXIT
   sep
 
   header "Remote Access"
-  key "prefix Ctrl+R" "toggle remote mode"
+  key "prefix M-r" "toggle remote mode"
   sep
 
   header "Misc"

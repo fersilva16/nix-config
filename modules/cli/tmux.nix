@@ -74,8 +74,8 @@ in
         bind-key 'g' run-shell "${tmux-extras}/bin/tmux-group"
         bind-key 'G' run-shell "${tmux-extras}/bin/tmux-ungroup"
 
-        # Remote access mode: prefix + C-R to toggle (SSH + lid-close safe + battery saving)
-        bind-key 'C-R' run-shell "${tmux-extras}/bin/tmux-remote toggle"
+        # Remote access mode: prefix + M-r to toggle (SSH + lid-close safe + battery saving)
+        bind-key 'M-r' run-shell "${tmux-extras}/bin/tmux-remote toggle"
       '';
 
       plugins = with pkgs; [

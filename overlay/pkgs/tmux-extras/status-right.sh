@@ -19,7 +19,7 @@ RESET="#[fg=${FG},bg=${BG},nobold,noitalics,nounderscore,nodim]"
 
 # --- Battery widget (inline, only in remote mode) ---
 battery_widget() {
-  local info percent icon color charging=""
+  local info percent color charging=""
   info=$(pmset -g batt 2>/dev/null)
   [[ -z "$info" ]] && return
 
@@ -27,35 +27,36 @@ battery_widget() {
   [[ -z "$percent" ]] && return
 
   if echo "$info" | grep -q "AC Power"; then
-    charging="󰂄"
+    charging="+"
   elif echo "$info" | grep -q "charged"; then
-    charging="󰂄"
+    charging="+"
   fi
 
   if [[ "$percent" -ge 80 ]]; then
-    icon="󰁹"; color="$GREEN"
+    color="$GREEN"
   elif [[ "$percent" -ge 60 ]]; then
-    icon="󰂀"; color="$GREEN"
+    color="$GREEN"
   elif [[ "$percent" -ge 40 ]]; then
-    icon="󰁾"; color="$YELLOW"
+    color="$YELLOW"
   elif [[ "$percent" -ge 20 ]]; then
-    icon="󰁻"; color="$ORANGE"
+    color="$ORANGE"
   else
-    icon="󰁺"; color="$RED"
+    color="$RED"
   fi
 
-  [[ -n "$charging" ]] && icon="$charging"
-
-  echo "#[fg=${color},bg=${BG},bold] ${icon} ${percent}%${RESET}"
+  local label="${charging:+${charging} }${percent}%"
+  echo "#[fg=${color},bg=${BG},bold] ${label}${RESET}"
 }
 
 if [[ -f "$STATE_FILE" ]]; then
   # ---- Remote mode: minimal bar ----
   # SSH indicator + battery + time
-  SSH="#[fg=${RED},bg=${BG},bold] 󰣀 SSH${RESET}"
+  SELF_DIR="$(dirname "$0")"
+  NOTIFY=$("${SELF_DIR}/tmux-notify-widget" --plain)
+  SSH="#[fg=${RED},bg=${BG},bold] SSH${RESET}"
   BATT=$(battery_widget)
 
-  echo "${SSH}${BATT}"
+  echo "${NOTIFY}${SSH}${BATT}"
 else
   # ---- Normal mode: full bar ----
   # Notifications + path + git + date + time

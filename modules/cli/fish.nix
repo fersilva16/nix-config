@@ -23,6 +23,15 @@
       interactiveShellInit = ''
         ssh-add --apple-load-keychain 2> /dev/null
 
+        # Switch to plain-text starship config when tmux remote mode is active
+        function __starship_remote_check --on-event fish_prompt
+            if test -f /tmp/tmux-remote-state
+                set -gx STARSHIP_CONFIG ~/.config/starship-plain.toml
+            else
+                set -ge STARSHIP_CONFIG
+            end
+        end
+
         set fish_cursor_default block
         set fish_cursor_insert line
         set -U fish_greeting
