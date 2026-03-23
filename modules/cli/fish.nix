@@ -210,6 +210,11 @@
           linear-cli whoami --output json --no-pager --quiet 2>/dev/null | jq -r '.name // empty'
         '';
 
+        _lin_team_labels = ''
+          set -l team_key $argv[1]
+          linear-cli api query "{ team(id: \"$team_key\") { labels { nodes { id name } } } }" --output json --no-pager --quiet 2>/dev/null | jq -r '.data.team.labels.nodes[] | "\(.id)\t\(.name)"' 2>/dev/null
+        '';
+
         _lin_issue_id = ''
           set -l branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
           or return 1
@@ -335,11 +340,23 @@
               set -l desc (gum write --placeholder "Description (Esc to skip)" --header "Description" --width 80)
               if test -n "$desc"; set -a cmd -d "$desc"; end
 
-              set -l label_list (linear-cli l list --type issue --all --format "{{name}}" --no-pager --quiet 2>/dev/null)
-              if test (count $label_list) -gt 0
-                set -l labels (printf '%s\n' $label_list | gum filter --no-limit --header "Labels (Tab to select)")
+              set -l label_data (_lin_team_labels $team)
+              if test (count $label_data) -gt 0
+                set -l label_names
+                for entry in $label_data
+                  set -a label_names (string split \t -- $entry)[2]
+                end
+                set -l labels (printf '%s\n' $label_names | gum filter --no-limit --header "Labels (Tab to select)")
                 for lbl in $labels
-                  test -n "$lbl"; and set -a cmd -l "$lbl"
+                  if test -n "$lbl"
+                    for entry in $label_data
+                      set -l parts (string split \t -- $entry)
+                      if test "$parts[2]" = "$lbl"
+                        set -a cmd -l "$parts[1]"
+                        break
+                      end
+                    end
+                  end
                 end
               end
 
@@ -399,7 +416,7 @@
               end
 
               set -l task (string join " " -- $argv[2..-1])
-              set -l available_labels (linear-cli l list --type issue --all --format "{{name}}" --no-pager --quiet 2>/dev/null | string join ", ")
+              set -l available_labels (_lin_team_labels ENG | cut -f2 | string join ", ")
 
               set -l prompt "Generate a Linear issue from this task. Return ONLY a raw JSON object (no markdown, no code blocks) with fields: title (concise string), description (markdown string with context and acceptance criteria), priority (integer: 1=urgent, 2=high, 3=medium, 4=low), labels (array of strings from available: $available_labels). Task: $task"
 
@@ -433,8 +450,15 @@
                 case Create
                   set -l cmd linear-cli i create "$ai_title" -t ENG -p $ai_priority -a me
                   if test -n "$ai_desc"; set -a cmd -d "$ai_desc"; end
+                  set -l label_data (_lin_team_labels ENG)
                   for lbl in $ai_labels
-                    set -a cmd -l "$lbl"
+                    for entry in $label_data
+                      set -l parts (string split \t -- $entry)
+                      if test "$parts[2]" = "$lbl"
+                        set -a cmd -l "$parts[1]"
+                        break
+                      end
+                    end
                   end
                   $cmd
 
@@ -454,11 +478,23 @@
                   if test -n "$priority"; set -a cmd -p $priority; end
                   if test -n "$desc"; set -a cmd -d "$desc"; end
 
-                  set -l label_list (linear-cli l list --type issue --all --format "{{name}}" --no-pager --quiet 2>/dev/null)
-                  if test (count $label_list) -gt 0
-                    set -l labels (printf '%s\n' $label_list | gum filter --no-limit --header "Labels (Tab to select)")
+                  set -l label_data (_lin_team_labels $team)
+                  if test (count $label_data) -gt 0
+                    set -l label_names
+                    for entry in $label_data
+                      set -a label_names (string split \t -- $entry)[2]
+                    end
+                    set -l labels (printf '%s\n' $label_names | gum filter --no-limit --header "Labels (Tab to select)")
                     for lbl in $labels
-                      test -n "$lbl"; and set -a cmd -l "$lbl"
+                      if test -n "$lbl"
+                        for entry in $label_data
+                          set -l parts (string split \t -- $entry)
+                          if test "$parts[2]" = "$lbl"
+                            set -a cmd -l "$parts[1]"
+                            break
+                          end
+                        end
+                      end
                     end
                   end
 
