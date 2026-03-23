@@ -11,10 +11,6 @@ let
       url = "https://github.com/Finesssee/linear-cli/releases/download/v${version}/linear-cli-aarch64-apple-darwin.tar.gz";
       hash = "sha256-Uhr6/uNjkWi/aIkWO4G6gtrMrbQXMgg0AHW+bOQ/HRs=";
     };
-    x86_64-darwin = fetchurl {
-      url = "https://github.com/Finesssee/linear-cli/releases/download/v${version}/linear-cli-x86_64-apple-darwin.tar.gz";
-      hash = "sha256-0K5Jt/6/7VPdl5kcI1axjiLDh7SrL9uQ+GfKKG7e0Vg=";
-    };
   };
 in
 stdenvNoCC.mkDerivation {
@@ -40,7 +36,6 @@ stdenvNoCC.mkDerivation {
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     platforms = [
       "aarch64-darwin"
-      "x86_64-darwin"
     ];
     mainProgram = "linear-cli";
   };
