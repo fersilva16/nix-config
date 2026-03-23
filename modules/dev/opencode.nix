@@ -10,6 +10,7 @@ let
   inherit (pkgs)
     tmux-extras
     figma-developer-mcp
+    agentation-mcp
     opencode-anthropic-auth
     ;
 in
@@ -73,12 +74,21 @@ in
         };
         mcp = {
           framelink = {
+            enabled = false;
             type = "local";
             command = [
               "${figma-developer-mcp}/bin/figma-developer-mcp"
               "--stdio"
               "--env"
               "/Users/${username}/.config/figma/.env"
+            ];
+          };
+          agentation = {
+            enabled = false;
+            type = "local";
+            command = [
+              "${agentation-mcp}/bin/agentation-mcp"
+              "server"
             ];
           };
         };
