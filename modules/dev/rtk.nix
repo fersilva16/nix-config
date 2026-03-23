@@ -91,11 +91,11 @@
       Example: `git status` -> `rtk git status` (transparent, 0 tokens overhead)
     '';
 
-    # OpenCode plugin: rewrites bash commands to use rtk for token savings.
+    # OpenCode plugin: rewrites bash/shell commands and compresses built-in tool output via rtk.
     xdg.configFile."opencode/plugins/rtk.ts".text = ''
       import type { Plugin } from "@opencode-ai/plugin"
 
-      // RTK OpenCode plugin — rewrites commands to use rtk for token savings.
+      // RTK OpenCode plugin — rewrites commands and compresses tool output for token savings.
       // Managed by nix-darwin. Source: https://github.com/rtk-ai/rtk
 
       export const RtkOpenCodePlugin: Plugin = async ({ $ }) => {
@@ -107,6 +107,7 @@
         }
 
         return {
+          // Rewrite bash/shell commands to use rtk equivalents
           "tool.execute.before": async (input, output) => {
             const tool = String(input?.tool ?? "").toLowerCase()
             if (tool !== "bash" && tool !== "shell") return
@@ -124,6 +125,43 @@
               }
             } catch {
               // rtk rewrite failed — pass through unchanged
+            }
+          },
+
+          // Compress built-in tool output through rtk
+          "tool.execute.after": async (input, output) => {
+            const tool = String(input?.tool ?? "").toLowerCase()
+            const args = input?.args as Record<string, unknown> | undefined
+
+            if (tool === "ls") {
+              const lsPath = args?.path
+              if (typeof lsPath !== "string") return
+              try {
+                const result = await $`rtk ls ''${lsPath}`.quiet().nothrow()
+                const compressed = String(result.stdout).trim()
+                if (compressed && result.exitCode === 0) {
+                  output.output = compressed
+                }
+              } catch {
+                // rtk ls failed — keep original output
+              }
+            }
+
+            if (tool === "grep") {
+              const pattern = args?.pattern
+              const grepPath = args?.path ?? "."
+              const include = args?.include
+              if (typeof pattern !== "string" || typeof grepPath !== "string") return
+              try {
+                const globArgs = typeof include === "string" ? `--glob ''${include}` : ""
+                const result = await $`rtk grep ''${pattern} ''${grepPath} ''${globArgs}`.quiet().nothrow()
+                const compressed = String(result.stdout).trim()
+                if (compressed && result.exitCode === 0) {
+                  output.output = compressed
+                }
+              } catch {
+                // rtk grep failed — keep original output
+              }
             }
           },
         }
