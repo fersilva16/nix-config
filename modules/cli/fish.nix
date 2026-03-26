@@ -552,7 +552,7 @@
 
           # No args: gum picker from your Linear issues
           if test -z "$issue_id"
-            set -l selection (linear-cli i list --assignee (_lin_me) --no-pager 2>/dev/null | gum filter --header "Select issue")
+            set -l selection (lin list | gum filter --header "Select issue")
             or return 1
             set issue_id (string match -r '[A-Z]+-\d+' -- $selection)
           end
