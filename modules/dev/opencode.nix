@@ -97,6 +97,67 @@ in
     };
 
     xdg.configFile = {
+      # Custom flexoki theme with hardcoded light-mode colors.
+      # Overrides the built-in flexoki which uses dark/light variants —
+      # if the TUI misdetects the terminal mode, code blocks become
+      # invisible (dark-mode cream text on a light background).
+      # Using direct hex values bypasses mode detection entirely.
+      "opencode/themes/flexoki.json".source = jsonFormat.generate "flexoki.json" {
+        "$schema" = "https://opencode.ai/theme.json";
+        theme = {
+          primary = "#205EA6";
+          secondary = "#5E409D";
+          accent = "#BC5215";
+          error = "#AF3029";
+          warning = "#BC5215";
+          success = "#66800B";
+          info = "#24837B";
+          text = "#100F0F";
+          textMuted = "#6F6E69";
+          background = "#FFFCF0";
+          backgroundPanel = "#F2F0E5";
+          backgroundElement = "#E6E4D9";
+          border = "#B7B5AC";
+          borderActive = "#878580";
+          borderSubtle = "#CECDC3";
+          diffAdded = "#66800B";
+          diffRemoved = "#AF3029";
+          diffContext = "#6F6E69";
+          diffHunkHeader = "#205EA6";
+          diffHighlightAdded = "#66800B";
+          diffHighlightRemoved = "#AF3029";
+          diffAddedBg = "#D5E5D5";
+          diffRemovedBg = "#F7D8DB";
+          diffContextBg = "#F2F0E5";
+          diffLineNumber = "#6F6E69";
+          diffAddedLineNumberBg = "#C5D5C5";
+          diffRemovedLineNumberBg = "#E7C8CB";
+          markdownText = "#100F0F";
+          markdownHeading = "#5E409D";
+          markdownLink = "#205EA6";
+          markdownLinkText = "#24837B";
+          markdownCode = "#24837B";
+          markdownBlockQuote = "#AD8301";
+          markdownEmph = "#AD8301";
+          markdownStrong = "#BC5215";
+          markdownHorizontalRule = "#6F6E69";
+          markdownListItem = "#BC5215";
+          markdownListEnumeration = "#24837B";
+          markdownImage = "#A02F6F";
+          markdownImageText = "#24837B";
+          markdownCodeBlock = "#100F0F";
+          syntaxComment = "#6F6E69";
+          syntaxKeyword = "#66800B";
+          syntaxFunction = "#BC5215";
+          syntaxVariable = "#205EA6";
+          syntaxString = "#24837B";
+          syntaxNumber = "#5E409D";
+          syntaxType = "#AD8301";
+          syntaxOperator = "#6F6E69";
+          syntaxPunctuation = "#6F6E69";
+        };
+      };
+
       "opencode/tui.json".source = jsonFormat.generate "tui.json" {
         cursor_style = "line";
         cursor_blink = true;
