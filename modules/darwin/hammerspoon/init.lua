@@ -16,6 +16,8 @@
 --   - Fast path: non-F18 events when hyper is not held are rejected with a
 --     single boolean check + integer comparison, no function calls.
 
+require("hs.ipc")
+
 if not hs.accessibilityState() then
   hs.alert.show("Hammerspoon needs Accessibility access!", 5)
 end
