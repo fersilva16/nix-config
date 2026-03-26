@@ -16,7 +16,7 @@
 --   - Fast path: non-F18 events when hyper is not held are rejected with a
 --     single boolean check + integer comparison, no function calls.
 
-require("hs.ipc")
+hs.allowAppleScript(true)
 
 if not hs.accessibilityState() then
   hs.alert.show("Hammerspoon needs Accessibility access!", 5)
@@ -38,10 +38,10 @@ local hyperBindingsByKeyCode = {}
 local hyperActionsByKeyCode = {}
 
 local bindingDefs = {
-  h = { {},        "left" },
-  j = { {},        "down" },
-  k = { {},        "up" },
-  l = { {},        "right" },
+  h = { {}, "left" },
+  j = { {}, "down" },
+  k = { {}, "up" },
+  l = { {}, "right" },
   [";"] = { { "cmd" }, "right" },
 }
 
@@ -233,7 +233,7 @@ healthCheck:start()
 -- reload is the only reliable recovery.
 local caffeinate = hs.caffeinate.watcher.new(function(event)
   if event == hs.caffeinate.watcher.systemDidWake or
-    event == hs.caffeinate.watcher.screensDidWake then
+      event == hs.caffeinate.watcher.screensDidWake then
     hs.timer.doAfter(2, function()
       hs.reload()
     end)
