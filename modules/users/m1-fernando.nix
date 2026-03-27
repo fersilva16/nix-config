@@ -41,6 +41,7 @@ in
     ../dev/java-25.nix
     ../dev/minikube.nix
     ../dev/doppler.nix
+    ../dev/claude.nix
     ../dev/claude-code.nix
     ../dev/opencode.nix
     ../dev/rtk.nix
