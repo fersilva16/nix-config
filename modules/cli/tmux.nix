@@ -13,6 +13,7 @@ in
       icons:
         .opencode-wrapp: ""
         task: "󱓞"
+        agents: "󰚩"
     '';
 
     programs.tmux = {
@@ -55,6 +56,9 @@ in
 
         # Jump to last notification on prefix + N
         bind-key 'N' run-shell "${tmux-extras}/bin/tmux-notify goto"
+
+        # Spawn opencode agent in dedicated "agents" window (prefix + a opens prompt bar)
+        bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-extras}/bin/tmux-agent-prompt '#{pane_current_path}'"
 
         # Open opencode in a new pane at nearest git root
         bind-key o run-shell 'tmux split-window -h -c "$(${tmux-extras}/bin/tmux-git-root-path "#{pane_current_path}")" opencode'
