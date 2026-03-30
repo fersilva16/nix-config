@@ -11,7 +11,6 @@ let
     tmux-extras
     figma-developer-mcp
     agentation-mcp
-    opencode-anthropic-auth
     ;
 
   serverPort = 4096;
@@ -118,7 +117,7 @@ in
       settings = {
         theme = "flexoki";
         plugin = [
-          "file://${opencode-anthropic-auth}"
+          "@ex-machina/opencode-anthropic-auth@0.2.1"
           "@simonwjackson/opencode-direnv@2025.1211.9"
           "@mohak34/opencode-notifier@0.1.36"
           "oh-my-opencode@3.14.0"
@@ -161,6 +160,11 @@ in
             "*" = "allow";
             "*.env" = "deny";
             "*.env.*" = "allow";
+          };
+        };
+        agent = {
+          title = {
+            model = "opencode/minimax-m2.5-free";
           };
         };
         mcp = {
