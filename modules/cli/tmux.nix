@@ -52,10 +52,13 @@ in
         bind-key '?' display-popup -w 64 -h 80% -E "${tmux-extras}/bin/tmux-cheatsheet"
 
         # Notification panel on prefix + n
-        bind-key 'n' display-popup -w 60 -h 20 -E "${tmux-extras}/bin/tmux-notify-panel"
+        bind-key 'n' display-popup -w 60 -h 20 -E "${tmux-extras}/bin/tmux-opencode-manager"
 
         # Jump to last notification on prefix + N
         bind-key 'N' run-shell "${tmux-extras}/bin/tmux-notify goto"
+
+        # Auto-dismiss notifications when switching to their window
+        set-hook -g after-select-window 'run-shell -b "${tmux-extras}/bin/tmux-notify auto-dismiss"'
 
         # Spawn opencode agent in dedicated "agents" window (prefix + a opens prompt bar)
         bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-extras}/bin/tmux-agent-prompt '#{pane_current_path}'"
