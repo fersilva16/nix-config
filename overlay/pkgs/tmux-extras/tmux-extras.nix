@@ -25,6 +25,8 @@ pkgs.stdenvNoCC.mkDerivation {
     cp battery-widget.sh $out/bin/tmux-battery-widget
     cp status-right.sh $out/bin/tmux-status-right
     cp git-root-path.sh $out/bin/tmux-git-root-path
+    cp spawn-agent.sh $out/bin/tmux-spawn-agent
+    cp agent-prompt.sh $out/bin/tmux-agent-prompt
     chmod +x $out/bin/*
 
     # Wrap notification scripts to ensure dependencies are on PATH
@@ -54,6 +56,11 @@ pkgs.stdenvNoCC.mkDerivation {
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
     wrapProgram $out/bin/tmux-ungroup \
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]}
+    wrapProgram $out/bin/tmux-spawn-agent \
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]} \
+      --prefix PATH : $out/bin
+    wrapProgram $out/bin/tmux-agent-prompt \
+      --prefix PATH : $out/bin
     wrapProgram $out/bin/tmux-remote \
       --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.tmux ]} \
       --prefix PATH : /opt/homebrew/bin
