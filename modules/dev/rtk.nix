@@ -62,6 +62,12 @@
       '';
     };
 
+    # RTK configuration — exclude commands that break under rewrite -- https://github.com/rtk-ai/rtk/issues/856
+    "Library/Application Support/rtk/config.toml".text = ''
+      [hooks]
+      exclude_commands = ["find"]
+    '';
+
     # RTK awareness file for Claude Code
     home.file.".claude/RTK.md".text = ''
       # RTK - Rust Token Killer
