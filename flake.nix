@@ -53,11 +53,6 @@
       url = "github:anomalyco/opencode/production";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    bun2nix = {
-      url = "github:nix-community/bun2nix?tag=2.0.8";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -66,7 +61,6 @@
       overlay = import ./overlay/overlay.nix;
 
       overlays = [
-        inputs.bun2nix.overlays.default
         overlay
       ];
 
