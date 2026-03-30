@@ -59,8 +59,12 @@
       functions = {
         ghpc = "git push && gh pr create --fill $argv && gh pr view --web";
         ghpm = ''
+          set feature_branch (git rev-parse --abbrev-ref HEAD)
+
           gh pr merge -s --admin $argv
           or return 1
+
+          git push origin --delete "$feature_branch" 2>/dev/null
 
           set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
           set current_root (git rev-parse --show-toplevel)
