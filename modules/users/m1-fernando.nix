@@ -5,6 +5,11 @@ let
   username = "fernando";
 in
 {
+  # New-style modules — enabled per-user, imported at host level
+  modules.users.${username} = {
+    bat.enable = true;
+  };
+
   imports = mkUserImports username [
     # System
     ../system/home.nix
@@ -21,7 +26,6 @@ in
     ../cli/direnv.nix
     ../cli/tmux.nix
     ../cli/zoxide.nix
-    ../cli/bat.nix
     ../cli/eza.nix
     ../cli/fzf.nix
     ../cli/ripgrep.nix

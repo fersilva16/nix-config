@@ -4,6 +4,9 @@ _: {
   imports = [
     ../users/m1-fernando.nix
 
+    # User modules (mkUserModule pattern — enabled per-user via modules.users.<name>)
+    ../cli/bat.nix
+
     ../darwin/darwin-default.nix
     ../darwin/sudo-touchid.nix
     ../darwin/watcher.nix

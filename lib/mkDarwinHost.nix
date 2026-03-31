@@ -14,6 +14,8 @@ darwin.lib.darwinSystem {
 
   specialArgs = {
     inherit inputs system;
+    mkUserModule = import ./mkUserModule.nix;
+    forPlatform = import ./forPlatform.nix system;
   };
 
   modules = [
