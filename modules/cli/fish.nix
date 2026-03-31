@@ -53,7 +53,7 @@
         ds = "nix develop . --command $SHELL";
 
         ls = "eza -lag";
-        cat = "bat";
+
       };
 
       functions = {
