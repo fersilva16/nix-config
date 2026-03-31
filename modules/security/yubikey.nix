@@ -1,5 +1,5 @@
-_: {
-  homebrew.casks = [
-    "yubico-authenticator"
-  ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "yubikey";
+  system.homebrew.casks = [ "yubico-authenticator" ];
 }

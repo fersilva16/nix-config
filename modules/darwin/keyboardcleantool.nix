@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "keyboardcleantool" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "keyboardcleantool";
+  system.homebrew.casks = [ "keyboardcleantool" ];
 }

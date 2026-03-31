@@ -1,6 +1,7 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "git";
+  home = {
     programs.git = {
       enable = true;
       lfs.enable = true;

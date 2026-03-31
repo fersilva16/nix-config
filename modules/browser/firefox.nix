@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "firefox" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "firefox";
+  system.homebrew.casks = [ "firefox" ];
 }

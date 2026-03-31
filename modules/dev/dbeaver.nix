@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "dbeaver-community" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "dbeaver";
+  system.homebrew.casks = [ "dbeaver-community" ];
 }

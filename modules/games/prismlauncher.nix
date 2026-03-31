@@ -1,5 +1,5 @@
-_: {
-  homebrew.casks = [
-    "prismlauncher"
-  ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "prismlauncher";
+  system.homebrew.casks = [ "prismlauncher" ];
 }

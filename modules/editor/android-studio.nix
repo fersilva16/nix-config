@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "android-studio" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "android-studio";
+  system.homebrew.casks = [ "android-studio" ];
 }

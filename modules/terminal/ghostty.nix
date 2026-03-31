@@ -1,9 +1,10 @@
-{ username, pkgs, ... }:
+{ mkUserModule, pkgs, ... }:
 let
   inherit (pkgs) tmux-extras;
 in
-{
-  home-manager.users.${username} = {
+mkUserModule {
+  name = "ghostty";
+  home = {
     programs.ghostty = {
       enable = true;
       enableFishIntegration = true;

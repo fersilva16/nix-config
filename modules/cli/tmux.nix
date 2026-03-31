@@ -1,9 +1,10 @@
-{ username, pkgs, ... }:
+{ mkUserModule, pkgs, ... }:
 let
   inherit (pkgs) tmux-extras;
 in
-{
-  home-manager.users.${username} = {
+mkUserModule {
+  name = "tmux";
+  home = {
     xdg.configFile."tmux/tmux-nerd-font-window-name.yml".text = ''
       config:
         fallback-icon: "?"
@@ -11,7 +12,7 @@ in
         always-show-fallback-name: true
 
       icons:
-        .opencode-wrapp: ""
+        .opencode-wrapp: ""
         task: "󱓞"
         agents: "󰚩"
     '';

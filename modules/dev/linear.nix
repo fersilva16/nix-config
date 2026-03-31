@@ -1,8 +1,8 @@
-{ username, pkgs, ... }:
-{
-  homebrew.casks = [ "linear-linear" ];
-
-  home-manager.users.${username} = {
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "linear";
+  system.homebrew.casks = [ "linear-linear" ];
+  home = {
     home.packages = with pkgs; [
       linear-cli
       gum

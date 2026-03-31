@@ -1,8 +1,8 @@
-{ username, ... }:
-{
-  homebrew.brews = [ "rtk" ];
-
-  home-manager.users.${username} = {
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "rtk";
+  system.homebrew.brews = [ "rtk" ];
+  home = {
     home.file = {
       # Claude Code hook: rewrites bash commands to use rtk for token savings.
       # settings.json PreToolUse entry must reference this path.

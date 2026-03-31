@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "intellij-idea-ce" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "intellij";
+  system.homebrew.casks = [ "intellij-idea-ce" ];
 }

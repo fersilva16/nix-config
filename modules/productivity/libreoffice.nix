@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "libreoffice" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "libreoffice";
+  system.homebrew.casks = [ "libreoffice" ];
 }

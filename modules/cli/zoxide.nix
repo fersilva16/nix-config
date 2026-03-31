@@ -1,6 +1,7 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "zoxide";
+  home = {
     programs.zoxide = {
       enable = true;
 

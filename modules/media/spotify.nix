@@ -1,5 +1,5 @@
-_: {
-  homebrew.casks = [
-    "spotify"
-  ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "spotify";
+  system.homebrew.casks = [ "spotify" ];
 }

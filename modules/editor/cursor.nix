@@ -1,5 +1,5 @@
-_: {
-  homebrew.casks = [
-    "cursor"
-  ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "cursor";
+  system.homebrew.casks = [ "cursor" ];
 }

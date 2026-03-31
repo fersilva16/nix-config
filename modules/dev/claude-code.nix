@@ -1,6 +1,5 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
-    home.packages = with pkgs; [ claude-code ];
-  };
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "claude-code";
+  home.home.packages = with pkgs; [ claude-code ];
 }

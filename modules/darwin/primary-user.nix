@@ -1,4 +1,0 @@
-{ username, ... }:
-{
-  system.primaryUser = username;
-}

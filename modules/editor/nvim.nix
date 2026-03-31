@@ -1,5 +1,5 @@
 {
-  username,
+  mkUserModule,
   pkgs,
   lib,
   ...
@@ -41,8 +41,9 @@ let
     ]
   );
 in
-{
-  home-manager.users.${username} = {
+mkUserModule {
+  name = "nvim";
+  home = {
     # LSP servers and dev tools installed as Nix packages (no Mason needed)
     home.packages = with pkgs; [
       # Language servers
