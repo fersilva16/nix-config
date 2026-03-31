@@ -1,5 +1,5 @@
-_: {
-  homebrew = {
-    casks = [ "ngrok" ];
-  };
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "ngrok";
+  system.homebrew.casks = [ "ngrok" ];
 }

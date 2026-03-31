@@ -1,8 +1,5 @@
-{ username, ... }:
-{
-  home-manager.users.${username} = {
-    programs.eza = {
-      enable = true;
-    };
-  };
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "eza";
+  home.programs.eza.enable = true;
 }

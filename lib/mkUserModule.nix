@@ -115,7 +115,6 @@ in
               // extraOptions;
             }
           );
-          default = { };
         };
 
         config = lib.mkIf hasEnabled (

@@ -1,6 +1,5 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
-    home.packages = with pkgs; [ flyctl ];
-  };
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "flyctl";
+  home.home.packages = with pkgs; [ flyctl ];
 }

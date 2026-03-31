@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "google-chrome" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "chrome";
+  system.homebrew.casks = [ "google-chrome" ];
 }

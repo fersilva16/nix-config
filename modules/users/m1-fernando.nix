@@ -1,116 +1,157 @@
-{ pkgs, ... }@args:
+{
+  pkgs,
+  inputs,
+  config,
+  ...
+}:
 let
-  mkUserImports = import ../../lib/mkUserImports.nix args;
-
   username = "fernando";
+  homeDirectory = "/Users/${username}";
+
+  inherit (inputs)
+    homebrew-core
+    homebrew-cask
+    homebrew-bundle
+    homebrew-schpet-tap
+    ;
 in
 {
-  # New-style modules — enabled per-user, imported at host level
-  modules.users.${username} = {
-    bat.enable = true;
+  # ── User account ──────────────────────────────────────────────────────
+  users.users.${username} = {
+    shell = pkgs.fish;
+    home = homeDirectory;
   };
 
-  imports = mkUserImports username [
-    # System
-    ../system/home.nix
-    ../darwin/primary-user.nix
-    ../darwin/homebrew.nix
-    ../darwin/hammerspoon/hammerspoon.nix
-    ../darwin/keyboardcleantool.nix
-    ../darwin/raycast.nix
+  system.primaryUser = username;
 
+  # ── Home Manager bootstrap ───────────────────────────────────────────
+  home-manager.users.${username}.home = {
+    inherit homeDirectory username;
+    stateVersion = "25.05";
+  };
+
+  # ── Homebrew (declarative, cleanup = zap) ────────────────────────────
+  nix-homebrew = {
+    enable = true;
+    enableRosetta = true;
+    user = username;
+
+    taps = {
+      "homebrew/homebrew-core" = homebrew-core;
+      "homebrew/homebrew-cask" = homebrew-cask;
+      "homebrew/homebrew-bundle" = homebrew-bundle;
+      "schpet/homebrew-tap" = homebrew-schpet-tap;
+    };
+
+    mutableTaps = false;
+  };
+
+  homebrew = {
+    enable = true;
+    onActivation.cleanup = "zap";
+    taps = builtins.attrNames config.nix-homebrew.taps;
+  };
+
+  # ── User capabilities ───────────────────────────────────────────────
+  modules.users.${username} = {
     # Shell & CLI
-    ../cli/ssh.nix
-    ../cli/fish.nix
-    ../cli/starship.nix
-    ../cli/direnv.nix
-    ../cli/tmux.nix
-    ../cli/zoxide.nix
-    ../cli/eza.nix
-    ../cli/fzf.nix
-    ../cli/ripgrep.nix
+    bat.enable = true;
+    ssh.enable = true;
+    fish.enable = true;
+    starship.enable = true;
+    direnv.enable = true;
+    tmux.enable = true;
+    zoxide.enable = true;
+    eza.enable = true;
+    fzf.enable = true;
+    ripgrep.enable = true;
 
     # Dev tools
-    ../dev/git.nix
-    ../dev/lazygit.nix
-    ../dev/awscli.nix
-    ../dev/flyctl.nix
-    ../dev/mongosh.nix
-    ../dev/stern.nix
-    ../dev/dbeaver.nix
-    ../dev/studio-3t.nix
-    ../dev/postman.nix
-    ../dev/ngrok.nix
-    ../dev/orbstack.nix
-    ../dev/java-25.nix
-    ../dev/minikube.nix
-    ../dev/doppler.nix
-    ../dev/claude.nix
-    ../dev/claude-code.nix
-    ../dev/opencode.nix
-    ../dev/rtk.nix
-    ../dev/ollama.nix
-    ../dev/linear.nix
+    git.enable = true;
+    lazygit.enable = true;
+    awscli.enable = true;
+    flyctl.enable = true;
+    mongosh.enable = true;
+    stern.enable = true;
+    dbeaver.enable = true;
+    "studio-3t".enable = true;
+    postman.enable = true;
+    ngrok.enable = true;
+    orbstack.enable = true;
+    "java-25".enable = true;
+    minikube.enable = true;
+    doppler.enable = true;
+    claude.enable = true;
+    "claude-code".enable = true;
+    opencode.enable = true;
+    rtk.enable = true;
+    ollama.enable = true;
+    linear.enable = true;
 
     # Editors
-    ../editor/nvim.nix
-    ../editor/vscode/vscode.nix
-    ../editor/cursor.nix
-    ../editor/intellij.nix
-    ../editor/android-studio.nix
+    nvim.enable = true;
+    vscode.enable = true;
+    cursor.enable = true;
+    intellij.enable = true;
+    "android-studio".enable = true;
 
     # Browsers
-    ../browser/firefox.nix
-    ../browser/chrome.nix
+    firefox.enable = true;
+    chrome.enable = true;
 
     # Terminal
-    ../terminal/ghostty.nix
+    ghostty.enable = true;
 
     # Chat & communication
-    ../chat/slack.nix
-    ../chat/teams.nix
-    ../chat/telegram.nix
-    ../chat/whatsapp.nix
-    ../chat/discord.nix
+    slack.enable = true;
+    teams.enable = true;
+    telegram.enable = true;
+    whatsapp.enable = true;
+    discord.enable = true;
 
     # Media
-    ../media/iina.nix
-    ../media/spotify.nix
-    ../media/stremio.nix
+    iina.enable = true;
+    spotify.enable = true;
+    stremio.enable = true;
 
     # Productivity
-    ../productivity/anki.nix
-    ../productivity/anytype.nix
-    ../productivity/calibre.nix
-    ../productivity/obsidian.nix
-    ../productivity/notion-calendar.nix
-    ../productivity/loom.nix
-    ../productivity/netnewswire.nix
-    ../productivity/sparkmail.nix
-    ../productivity/figma.nix
-    ../productivity/libreoffice.nix
-    ../productivity/word.nix
-    ../productivity/windows-app.nix
-    ../productivity/granola.nix
-    ../productivity/cold-turkey-blocker.nix
-    ../productivity/selfcontrol.nix
+    anki.enable = true;
+    anytype.enable = true;
+    calibre.enable = true;
+    obsidian.enable = true;
+    "notion-calendar".enable = true;
+    loom.enable = true;
+    netnewswire.enable = true;
+    sparkmail.enable = true;
+    figma.enable = true;
+    libreoffice.enable = true;
+    word.enable = true;
+    "windows-app".enable = true;
+    granola.enable = true;
+    "cold-turkey-blocker".enable = true;
+    selfcontrol.enable = true;
 
     # Networking
-    ../networking/tailscale.nix
-    ../networking/cloudflare-warp.nix
-    ../networking/wireguard.nix
+    tailscale.enable = true;
+    "cloudflare-warp".enable = true;
+    wireguard.enable = true;
 
     # Security
-    ../security/1password.nix
-    ../security/yubikey.nix
+    "1password".enable = true;
+    yubikey.enable = true;
+
+    # Darwin utilities
+    hammerspoon.enable = true;
+    keyboardcleantool.enable = true;
+    raycast.enable = true;
 
     # Finance
-    ../ledger/paisa.nix
-    ../ledger/ledger.nix
+    paisa.enable = true;
+    ledger.enable = true;
 
     # Games
-    ../games/sony.nix
-    ../games/prismlauncher.nix
-    ../games/steam.nix
-  ];
+    sony.enable = true;
+    prismlauncher.enable = true;
+    steam.enable = true;
+  };
 }

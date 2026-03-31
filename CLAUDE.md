@@ -18,10 +18,9 @@ A nix-darwin flake configuration for a single macOS Apple Silicon host (`m1`), m
 flake.nix                    # Entry point: inputs + outputs
 lib/mkDarwinHost.nix         # Factory: creates a nix-darwin system config
 lib/mkUserModule.nix         # Factory: creates a capability module with enable option
-lib/mkUserImports.nix        # Legacy: threads username through module imports
 lib/forPlatform.nix          # Utility: platform-aware value selector (darwin/linux)
 modules/hosts/m1.nix         # Host definition: system-level + mkUserModule imports
-modules/users/m1-fernando.nix # User composition: ~70 module imports + enable flags
+modules/users/m1-fernando.nix # User composition: structural config + enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
 overlay/                     # Custom packages (paisa, flexoki-tmux, tmux-extras)
 ```
@@ -99,31 +98,6 @@ modules.users.fernando = {
 };
 ```
 
-#### Legacy patterns (existing modules — migrating to `mkUserModule`)
-
-**Homebrew cask wrapper** — uses `_:` since no args needed:
-
-```nix
-_: {
-  homebrew.casks = [ "slack" ];
-}
-```
-
-**Nix package or home-manager config** — receives `username` and sets user-scoped attributes:
-
-```nix
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
-    home.packages = with pkgs; [ claude-code ];
-  };
-}
-```
-
-Modules that need more args (e.g., `inputs`, `config`, `lib`) destructure them as needed. The `username` argument is threaded through by `lib/mkUserImports.nix`.
-
-> **Migration note:** Most modules still use the legacy pattern. New modules should use `mkUserModule`. The two patterns coexist — legacy modules are imported via `mkUserImports` in the user file, `mkUserModule` modules are imported at the host level.
-
 ### `forPlatform` utility
 
 `forPlatform` selects a value based on the current system platform. Available via `specialArgs` in all modules. When only one platform is specified, the other side's identity value is inferred from the type (`""` for strings, `[]` for lists, `{}` for attrsets).
@@ -148,10 +122,10 @@ home.packages = [ sharedPkg ] ++ forPlatform { darwin = [ pkgs.iterm2 ]; };
 
 ### Adding a new app
 
-1. Create `modules/<category>/<app>.nix` using the appropriate pattern above
-2. Import it in `modules/hosts/m1.nix` (for `mkUserModule`) or `modules/users/m1-fernando.nix` (for legacy)
-3. For `mkUserModule`: add `<name>.enable = true;` to `modules.users.fernando` in the user file
-3. Run `sudo darwin-rebuild switch --flake .#m1` to apply
+1. Create `modules/<category>/<app>.nix` using `mkUserModule`
+2. Import it in `modules/hosts/m1.nix`
+3. Add `<name>.enable = true;` to `modules.users.fernando` in the user file
+4. Run `sudo darwin-rebuild switch --flake .#m1` to apply
 
 ### Homebrew behavior
 

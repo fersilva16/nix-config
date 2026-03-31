@@ -1,6 +1,7 @@
-{ username, inputs, ... }:
-{
-  home-manager.users.${username} = {
+{ mkUserModule, inputs, ... }:
+mkUserModule {
+  name = "direnv";
+  home = {
     imports = [
       inputs.direnv-instant.homeModules.direnv-instant
     ];

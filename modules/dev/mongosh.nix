@@ -1,9 +1,8 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
-    home.packages = with pkgs; [
-      mongosh
-      mongodb-tools
-    ];
-  };
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "mongosh";
+  home.home.packages = with pkgs; [
+    mongosh
+    mongodb-tools
+  ];
 }

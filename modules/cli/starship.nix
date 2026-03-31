@@ -1,4 +1,4 @@
-{ username, pkgs, ... }:
+{ mkUserModule, pkgs, ... }:
 let
   inherit (pkgs) lib;
   baseSettings = {
@@ -6,7 +6,7 @@ let
 
     nix_shell = {
       format = "via [$symbol]($style) ";
-      symbol = " ";
+      symbol = " ";
     };
 
     custom.worktree = {
@@ -41,8 +41,9 @@ let
     nix_shell.symbol = " ";
   };
 in
-{
-  home-manager.users.${username} = {
+mkUserModule {
+  name = "starship";
+  home = {
     xdg.configFile."starship-plain.toml".source =
       (pkgs.formats.toml { }).generate "starship-plain.toml"
         plainSettings;

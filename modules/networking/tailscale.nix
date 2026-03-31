@@ -1,5 +1,5 @@
-_: {
-  homebrew = {
-    casks = [ "tailscale-app" ];
-  };
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "tailscale";
+  system.homebrew.casks = [ "tailscale-app" ];
 }

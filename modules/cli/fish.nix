@@ -1,22 +1,20 @@
 {
-  username,
+  mkUserModule,
   pkgs,
   lib,
   ...
 }:
-{
-  environment = {
-    systemPackages = [ pkgs.fish ];
-    shells = [ pkgs.fish ];
+mkUserModule {
+  name = "fish";
+  system = {
+    environment = {
+      systemPackages = [ pkgs.fish ];
+      shells = [ pkgs.fish ];
+    };
+
+    programs.fish.enable = true;
   };
-
-  users.users.${username} = {
-    shell = pkgs.fish;
-  };
-
-  programs.fish.enable = true;
-
-  home-manager.users.${username} = {
+  home = {
     programs.fish = {
       enable = true;
 

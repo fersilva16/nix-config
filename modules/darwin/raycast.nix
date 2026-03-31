@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "raycast" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "raycast";
+  system.homebrew.casks = [ "raycast" ];
 }

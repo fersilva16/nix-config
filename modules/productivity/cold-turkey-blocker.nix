@@ -1,5 +1,5 @@
-_: {
-  homebrew.casks = [
-    "cold-turkey-blocker"
-  ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "cold-turkey-blocker";
+  system.homebrew.casks = [ "cold-turkey-blocker" ];
 }

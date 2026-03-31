@@ -1,6 +1,5 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
-    home.packages = with pkgs; [ awscli2 ];
-  };
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "awscli";
+  home.home.packages = with pkgs; [ awscli2 ];
 }

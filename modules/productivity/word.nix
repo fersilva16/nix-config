@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "microsoft-word" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "word";
+  system.homebrew.casks = [ "microsoft-word" ];
 }

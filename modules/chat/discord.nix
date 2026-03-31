@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "discord" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "discord";
+  system.homebrew.casks = [ "discord" ];
 }

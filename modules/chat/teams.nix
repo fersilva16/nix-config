@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "microsoft-teams" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "teams";
+  system.homebrew.casks = [ "microsoft-teams" ];
 }

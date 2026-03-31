@@ -1,6 +1,7 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "lazygit";
+  home = {
     programs.lazygit = {
       enable = true;
       settings = {

@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "obsidian" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "obsidian";
+  system.homebrew.casks = [ "obsidian" ];
 }

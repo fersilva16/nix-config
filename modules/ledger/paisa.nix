@@ -1,6 +1,7 @@
-{ username, pkgs, ... }:
-{
-  home-manager.users.${username} = {
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "paisa";
+  home = {
     home.packages = with pkgs; [ paisa ];
 
     home.file."Documents/paisa/paisa.yaml" = {
