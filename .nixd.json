@@ -1,0 +1,16 @@
+{
+  "nixpkgs": {
+    "expr": "import (builtins.getFlake \"/Users/fernando/nix-config\").inputs.nixpkgs { }"
+  },
+  "options": {
+    "darwin": {
+      "expr": "(builtins.getFlake \"/Users/fernando/nix-config\").darwinConfigurations.m1.options"
+    },
+    "home-manager": {
+      "expr": "(builtins.getFlake \"/Users/fernando/nix-config\").darwinConfigurations.m1.options.home-manager.users.type.getSubOptions []"
+    }
+  },
+  "formatting": {
+    "command": ["nixfmt"]
+  }
+}
