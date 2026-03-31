@@ -6,6 +6,9 @@
 }:
 mkUserModule {
   name = "fish";
+  user = _: {
+    shell = pkgs.fish;
+  };
   system = {
     environment = {
       systemPackages = [ pkgs.fish ];
