@@ -4,7 +4,7 @@
 # Each module declares an enable option under `modules.users.<name>.<moduleName>`.
 # When any user enables it, system config runs once; home config runs per-user.
 #
-# Signature: { name, system?, home?, extraOptions?, requires? } -> module
+# Signature: { name, system?, home?, user?, extraOptions?, requires? } -> module
 #
 # Fields:
 #
@@ -15,7 +15,12 @@
 #
 #   home:         (optional) Per-user home-manager config. Can be an attrset (static)
 #                 or a function ({ cfg, username } -> attrset) when per-user option
-#                 values are needed.
+#                 values are needed. Merged into home-manager.users.<username>.
+#
+#   user:         (optional) Per-user nix-darwin user account config. Can be an
+#                 attrset (static) or a function ({ cfg, username } -> attrset).
+#                 Merged into users.users.<username>. Use for per-user system-level
+#                 settings like login shell.
 #
 #   extraOptions: (optional) Custom per-user option declarations (attrset of mkOption defs).
 #
@@ -23,62 +28,6 @@
 #                 who enables this module. The required modules must be imported
 #                 in the system — this only sets `enable = true`, it does not
 #                 configure their extraOptions (users set those, or defaults apply).
-#
-# Usage:
-#
-#   # Simple HM-only:
-#   { mkUserModule, ... }:
-#   mkUserModule {
-#     name = "bat";
-#     home.programs.bat.enable = true;
-#   }
-#
-#   # System-only cask:
-#   { mkUserModule, ... }:
-#   mkUserModule {
-#     name = "slack";
-#     system.homebrew.casks = [ "slack" ];
-#   }
-#
-#   # Unified system + user:
-#   { mkUserModule, pkgs, ... }:
-#   mkUserModule {
-#     name = "fish";
-#     system = {
-#       environment.systemPackages = [ pkgs.fish ];
-#       programs.fish.enable = true;
-#     };
-#     home.programs.fish = {
-#       enable = true;
-#       shellAliases = { ll = "eza -la"; };
-#     };
-#   }
-#
-#   # With custom per-user options:
-#   { mkUserModule, lib, ... }:
-#   mkUserModule {
-#     name = "bat";
-#     extraOptions.fishAlias = lib.mkOption {
-#       type = lib.types.bool;
-#       default = true;
-#       description = "Whether to alias cat to bat in fish shell.";
-#     };
-#     home = { cfg, ... }: {
-#       programs.bat.enable = true;
-#       programs.fish.shellAliases = lib.mkIf cfg.fishAlias {
-#         cat = "bat";
-#       };
-#     };
-#   }
-#
-#   # With required dependencies:
-#   { mkUserModule, ... }:
-#   mkUserModule {
-#     name = "1password";
-#     requires = [ "git" ];
-#     system.homebrew.casks = [ "1password" ];
-#     home = { ... }: { ... };
-#   }
 #
 # User composition (in user file):
 #
@@ -91,11 +40,14 @@
   name,
   system ? { },
   home ? { },
+  user ? { },
   extraOptions ? { },
   requires ? [ ],
 }:
 let
-  isFn = builtins.isFunction home;
+  isHomeFn = builtins.isFunction home;
+  isUserFn = builtins.isFunction user;
+  hasUser = user != { } || isUserFn;
 in
 {
   imports = [
@@ -118,26 +70,37 @@ in
         };
 
         config = lib.mkIf hasEnabled (
-          lib.mkMerge [
-            system
-            (lib.optionalAttrs (requires != [ ]) {
+          lib.mkMerge (
+            [ system ]
+            ++ lib.optional (requires != [ ]) {
               modules.users = lib.mapAttrs (
                 _: _:
                 lib.genAttrs requires (_: {
                   enable = true;
                 })
               ) enabledUsers;
-            })
-            {
-              home-manager.users = lib.mapAttrs (
+            }
+            ++ lib.optional hasUser {
+              users.users = lib.mapAttrs (
                 username: userCfg:
                 let
                   cfg = userCfg.${name};
                 in
-                if isFn then home { inherit cfg username; } else home
+                if isUserFn then user { inherit cfg username; } else user
               ) enabledUsers;
             }
-          ]
+            ++ [
+              {
+                home-manager.users = lib.mapAttrs (
+                  username: userCfg:
+                  let
+                    cfg = userCfg.${name};
+                  in
+                  if isHomeFn then home { inherit cfg username; } else home
+                ) enabledUsers;
+              }
+            ]
+          )
         );
       }
     )

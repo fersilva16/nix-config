@@ -1,10 +1,13 @@
 _: {
   networking.hostName = "m1";
+  system.primaryUser = "fernando";
 
   imports = [
     ../users/m1-fernando.nix
 
     # System modules (not mkUserModule — applied unconditionally)
+    ../system/user-bootstrap.nix
+    ../system/homebrew.nix
     ../darwin/darwin-default.nix
     ../darwin/sudo-touchid.nix
     ../darwin/watcher.nix
