@@ -43,9 +43,9 @@ let
       # ── Server lifecycle management ──
       server)
         case "''${2:-status}" in
-          start)   launchctl kickstart "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "started" || echo "already running" ;;
-          stop)    launchctl kill SIGTERM "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "stopped" || echo "not running" ;;
-          restart) launchctl kickstart -k "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "restarted" || echo "failed" ;;
+          start)   launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null && echo "started" || echo "already running" ;;
+          stop)    launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "stopped" || echo "not running" ;;
+          restart) launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null; sleep 0.5; launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null && echo "restarted" || echo "failed" ;;
           status)
             if server_up; then
               PID=$(launchctl list "$LABEL" 2>/dev/null | awk '/PID/ {print $NF}')
@@ -55,7 +55,15 @@ let
             fi
             ;;
           log)     tail -f /tmp/opencode-server.log ;;
-          *)       echo "usage: opencode server [start|stop|restart|status|log]" ;;
+          debug)
+            "$0" server stop
+            while server_up; do sleep 0.1; done
+            trap '"$0" server start' EXIT
+            echo "Starting debug server on port ${toString serverPort} (Ctrl-C to stop)..."
+            echo "Logs: /tmp/opencode-debug.log"
+            "$REAL" serve --port "${toString serverPort}" --log-level DEBUG --print-logs 2>&1 | tee /tmp/opencode-debug.log
+            ;;
+          *)       echo "usage: opencode server [start|stop|restart|status|log|debug]" ;;
         esac
         exit
         ;;
