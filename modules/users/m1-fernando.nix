@@ -12,6 +12,7 @@ _: {
     fzf.enable = true;
     ripgrep.enable = true;
     chrome-cli.enable = true;
+    readwise.enable = true;
 
     # Dev tools
     git.enable = true;
