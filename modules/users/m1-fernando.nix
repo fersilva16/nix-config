@@ -30,7 +30,7 @@ _: {
     claude.enable = true;
     "claude-code".enable = true;
     opencode.enable = true;
-    rtk.enable = true;
+    # rtk.enable = true;
     ollama.enable = true;
     linear.enable = true;
 
