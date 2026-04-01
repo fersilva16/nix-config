@@ -11,6 +11,7 @@ _: {
     eza.enable = true;
     fzf.enable = true;
     ripgrep.enable = true;
+    chrome-cli.enable = true;
 
     # Dev tools
     git.enable = true;

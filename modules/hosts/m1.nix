@@ -31,6 +31,7 @@ _: {
     ../cli/eza.nix
     ../cli/fzf.nix
     ../cli/ripgrep.nix
+    ../cli/chrome-cli.nix
 
     # Dev tools
     ../dev/git.nix
