@@ -1,4 +1,8 @@
-{ pkgs, ... }:
 {
-  home.packages = with pkgs; [ fd ];
+  mkUserModule,
+  ...
+}:
+mkUserModule {
+  name = "fd";
+  home.programs.fd.enable = true;
 }
