@@ -1,4 +1,9 @@
-{ mkUserModule, pkgs, ... }:
+{
+  mkUserModule,
+  pkgs,
+  lib,
+  ...
+}:
 let
   inherit (pkgs) lib;
   baseSettings = {
@@ -43,14 +48,27 @@ let
 in
 mkUserModule {
   name = "starship";
-  home = {
-    xdg.configFile."starship-plain.toml".source =
-      (pkgs.formats.toml { }).generate "starship-plain.toml"
-        plainSettings;
+  home =
+    { userCfg, ... }:
+    {
+      xdg.configFile."starship-plain.toml".source =
+        (pkgs.formats.toml { }).generate "starship-plain.toml"
+          plainSettings;
 
-    programs.starship = {
-      enable = true;
-      settings = lib.recursiveUpdate baseSettings nerdSymbols;
+      programs.starship = {
+        enable = true;
+        settings = lib.recursiveUpdate baseSettings nerdSymbols;
+      };
+
+      # Fish shell integration: switch to plain config when tmux remote mode is active
+      programs.fish.interactiveShellInit = lib.mkIf userCfg.fish.enable ''
+        function __starship_remote_check --on-event fish_prompt
+            if test -f /tmp/tmux-remote-state
+                set -gx STARSHIP_CONFIG ~/.config/starship-plain.toml
+            else
+                set -ge STARSHIP_CONFIG
+            end
+        end
+      '';
     };
-  };
 }
