@@ -10,6 +10,7 @@ _: {
     zoxide.enable = true;
     eza.enable = true;
     fzf.enable = true;
+    fd.enable = true;
     ripgrep.enable = true;
     chrome-cli.enable = true;
     readwise.enable = true;

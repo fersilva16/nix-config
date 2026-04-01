@@ -30,6 +30,7 @@ _: {
     ../cli/zoxide.nix
     ../cli/eza.nix
     ../cli/fzf.nix
+    ../cli/fd.nix
     ../cli/ripgrep.nix
     ../cli/chrome-cli.nix
     ../cli/readwise.nix
