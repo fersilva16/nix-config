@@ -66,7 +66,7 @@ mkUserModule {
       # RTK configuration — exclude commands that break under rewrite -- https://github.com/rtk-ai/rtk/issues/856
       "Library/Application Support/rtk/config.toml".text = ''
         [hooks]
-        exclude_commands = ["find"]
+        exclude_commands = ["find", "ps"]
       '';
 
       # RTK awareness file for Claude Code
@@ -152,23 +152,6 @@ mkUserModule {
                 }
               } catch {
                 // rtk ls failed — keep original output
-              }
-            }
-
-            if (tool === "grep") {
-              const pattern = args?.pattern
-              const grepPath = args?.path ?? "."
-              const include = args?.include
-              if (typeof pattern !== "string" || typeof grepPath !== "string") return
-              try {
-                const globArgs = typeof include === "string" ? `--glob ''${include}` : ""
-                const result = await $`rtk grep ''${pattern} ''${grepPath} ''${globArgs}`.quiet().nothrow()
-                const compressed = String(result.stdout).trim()
-                if (compressed && result.exitCode === 0) {
-                  output.output = compressed
-                }
-              } catch {
-                // rtk grep failed — keep original output
               }
             }
           },
