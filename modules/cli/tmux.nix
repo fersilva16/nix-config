@@ -12,7 +12,7 @@ mkUserModule {
         always-show-fallback-name: true
 
       icons:
-        .opencode-wrapp: ""
+        .opencode-wrapp: ""
         task: "󱓞"
         agents: "󰚩"
     '';

@@ -206,100 +206,15 @@ mkUserModule {
           set -l issue_json
 
           if test "$mode" = ai
-            # === AI creation flow ===
-            if test (count $argv) -lt 1
-              echo "Usage: wtlc ai <task description>" >&2
+            # Delegate to lin ai — sets _lin_ai_last_issue on success
+            lin ai $argv
+            or return 1
+            set -l issue_id $_lin_ai_last_issue
+            if test -z "$issue_id"
+              echo "wtlc: no issue created" >&2
               return 1
             end
-
-            set -l task (string join " " -- $argv)
-            set -l available_labels (_lin_team_labels ENG | cut -f2 | string join ", ")
-
-            set -l ai_prompt "Generate a Linear issue from this task. Return ONLY a raw JSON object (no markdown, no code blocks) with fields: title (concise string), description (markdown string with context and acceptance criteria), priority (integer: 1=urgent, 2=high, 3=medium, 4=low), labels (array of strings from available: $available_labels). Task: $task"
-
-            gum style --faint "Generating issue with AI..."
-            set -l result (opencode run -m "opencode/minimax-m2.5-free" "$ai_prompt" 2>/dev/null)
-            or begin; echo "wtlc: AI generation failed" >&2; return 1; end
-
-            set -l ai_title (printf '%s\n' $result | jq -r '.title // empty')
-            set -l ai_desc (printf '%s\n' $result | jq -r '.description // empty')
-            set -l ai_priority (printf '%s\n' $result | jq -r '.priority // 3')
-            set -l ai_labels (printf '%s\n' $result | jq -r '.labels[]? // empty')
-
-            if test -z "$ai_title"
-              echo "wtlc: could not parse AI response" >&2
-              return 1
-            end
-
-            set -l pri_names "None" "Urgent" "High" "Medium" "Low"
-            set -l pri_label $pri_names[(math $ai_priority + 1)]
-            set -l labels_str (string join ", " -- $ai_labels)
-            if test -z "$labels_str"; set labels_str "None"; end
-
-            echo ""
-            printf "Title: %s\nPriority: %s\nLabels: %s\n\n%s" "$ai_title" "$pri_label" "$labels_str" "$ai_desc" | \
-              gum style --border rounded --padding "1 2" --border-foreground 212
-            echo ""
-
-            set -l action (gum choose --header "Action" "Create" "Edit" "Cancel")
-
-            switch $action
-              case Create
-                set -l cmd linear-cli i create "$ai_title" -t ENG -p $ai_priority -a me -o json --quiet
-                if test -n "$ai_desc"; set -a cmd -d "$ai_desc"; end
-                set -l label_data (_lin_team_labels ENG)
-                for lbl in $ai_labels
-                  for entry in $label_data
-                    set -l parts (string split \t -- $entry)
-                    if test "$parts[2]" = "$lbl"
-                      set -a cmd -l "$parts[1]"
-                      break
-                    end
-                  end
-                end
-                set issue_json ($cmd)
-
-              case Edit
-                set -l title (gum input --value "$ai_title" --header "Title" --width 60)
-                or return 1
-
-                set -l team (gum input --value "ENG" --header "Team" --width 20)
-                or set team ENG
-
-                set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
-                set -l priority (string match -r '^\d' -- $pri)
-
-                set -l desc (gum write --header "Description (Esc when done)" --width 80 --value "$ai_desc")
-
-                set -l cmd linear-cli i create "$title" -t $team -a me -o json --quiet
-                if test -n "$priority"; set -a cmd -p $priority; end
-                if test -n "$desc"; set -a cmd -d "$desc"; end
-
-                set -l label_data (_lin_team_labels $team)
-                if test (count $label_data) -gt 0
-                  set -l label_names
-                  for entry in $label_data
-                    set -a label_names (string split \t -- $entry)[2]
-                  end
-                  set -l labels (printf '%s\n' $label_names | gum filter --no-limit --header "Labels (Tab to select)")
-                  for lbl in $labels
-                    if test -n "$lbl"
-                      for entry in $label_data
-                        set -l parts (string split \t -- $entry)
-                        if test "$parts[2]" = "$lbl"
-                          set -a cmd -l "$parts[1]"
-                          break
-                        end
-                      end
-                    end
-                  end
-                end
-
-                set issue_json ($cmd)
-
-              case Cancel
-                return 0
-            end
+            set issue_json '{"identifier":"'$issue_id'"}'
 
           else
             # === Interactive creation flow ===
