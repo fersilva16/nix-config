@@ -24,15 +24,6 @@ mkUserModule {
       interactiveShellInit = ''
         ssh-add --apple-load-keychain 2> /dev/null
 
-        # Switch to plain-text starship config when tmux remote mode is active
-        function __starship_remote_check --on-event fish_prompt
-            if test -f /tmp/tmux-remote-state
-                set -gx STARSHIP_CONFIG ~/.config/starship-plain.toml
-            else
-                set -ge STARSHIP_CONFIG
-            end
-        end
-
         set fish_cursor_default block
         set fish_cursor_insert line
         set -U fish_greeting
@@ -45,78 +36,19 @@ mkUserModule {
       '';
 
       shellAliases = {
-        g = "git";
-        ga = "git add";
-        gaa = "git add .";
-        gb = "git branch";
-        gc = "git commit";
-        gp = "git push";
         ds = "nix develop . --command $SHELL";
-
-        ls = "eza -lag";
-
       };
 
       functions = {
-        ghpc = "git push && gh pr create --fill $argv && gh pr view --web";
-        ghpm = ''
-          set feature_branch (git rev-parse --abbrev-ref HEAD)
-
-          gh pr merge -s --admin $argv
-          or return 1
-
-          git push origin --delete "$feature_branch" 2>/dev/null
-
-          set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
-          set current_root (git rev-parse --show-toplevel)
-
-          if test "$main_root" != "$current_root"; and set -q TMUX
-            # In a worktree: pull main, then clean up
-            git -C "$main_root" pull
-            set wt_name (basename $current_root)
-            wtrm --force $wt_name
-          else
-            # In the main repo: switch to default branch, pull, delete feature branch
-            set feature_branch (git rev-parse --abbrev-ref HEAD)
-            set default_branch (git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | string replace 'refs/remotes/origin/' "")
-            if test -z "$default_branch"
-              set default_branch main
-            end
-            git checkout "$default_branch"
-            git pull
-            git branch -D "$feature_branch" 2>/dev/null
-          end
-        '';
-        ghpcm = "ghpc $argv && ghpm";
-
         pj = "cd $argv; ds";
 
         fish_command_not_found = "__fish_default_command_not_found_handler $argv";
-
-        gco = ''
-          set current_branch (git rev-parse --abbrev-ref HEAD)
-          git checkout $argv; and if not string match -q -- '-*' $argv && test "$current_branch" != "$argv"
-            git pull
-          end
-        '';
 
         envsource = ''
           for line in (cat $argv | grep -v '^#' | grep -v '^\s*$')
             set item (string trim $line | string replace -r '\s*=\s*' '=' | string split -m 1 '=')
             set -gx $item[1] $item[2]
             echo \"Exported key $item[1]\"
-          end
-        '';
-
-        _git_clean_stale_lock = ''
-          set -l git_dir (git rev-parse --git-dir 2>/dev/null)
-          or return 0
-          set -l lock "$git_dir/index.lock"
-          if test -f "$lock"
-            if not lsof "$lock" >/dev/null 2>&1
-              rm -f "$lock"
-              echo "Removed stale index.lock"
-            end
           end
         '';
 
@@ -208,345 +140,6 @@ mkUserModule {
             command tmux switch-client -t "=$session_name"
           else
             echo "Not in tmux — run: cd $wt_path && opencode"
-          end
-        '';
-
-        _lin_me = ''
-          linear-cli whoami --output json --no-pager --quiet 2>/dev/null | jq -r '.name // empty'
-        '';
-
-        _lin_team_labels = ''
-          set -l team_key $argv[1]
-          linear-cli api query "{ team(id: \"$team_key\") { labels { nodes { id name } } } }" --output json --no-pager --quiet 2>/dev/null | jq -r '.data.team.labels.nodes[] | "\(.id)\t\(.name)"' 2>/dev/null
-        '';
-
-        _lin_issue_id = ''
-          set -l branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
-          or return 1
-          set -l match (string match -r -i '([a-z]+-\d+)' -- $branch)
-          if test (count $match) -ge 2
-            string upper $match[2]
-          else
-            echo "lin: could not extract issue ID from branch: $branch" >&2
-            return 1
-          end
-        '';
-
-        _lin_show = ''
-          linear-cli i get $argv --output json --no-pager --quiet 2>/dev/null | jq -r '
-            "\(.identifier) \(.title)" as $h |
-            ($h + "\n" + ("-" * ($h | length)) + "\n") +
-            ((.description // "") | if . != "" then "\n" + . + "\n\n" else "\n" end) +
-            "State:    " + (.state.name // "-") +
-            "\nPriority: " + ((.priority // 0) as $p | ["None","Urgent","High","Medium","Low"] | .[$p]) +
-            ([.labels.nodes[]?.name] | if length > 0 then "\nLabels:   " + join(", ") else "" end) +
-            "\nURL:      " + (.url // "")
-          '
-        '';
-
-        lin = ''
-          if test (count $argv) -eq 0
-            set -l branch_issue (linear-cli context)
-            if test (count $branch_issue) -eq 0
-              return 1
-            end
-            _lin_show $branch_issue
-            return
-          end
-
-          switch $argv[1]
-            case view
-              if test (count $argv) -ge 2
-                _lin_show $argv[2..-1]
-              else
-                linear-cli context
-              end
-
-            case list
-              set -l me (_lin_me)
-              set -l fmt '{{identifier}}  [{{state.name}}]  {{priorityLabel}}  {{title}}'
-              set -l filter_args --assignee "$me" --filter "state.name!=Done" --filter "state.name!=Canceled" --filter "state.name!=Duplicate" --format "$fmt" --no-pager --quiet
-              if test (count $argv) -ge 2
-                linear-cli i list $filter_args | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list $filter_args
-              end
-
-            case all
-              set -l fmt '{{identifier}}  [{{state.name}}]  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --format "$fmt" --no-pager --quiet
-              end
-
-            case backlog
-              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Backlog" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Backlog" --format "$fmt" --no-pager --quiet
-              end
-
-            case todo
-              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Todo" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Todo" --format "$fmt" --no-pager --quiet
-              end
-
-            case branch
-              set -l id
-              if test (count $argv) -ge 2
-                set id $argv[2]
-              else
-                set id (_lin_issue_id)
-                or return 1
-              end
-              linear-cli g branch $id 2>/dev/null | string match -r 'Linear branch:\s*(.+)' | tail -1 | string trim
-
-            case progress inprogress
-              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --filter "state.name=In Progress" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --filter "state.name=In Progress" --format "$fmt" --no-pager --quiet
-              end
-
-            case done
-              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Done" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Done" --format "$fmt" --no-pager --quiet
-              end
-
-            case cancelled canceled
-              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Canceled" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Canceled" --format "$fmt" --no-pager --quiet
-              end
-
-            case duplicate
-              set -l fmt '{{identifier}}  {{priorityLabel}}  {{title}}'
-              if test (count $argv) -ge 2
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Duplicate" --format "$fmt" --no-pager --quiet | grep -i -- "$argv[2..-1]"
-              else
-                linear-cli i list --assignee (_lin_me) --filter "state.name=Duplicate" --format "$fmt" --no-pager --quiet
-              end
-
-            case create
-              set -l title
-              if test (count $argv) -ge 2
-                set title (string join " " -- $argv[2..-1])
-              else
-                set title (gum input --placeholder "Issue title" --header "Title" --width 60)
-                or return 1
-                if test -z "$title"
-                  echo "lin: title required" >&2
-                  return 1
-                end
-              end
-
-              set -l team (gum input --value "ENG" --header "Team" --width 20)
-              or set team ENG
-
-              set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
-              set -l priority (string match -r '^\d' -- $pri)
-
-              set -l cmd linear-cli i create "$title" -t $team
-              if test -n "$priority"; set -a cmd -p $priority; end
-
-              if gum confirm "Assign to me?"
-                set -a cmd -a me
-              end
-
-              set -l desc (gum write --placeholder "Description (Esc to skip)" --header "Description" --width 80)
-              if test -n "$desc"; set -a cmd -d "$desc"; end
-
-              set -l label_data (_lin_team_labels $team)
-              if test (count $label_data) -gt 0
-                set -l label_names
-                for entry in $label_data
-                  set -a label_names (string split \t -- $entry)[2]
-                end
-                set -l labels (printf '%s\n' $label_names | gum filter --no-limit --header "Labels (Tab to select)")
-                for lbl in $labels
-                  if test -n "$lbl"
-                    for entry in $label_data
-                      set -l parts (string split \t -- $entry)
-                      if test "$parts[2]" = "$lbl"
-                        set -a cmd -l "$parts[1]"
-                        break
-                      end
-                    end
-                  end
-                end
-              end
-
-              $cmd
-
-            case start
-              if test (count $argv) -ge 2
-                linear-cli i update $argv[2] --state "In Progress" --assignee me
-                or return 1
-                linear-cli g checkout $argv[2] $argv[3..-1]
-              else
-                set -l sel (linear-cli i list --assignee (_lin_me) --no-pager 2>/dev/null | gum filter --header "Start issue")
-                or return 1
-                set -l id (string match -r '[A-Z]+-\d+' -- $sel)
-                if test -z "$id"
-                  echo "lin: could not extract issue ID" >&2
-                  return 1
-                end
-                linear-cli i update $id --state "In Progress" --assignee me
-                or return 1
-                linear-cli g checkout $id
-              end
-
-            case done
-              linear-cli done $argv[2..-1]
-
-            case comment
-              set -l id (_lin_issue_id)
-              or return 1
-              if test (count $argv) -ge 2
-                linear-cli i comment $id -b (string join " " -- $argv[2..-1])
-              else
-                set -l body (gum write --placeholder "Comment body" --header "Comment" --width 80)
-                or return 1
-                if test -z "$body"
-                  echo "lin: comment required" >&2
-                  return 1
-                end
-                linear-cli i comment $id -b "$body"
-              end
-
-            case branch
-              set -l id
-              if test (count $argv) -ge 2
-                set id $argv[2]
-              else
-                set id (_lin_issue_id)
-                or return 1
-              end
-              linear-cli g branch $id 2>/dev/null | string match -r 'Linear branch:\s*(.+)' | tail -1 | string trim
-
-            case pr
-              set -l id (_lin_issue_id)
-              or return 1
-              linear-cli g pr $id --web $argv[2..-1]
-
-            case open
-              set -l id
-              if test (count $argv) -ge 2
-                set id $argv[2]
-              else
-                set id (_lin_issue_id)
-                or return 1
-              end
-              linear-cli i open $id
-
-            case ai
-              if test (count $argv) -lt 2
-                echo "Usage: lin ai <task description>" >&2
-                return 1
-              end
-
-              set -l task (string join " " -- $argv[2..-1])
-              set -l available_labels (_lin_team_labels ENG | cut -f2 | string join ", ")
-
-              set -l prompt "Generate a Linear issue from this task. Return ONLY a raw JSON object (no markdown, no code blocks) with fields: title (concise string), description (markdown string with context and acceptance criteria), priority (integer: 1=urgent, 2=high, 3=medium, 4=low), labels (array of strings from available: $available_labels). Task: $task"
-
-              gum style --faint "Generating issue with AI..."
-              set -l result (opencode run -m "opencode/minimax-m2.5-free" "$prompt" 2>/dev/null)
-              or begin; echo "lin: AI generation failed" >&2; return 1; end
-
-              set -l ai_title (printf '%s\n' $result | jq -r '.title // empty')
-              set -l ai_desc (printf '%s\n' $result | jq -r '.description // empty')
-              set -l ai_priority (printf '%s\n' $result | jq -r '.priority // 3')
-              set -l ai_labels (printf '%s\n' $result | jq -r '.labels[]? // empty')
-
-              if test -z "$ai_title"
-                echo "lin: could not parse AI response" >&2
-                return 1
-              end
-
-              set -l pri_names "None" "Urgent" "High" "Medium" "Low"
-              set -l pri_label $pri_names[(math $ai_priority + 1)]
-              set -l labels_str (string join ", " -- $ai_labels)
-              if test -z "$labels_str"; set labels_str "None"; end
-
-              echo ""
-              printf "Title: %s\nPriority: %s\nLabels: %s\n\n%s" "$ai_title" "$pri_label" "$labels_str" "$ai_desc" | \
-                gum style --border rounded --padding "1 2" --border-foreground 212
-              echo ""
-
-              set -l action (gum choose --header "Action" "Create" "Edit" "Cancel")
-
-              switch $action
-                case Create
-                  set -l cmd linear-cli i create "$ai_title" -t ENG -p $ai_priority -a me
-                  if test -n "$ai_desc"; set -a cmd -d "$ai_desc"; end
-                  set -l label_data (_lin_team_labels ENG)
-                  for lbl in $ai_labels
-                    for entry in $label_data
-                      set -l parts (string split \t -- $entry)
-                      if test "$parts[2]" = "$lbl"
-                        set -a cmd -l "$parts[1]"
-                        break
-                      end
-                    end
-                  end
-                  $cmd
-
-                case Edit
-                  set -l title (gum input --value "$ai_title" --header "Title" --width 60)
-                  or return 1
-
-                  set -l team (gum input --value "ENG" --header "Team" --width 20)
-                  or set team ENG
-
-                  set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
-                  set -l priority (string match -r '^\d' -- $pri)
-
-                  set -l desc (gum write --header "Description (Esc when done)" --width 80 --value "$ai_desc")
-
-                  set -l cmd linear-cli i create "$title" -t $team -a me
-                  if test -n "$priority"; set -a cmd -p $priority; end
-                  if test -n "$desc"; set -a cmd -d "$desc"; end
-
-                  set -l label_data (_lin_team_labels $team)
-                  if test (count $label_data) -gt 0
-                    set -l label_names
-                    for entry in $label_data
-                      set -a label_names (string split \t -- $entry)[2]
-                    end
-                    set -l labels (printf '%s\n' $label_names | gum filter --no-limit --header "Labels (Tab to select)")
-                    for lbl in $labels
-                      if test -n "$lbl"
-                        for entry in $label_data
-                          set -l parts (string split \t -- $entry)
-                          if test "$parts[2]" = "$lbl"
-                            set -a cmd -l "$parts[1]"
-                            break
-                          end
-                        end
-                      end
-                    end
-                  end
-
-                  $cmd
-
-                case Cancel
-                  return 0
-              end
-
-            case '*'
-              linear-cli $argv
           end
         '';
 
@@ -939,9 +532,6 @@ mkUserModule {
       };
 
       shellInit = ''
-        # Completion for gco function
-        complete -f -c gco -a '(git branch --all | string replace -r "^[\*\s]+" "" | string replace -r "^remotes/" "")'
-
         # Completion for wt: 1st arg = existing worktree names, 2nd arg = branches
         complete -f -c wt -n "test (count (commandline -opc)) -eq 1" -a '(
           set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
@@ -950,9 +540,6 @@ mkUserModule {
           test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
         )'
         complete -f -c wt -n "test (count (commandline -opc)) -eq 2" -a '(git branch -a --format="%(refname:short)" 2>/dev/null | string replace -r "^origin/" "" | sort -u | grep -v "^HEAD")'
-
-        # Completion for lin: linear-cli issue subcommands
-        complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list all create ai start done cancelled duplicate comment pr open backlog todo progress"
 
         # Completion for wtrm: existing worktree names + --force flag
         complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"

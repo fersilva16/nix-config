@@ -1,5 +1,16 @@
-{ mkUserModule, ... }:
+{
+  mkUserModule,
+  lib,
+  ...
+}:
 mkUserModule {
   name = "eza";
-  home.programs.eza.enable = true;
+  home =
+    { userCfg, ... }:
+    {
+      programs.eza.enable = true;
+      programs.fish.shellAliases = lib.mkIf userCfg.fish.enable {
+        ls = "eza -lag";
+      };
+    };
 }

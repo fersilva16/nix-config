@@ -8,7 +8,7 @@ A nix-darwin flake configuration for a single macOS Apple Silicon host (`m1`), m
 
 - **Rebuild:** `sudo darwin-rebuild switch --flake .#m1`
 - **Format:** `nixfmt <file.nix>` (RFC style, enforced by pre-commit)
-- **Lint:** `statix check .`
+- **Lint:** `statix check .` — **run after every edit to .nix files, before rebuild**
 - **Shell lint:** `shellcheck <file.sh>`
 - **Enter dev shell:** `nix develop` (auto-activates via direnv)
 
@@ -65,9 +65,9 @@ Fields:
 
 - **`name`** — Module name. Creates `modules.users.<user>.<name>.enable`.
 - **`system`** — (optional) System-level config, applied once when any user enables it.
-- **`home`** — (optional) Per-user home-manager config. Can be a static attrset or a function `{ cfg, username } -> attrset` when per-user option values are needed.
+- **`home`** — (optional) Per-user home-manager config. Can be a static attrset or a function `{ cfg, username, userCfg } -> attrset` when per-user option values or cross-module checks are needed. `userCfg` is the full `modules.users.<user>` config for that user — use it for `mkIf` guards on outbound integrations (see below).
 - **`extraOptions`** — (optional) Custom per-user options (attrset of `mkOption` defs). Accessed via `cfg` in the `home` function.
-- **`requires`** — (optional) List of module names to auto-enable for every user who enables this module. Only sets `enable = true` — does not configure their `extraOptions`.
+- **`requires`** — (optional) List of module names to auto-enable for every user who enables this module. Only sets `enable = true` (with `mkDefault`, so explicit `enable = false` overrides). See "requires vs mkIf" below for when to use this vs conditional integration.
 
 ```nix
 # extraOptions + requires:
@@ -81,10 +81,15 @@ mkUserModule {
     description = "Whether to use 1Password SSH agent.";
   };
   system.homebrew.casks = [ "1password" ];
-  home = { cfg, ... }: {
+  home = { cfg, userCfg, ... }: {
     programs.ssh.extraConfig = lib.mkIf cfg.sshAgent ''
       IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
     '';
+    # Outbound integration: configure git signing when git is also enabled
+    programs.git.settings = lib.mkIf userCfg.git.enable {
+      gpg.format = "ssh";
+      commit.gpgsign = true;
+    };
   };
 }
 ```
@@ -153,13 +158,48 @@ A module that introduces a capability is responsible for integrating with other 
 
 The principle: if tool A enhances tool B, the A module reaches into B's config. The B module stays pure — it doesn't know A exists.
 
-- **1password** knows how SSH signing works → it should configure `git` signing when the user also has `git` enabled
-- **bat** knows it replaces `cat` → it should add the fish alias when the user also has `fish` enabled
-- **git** stays pure git config — it doesn't know about 1password, fish, or anything else
+- **1password** knows how SSH signing works → it configures `git` signing when the user also has `git` enabled
+- **bat** knows it replaces `cat` → it adds the fish alias when the user also has `fish` enabled
+- **git** owns its fish aliases/functions → it sets them when the user also has `fish` enabled
+- **eza** owns the `ls` alias → it sets it when the user also has `fish` enabled
 
 This means: if you add a new tool that enhances an existing one, the NEW module reaches into the existing module's config. The existing module never changes.
 
-> **Note:** the codebase is migrating toward this pattern. Some modules (like git) still carry integration config that belongs in other modules (like 1password). The principle is the target, not yet the reality everywhere.
+Outbound integrations use `mkIf userCfg.<module>.enable` to guard the cross-module config:
+
+```nix
+{ mkUserModule, lib, ... }:
+mkUserModule {
+  name = "eza";
+  home = { userCfg, ... }: {
+    programs.eza.enable = true;
+    # Only set fish alias when fish is also enabled for this user
+    programs.fish.shellAliases = lib.mkIf userCfg.fish.enable {
+      ls = "eza -lag";
+    };
+  };
+}
+```
+
+### `requires` vs `mkIf` — when to use which
+
+Both handle cross-module relationships, but they serve different purposes:
+
+- **`requires`** = "enabling X auto-enables Y" — a hard dependency where X is fundamentally useless without Y.
+- **`mkIf userCfg.Y.enable`** = "only apply this config when Y is also enabled" — a soft integration where X works standalone but enhances Y when present.
+
+The test: **is the module fundamentally useless without the other?**
+
+| Relationship | Mechanism | Why |
+|---|---|---|
+| lazygit → git | `requires` | Lazygit IS a git UI — useless without git |
+| 1password → git | `requires` | Module's purpose is git SSH signing — useless without git |
+| git → fish | `mkIf` | Git works without fish; aliases are a bonus |
+| eza → fish | `mkIf` | Eza works without fish; the `ls` alias is a bonus |
+| bat → fish | `mkIf` | Bat works without fish; the `cat` alias is a bonus |
+| starship → fish | `mkIf` | Starship works with any shell; fish prompt hook is a bonus |
+
+**Rule of thumb:** if removing the dependency means the module still installs and does something useful, use `mkIf`. If it becomes an empty shell that installs a binary nobody can use, use `requires`.
 
 ### Nix is lazy — so modules can be fearless
 

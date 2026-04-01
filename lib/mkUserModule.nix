@@ -14,8 +14,9 @@
 #                 the module. Always a static attrset.
 #
 #   home:         (optional) Per-user home-manager config. Can be an attrset (static)
-#                 or a function ({ cfg, username } -> attrset) when per-user option
-#                 values are needed. Merged into home-manager.users.<username>.
+#                 or a function ({ cfg, username, userCfg } -> attrset) when per-user
+#                 option values or cross-module checks are needed.
+#                 Merged into home-manager.users.<username>.
 #
 #   user:         (optional) Per-user nix-darwin user account config. Can be an
 #                 attrset (static) or a function ({ cfg, username } -> attrset).
@@ -25,9 +26,10 @@
 #   extraOptions: (optional) Custom per-user option declarations (attrset of mkOption defs).
 #
 #   requires:     (optional) List of module names to auto-enable for every user
-#                 who enables this module. The required modules must be imported
-#                 in the system — this only sets `enable = true`, it does not
-#                 configure their extraOptions (users set those, or defaults apply).
+#                 who enables this module. Uses mkDefault so explicit
+#                 `enable = false` in the user file can override. The required
+#                 modules must be imported in the system — this only sets
+#                 `enable = true`, it does not configure their extraOptions.
 #
 # User composition (in user file):
 #
@@ -60,26 +62,30 @@ in
       {
         options.modules.users = lib.mkOption {
           type = lib.types.attrsOf (
-            lib.types.submodule {
-              options.${name} = {
-                enable = lib.mkEnableOption name;
+            lib.types.submodule (
+              { config, ... }:
+              {
+                options.${name} = {
+                  enable = lib.mkEnableOption name;
+                }
+                // extraOptions;
+
+                # requires: when this module is enabled, auto-enable dependencies.
+                # Resolved inside the submodule so there's no read/write cycle on
+                # the top-level modules.users option.
+                config = lib.mkIf (requires != [ ] && config.${name}.enable) (
+                  lib.genAttrs requires (_: {
+                    enable = lib.mkDefault true;
+                  })
+                );
               }
-              // extraOptions;
-            }
+            )
           );
         };
 
         config = lib.mkIf hasEnabled (
           lib.mkMerge (
             [ system ]
-            ++ lib.optional (requires != [ ]) {
-              modules.users = lib.mapAttrs (
-                _: _:
-                lib.genAttrs requires (_: {
-                  enable = true;
-                })
-              ) enabledUsers;
-            }
             ++ lib.optional hasUser {
               users.users = lib.mapAttrs (
                 username: userCfg:
@@ -96,7 +102,7 @@ in
                   let
                     cfg = userCfg.${name};
                   in
-                  if isHomeFn then home { inherit cfg username; } else home
+                  if isHomeFn then home { inherit cfg username userCfg; } else home
                 ) enabledUsers;
               }
             ]

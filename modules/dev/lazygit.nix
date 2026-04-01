@@ -1,6 +1,7 @@
 { mkUserModule, ... }:
 mkUserModule {
   name = "lazygit";
+  requires = [ "git" ];
   home = {
     programs.lazygit = {
       enable = true;
