@@ -303,12 +303,17 @@ mkUserModule {
                             linear-cli i open $id
 
                           case ai
+                            set -l task
                             if test (count $argv) -lt 2
-                              echo "Usage: lin ai <task description>" >&2
-                              return 1
+                              set task (gum write --placeholder "Describe the task..." --header "New issue" --width 80)
+                              or return 1
+                              if test -z "$task"
+                                echo "lin: task description required" >&2
+                                return 1
+                              end
+                            else
+                              set task (string join " " -- $argv[2..-1])
                             end
-
-                            set -l task (string join " " -- $argv[2..-1])
                             set -l available_labels (_lin_team_labels ENG | cut -f2 | string join ", ")
 
                             set -l prompt "You generate Linear issues from task descriptions.
