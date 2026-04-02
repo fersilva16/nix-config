@@ -7,6 +7,7 @@ _: {
     starship.enable = true;
     direnv.enable = true;
     tmux.enable = true;
+    worktree.enable = true;
     zoxide.enable = true;
     eza.enable = true;
     fzf.enable = true;
