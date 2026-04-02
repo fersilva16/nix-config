@@ -24,7 +24,6 @@ modules/hosts/m1.nix         # Host definition: mkDarwinHost call with host-spec
 modules/users/m1-fernando.nix # User composition: mkUser with enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
 modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
-overlay/                     # Custom packages (paisa, flexoki-tmux)
 ```
 
 ### Module patterns
@@ -173,7 +172,7 @@ What it handles automatically:
 - Module auto-discovery (all `modules/<category>/` modules)
 - `specialArgs` (factories: `mkUserModule`, `mkUser`, `mkSystemModule`; utilities: `forPlatform`)
 - home-manager and nix-homebrew darwin module wiring
-- nixpkgs overlays and `allowUnfree`
+- nixpkgs `allowUnfree`
 
 ### `mkUser` — user composition
 

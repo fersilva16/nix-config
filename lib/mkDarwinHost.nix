@@ -8,7 +8,7 @@
 # Designed for multi-platform: field names are platform-agnostic so a
 # future mkNixOSHost can expose the same interface.
 #
-# Signature: { inputs, overlays } -> { hostName, primaryUser, ... } -> darwinSystem
+# Signature: { inputs } -> { hostName, primaryUser, ... } -> darwinSystem
 #
 # Fields:
 #
@@ -47,7 +47,7 @@
 #   # flake.nix
 #   m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
 #
-{ inputs, overlays }:
+{ inputs }:
 let
   inherit (inputs)
     darwin
@@ -107,7 +107,6 @@ darwin.lib.darwinSystem {
       system.stateVersion = stateVersion;
 
       nixpkgs = {
-        inherit overlays;
         config.allowUnfree = true;
       };
 

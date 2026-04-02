@@ -8,11 +8,6 @@
 }:
 let
   jsonFormat = pkgs.formats.json { };
-  inherit (pkgs)
-    figma-developer-mcp
-    agentation-mcp
-    ;
-
   serverPort = 4096;
 
   # Real opencode binary with patches applied
@@ -24,6 +19,8 @@ mkUserModule {
   name = "opencode";
   parts = {
     server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
+    framelink = import ./framelink.nix { inherit pkgs; };
+    agentation = import ./agentation.nix { inherit pkgs; };
   };
   home =
     { username, ... }:
@@ -84,26 +81,7 @@ mkUserModule {
               model = "opencode/minimax-m2.5-free";
             };
           };
-          mcp = {
-            framelink = {
-              enabled = false;
-              type = "local";
-              command = [
-                "${figma-developer-mcp}/bin/figma-developer-mcp"
-                "--stdio"
-                "--env"
-                "/Users/${username}/.config/figma/.env"
-              ];
-            };
-            agentation = {
-              enabled = false;
-              type = "local";
-              command = [
-                "${agentation-mcp}/bin/agentation-mcp"
-                "server"
-              ];
-            };
-          };
+
         };
       };
 

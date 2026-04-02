@@ -4,16 +4,51 @@
   lib,
   ...
 }:
+let
+  linear-cli-version = "0.3.15";
+
+  linear-cli = pkgs.stdenvNoCC.mkDerivation {
+    pname = "linear-cli";
+    version = linear-cli-version;
+
+    src =
+      {
+        aarch64-darwin = pkgs.fetchurl {
+          url = "https://github.com/Finesssee/linear-cli/releases/download/v${linear-cli-version}/linear-cli-aarch64-apple-darwin.tar.gz";
+          hash = "sha256-Uhr6/uNjkWi/aIkWO4G6gtrMrbQXMgg0AHW+bOQ/HRs=";
+        };
+      }
+      .${pkgs.stdenvNoCC.hostPlatform.system}
+        or (throw "linear-cli: unsupported system ${pkgs.stdenvNoCC.hostPlatform.system}");
+
+    sourceRoot = ".";
+
+    installPhase = ''
+      runHook preInstall
+      install -Dm755 linear-cli $out/bin/linear-cli
+      runHook postInstall
+    '';
+
+    meta = {
+      description = "A powerful CLI for Linear.app built with Rust";
+      homepage = "https://github.com/Finesssee/linear-cli";
+      license = lib.licenses.mit;
+      sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
+      platforms = [ "aarch64-darwin" ];
+      mainProgram = "linear-cli";
+    };
+  };
+in
 mkUserModule {
   name = "linear";
   system.homebrew.casks = [ "linear-linear" ];
   home =
     { userCfg, ... }:
     {
-      home.packages = with pkgs; [
+      home.packages = [
         linear-cli
-        gum
-        jq
+        pkgs.gum
+        pkgs.jq
       ];
 
       # Fish shell integration: lin CLI wrapper and helper functions
