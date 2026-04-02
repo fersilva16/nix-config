@@ -22,6 +22,7 @@ lib/forPlatform.nix          # Utility: platform-aware value selector (darwin/li
 modules/hosts/m1.nix         # Host definition: system-level + mkUserModule imports
 modules/users/m1-fernando.nix # User composition: structural config + enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
+modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
 overlay/                     # Custom packages (paisa, flexoki-tmux, tmux-extras)
 ```
 
@@ -102,6 +103,75 @@ modules.users.fernando = {
   "1password" = { enable = true; sshAgent = false; };
 };
 ```
+
+#### `parts` — splitting modules into sub-features
+
+When a module grows large or bundles distinct concerns (e.g., a CLI tool + a background server), use `parts` to split it into separate files with independent enable toggles. Each part creates a nested option under the parent: `modules.users.<user>.<name>.<partName>.enable`.
+
+Parts are plain attrsets with the same fields as `mkUserModule` (`system`, `home`, `extraOptions`), plus `default` (bool, defaults to `true`). The parent passes shared bindings via import args — parts don't need `mkUserModule` or any wrapper.
+
+```nix
+# modules/dev/opencode/opencode.nix — parent owns the binary + settings
+{ mkUserModule, pkgs, lib, inputs, system, ... }:
+let
+  serverPort = 4096;
+  opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./patches/cursor-style-and-blink.patch ];
+  });
+in
+mkUserModule {
+  name = "opencode";
+  parts = {
+    server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
+  };
+  home = { username, ... }: {
+    programs.opencode = {
+      enable = true;
+      package = lib.mkDefault opencode-unwrapped;  # part overrides when enabled
+      settings = { ... };
+    };
+  };
+}
+```
+
+```nix
+# modules/dev/opencode/server.nix — part owns the daemon + wrapper
+{ pkgs, opencode-unwrapped, serverPort }:
+let
+  opencode-wrapper = pkgs.writeShellScriptBin "opencode" ''...'';
+in
+{
+  system.launchd.user.agents.opencode-server = { ... };
+  home.programs.opencode.package = opencode-wrapper;
+}
+```
+
+User composition:
+
+```nix
+modules.users.fernando.opencode = {
+  enable = true;
+  # server.enable defaults to true — opt out with:
+  # server.enable = false;
+};
+```
+
+Part fields:
+
+- **`system`** — (optional) System-level config, applied once when any user enables this part.
+- **`home`** — (optional) Per-user config. Static attrset or function `{ cfg, parentCfg, username, userCfg } -> attrset`. `cfg` is the part's own config; `parentCfg` is the parent module's full config.
+- **`extraOptions`** — (optional) Additional per-user options for this part.
+- **`default`** — (optional, default `true`) Whether the part is enabled by default when the parent is enabled.
+
+**Priority trick for package overrides:** the parent sets `lib.mkDefault unwrapped` and the part sets `wrapper` at normal priority. When the part is enabled, its value wins. When disabled, the parent's default applies.
+
+**When to use `parts` vs separate modules:**
+
+| Situation | Use |
+|---|---|
+| Sub-feature is useless without parent (server needs the opencode binary) | `parts` |
+| Sub-feature is genuinely independent (can be enabled alone) | Separate `mkUserModule` |
+| Home-only sub-features in a large module (nvim plugins) | `parts` or `extraOptions` + file imports |
 
 ### `forPlatform` utility
 
@@ -242,6 +312,7 @@ wtlc → lin create $argv → get issue_id → wt $name $branch
 
 ## Code style
 
+- **Never use `default.nix`** — use explicit names matching the module: `opencode/opencode.nix`, not `opencode/default.nix`. `default.nix` clutters editor search results (every directory looks the same in fuzzy-find and tab bars), obscures intent (the filename tells you nothing about what's inside), and spreads virally (one `default.nix` normalizes the pattern until every directory has one). Always name files after what they define.
 - 2-space indentation, UTF-8, LF line endings
 - Format with `nixfmt` (nixfmt-rfc-style)
 - Lint with `statix`

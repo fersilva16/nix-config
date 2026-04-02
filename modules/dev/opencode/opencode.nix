@@ -1,0 +1,135 @@
+{
+  mkUserModule,
+  pkgs,
+  lib,
+  inputs,
+  system,
+  ...
+}:
+let
+  jsonFormat = pkgs.formats.json { };
+  inherit (pkgs)
+    tmux-extras
+    figma-developer-mcp
+    agentation-mcp
+    ;
+
+  serverPort = 4096;
+
+  # Real opencode binary with patches applied
+  opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./patches/cursor-style-and-blink.patch ];
+  });
+in
+mkUserModule {
+  name = "opencode";
+  parts = {
+    server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
+  };
+  home =
+    { username, ... }:
+    {
+      programs.opencode = {
+        enable = true;
+        package = lib.mkDefault opencode-unwrapped;
+        settings = {
+          theme = "flexoki";
+          plugin = [
+            "@ex-machina/opencode-anthropic-auth@0.2.1"
+            "@simonwjackson/opencode-direnv@2025.1211.9"
+            "@mohak34/opencode-notifier@0.1.36"
+            "oh-my-opencode@3.14.0"
+            "@rama_nigg/open-cursor@2.3.20"
+          ];
+          provider = {
+            cursor-acp = {
+              name = "Cursor ACP";
+              npm = "@ai-sdk/openai-compatible";
+              options = {
+                baseURL = "http://127.0.0.1:32124/v1";
+              };
+              models = {
+                "cursor-acp/auto" = {
+                  name = "Auto";
+                };
+                "cursor-acp/composer-1.5" = {
+                  name = "Composer 1.5";
+                };
+                "cursor-acp/composer-1" = {
+                  name = "Composer 1";
+                };
+              };
+            };
+          };
+          command = {
+            lin = {
+              template = "Here is the Linear issue for this branch:\n\n!`lin`\n\nSummarize the issue and ask what I want to work on.";
+              description = "Load Linear issue context";
+            };
+          };
+          permission = {
+            external_directory = "allow";
+            read = {
+              "*" = "allow";
+              "*.env" = "deny";
+              "*.env.*" = "allow";
+            };
+            edit = {
+              "*" = "allow";
+              "*.env" = "deny";
+              "*.env.*" = "allow";
+            };
+          };
+          agent = {
+            title = {
+              model = "opencode/minimax-m2.5-free";
+            };
+          };
+          mcp = {
+            framelink = {
+              enabled = false;
+              type = "local";
+              command = [
+                "${figma-developer-mcp}/bin/figma-developer-mcp"
+                "--stdio"
+                "--env"
+                "/Users/${username}/.config/figma/.env"
+              ];
+            };
+            agentation = {
+              enabled = false;
+              type = "local";
+              command = [
+                "${agentation-mcp}/bin/agentation-mcp"
+                "server"
+              ];
+            };
+          };
+        };
+      };
+
+      xdg.configFile = {
+        "opencode/tui.json".source = jsonFormat.generate "tui.json" {
+          cursor_style = "line";
+          cursor_blink = true;
+        };
+
+        "opencode/opencode-notifier.json".source = jsonFormat.generate "opencode-notifier.json" {
+          sound = true;
+          notification = false;
+          suppressWhenFocused = false;
+          command = {
+            enabled = true;
+            path = "${tmux-extras}/bin/tmux-notify";
+            args = [
+              "add"
+              "--event"
+              "{event}"
+              "{message}"
+            ];
+            minDuration = 0;
+          };
+        };
+      };
+    };
+}
