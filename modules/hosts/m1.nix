@@ -27,6 +27,7 @@ _: {
     ../cli/starship.nix
     ../cli/direnv.nix
     ../cli/tmux.nix
+    ../cli/worktree.nix
     ../cli/zoxide.nix
     ../cli/eza.nix
     ../cli/fzf.nix
