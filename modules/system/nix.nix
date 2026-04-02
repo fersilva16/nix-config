@@ -1,6 +1,7 @@
-{ pkgs, ... }:
-{
-  nix = {
+{ mkSystemModule, pkgs, ... }:
+mkSystemModule {
+  name = "nix";
+  config.nix = {
     package = pkgs.nixVersions.latest;
 
     extraOptions = ''

@@ -1,6 +1,7 @@
-{ pkgs, ... }:
-{
-  environment.etc = {
+{ mkSystemModule, ... }:
+mkSystemModule {
+  name = "watcher";
+  config.environment.etc = {
     "sysctl.conf" = {
       enable = true;
       text = ''

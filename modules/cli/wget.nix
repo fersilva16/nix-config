@@ -1,4 +1,5 @@
-{ pkgs, ... }:
-{
-  environment.systemPackages = with pkgs; [ wget ];
+{ mkSystemModule, pkgs, ... }:
+mkSystemModule {
+  name = "wget";
+  config.environment.systemPackages = [ pkgs.wget ];
 }

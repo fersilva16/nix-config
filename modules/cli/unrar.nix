@@ -1,4 +1,5 @@
-{ pkgs, ... }:
-{
-  environment.systemPackages = with pkgs; [ unrar ];
+{ mkSystemModule, pkgs, ... }:
+mkSystemModule {
+  name = "unrar";
+  config.environment.systemPackages = [ pkgs.unrar ];
 }
