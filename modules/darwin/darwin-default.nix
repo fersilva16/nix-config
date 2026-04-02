@@ -1,29 +1,32 @@
-_: {
-  system.stateVersion = 5;
-  system.defaults = {
-    trackpad = {
-      Clicking = true;
-      TrackpadThreeFingerDrag = true;
-    };
+{ mkSystemModule, ... }:
+mkSystemModule {
+  name = "darwin-default";
+  config = {
+    system.defaults = {
+      trackpad = {
+        Clicking = true;
+        TrackpadThreeFingerDrag = true;
+      };
 
-    dock = {
-      # Disable hot corner quick note
-      wvous-br-corner = 1;
+      dock = {
+        # Disable hot corner quick note
+        wvous-br-corner = 1;
 
-      # Disable rearrange of desktops
-      mru-spaces = false;
+        # Disable rearrange of desktops
+        mru-spaces = false;
 
-      autohide = true;
-      show-recents = false;
-    };
+        autohide = true;
+        show-recents = false;
+      };
 
-    finder = {
-      AppleShowAllExtensions = true;
-      AppleShowAllFiles = true;
-    };
+      finder = {
+        AppleShowAllExtensions = true;
+        AppleShowAllFiles = true;
+      };
 
-    menuExtraClock = {
-      ShowAMPM = true;
+      menuExtraClock = {
+        ShowAMPM = true;
+      };
     };
   };
 }

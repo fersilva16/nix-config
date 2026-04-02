@@ -1,5 +1,7 @@
-_: {
-  environment.etc."ssh/sshd_config.d/200-hardening.conf" = {
+{ mkSystemModule, ... }:
+mkSystemModule {
+  name = "sshd";
+  config.environment.etc."ssh/sshd_config.d/200-hardening.conf" = {
     text = ''
       # Key-only authentication — no passwords, no keyboard-interactive
       PubkeyAuthentication yes

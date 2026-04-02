@@ -1,6 +1,7 @@
-{ pkgs, ... }:
-{
-  fonts.packages = with pkgs; [
-    nerd-fonts.caskaydia-cove
+{ mkSystemModule, pkgs, ... }:
+mkSystemModule {
+  name = "caskaydia-cove";
+  config.fonts.packages = [
+    pkgs.nerd-fonts.caskaydia-cove
   ];
 }
