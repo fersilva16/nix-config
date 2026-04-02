@@ -203,77 +203,19 @@ mkUserModule {
             set -e argv[1]
           end
 
-          set -l issue_json
-
+          # Delegate issue creation to lin (create or ai)
           if test "$mode" = ai
-            # Delegate to lin ai — sets _lin_ai_last_issue on success
             lin ai $argv
-            or return 1
-            set -l issue_id $_lin_ai_last_issue
-            if test -z "$issue_id"
-              echo "wtlc: no issue created" >&2
-              return 1
-            end
-            set issue_json '{"identifier":"'$issue_id'"}'
-
           else
-            # === Interactive creation flow ===
-            set -l title
-            if test (count $argv) -ge 1
-              set title (string join " " -- $argv)
-            else
-              set title (gum input --placeholder "Issue title" --header "Title" --width 60)
-              or return 1
-              if test -z "$title"
-                echo "wtlc: title required" >&2
-                return 1
-              end
-            end
-
-            set -l team (gum input --value "ENG" --header "Team" --width 20)
-            or set team ENG
-
-            set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
-            set -l priority (string match -r '^\d' -- $pri)
-
-            set -l cmd linear-cli i create "$title" -t $team -a me -o json --quiet
-            if test -n "$priority"; set -a cmd -p $priority; end
-
-            set -l desc (gum write --placeholder "Description (Esc to skip)" --header "Description" --width 80)
-            if test -n "$desc"; set -a cmd -d "$desc"; end
-
-            set -l label_data (_lin_team_labels $team)
-            if test (count $label_data) -gt 0
-              set -l label_names
-              for entry in $label_data
-                set -a label_names (string split \t -- $entry)[2]
-              end
-              set -l labels (printf '%s\n' $label_names | gum filter --no-limit --header "Labels (Tab to select)")
-              for lbl in $labels
-                if test -n "$lbl"
-                  for entry in $label_data
-                    set -l parts (string split \t -- $entry)
-                    if test "$parts[2]" = "$lbl"
-                      set -a cmd -l "$parts[1]"
-                      break
-                    end
-                  end
-                end
-              end
-            end
-
-            set issue_json ($cmd)
+            lin create $argv
           end
+          or return 1
 
-          # Extract issue ID from creation output
-          set -l issue_id (printf '%s\n' $issue_json | jq -r '.identifier // empty')
+          set -l issue_id $_lin_ai_last_issue
           if test -z "$issue_id"
-            echo "wtlc: failed to create issue" >&2
+            echo "wtlc: no issue created" >&2
             return 1
           end
-
-          echo ""
-          gum style --foreground 212 "Created $issue_id"
 
           # Prompt for worktree name
           set -l name (gum input --placeholder "worktree name" --header "Worktree")
