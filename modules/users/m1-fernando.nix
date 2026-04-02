@@ -36,6 +36,7 @@ mkUser {
   claude.enable = true;
   "claude-code".enable = true;
   opencode.enable = true;
+  opencode-manager.enable = true;
   # rtk.enable = true;
   ollama.enable = true;
   linear.enable = true;
