@@ -7,6 +7,12 @@ let
     darwin
     nix-homebrew
     ;
+
+  discoverModules = import ./discoverModules.nix { inherit (nixpkgs) lib; };
+
+  globalModules = discoverModules {
+    modulesDir = ../modules;
+  };
 in
 host:
 darwin.lib.darwinSystem {
@@ -15,6 +21,7 @@ darwin.lib.darwinSystem {
   specialArgs = {
     inherit inputs system;
     mkUserModule = import ./mkUserModule.nix;
+    mkSystemModule = import ./mkSystemModule.nix;
     forPlatform = import ./forPlatform.nix system;
   };
 
@@ -22,6 +29,7 @@ darwin.lib.darwinSystem {
     home-manager.darwinModules.home-manager
     nix-homebrew.darwinModules.nix-homebrew
 
+    ./user-bootstrap.nix
     host
     {
       nixpkgs = {
@@ -33,5 +41,6 @@ darwin.lib.darwinSystem {
         useGlobalPkgs = true;
       };
     }
-  ];
+  ]
+  ++ globalModules;
 }
