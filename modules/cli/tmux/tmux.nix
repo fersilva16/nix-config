@@ -33,7 +33,6 @@ mkUserModule {
     theme = import ./theme.nix { inherit pkgs; };
     cheatsheet = import ./cheatsheet.nix { inherit pkgs; };
     statusbar = import ./statusbar.nix { inherit pkgs; };
-    opencode = import ./opencode.nix { inherit pkgs lib tmux-git-root-path; };
     remote = import ./remote.nix { inherit pkgs; };
     group = import ./group.nix { inherit pkgs; };
   };

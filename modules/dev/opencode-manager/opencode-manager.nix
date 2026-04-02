@@ -1,10 +1,20 @@
 {
+  mkUserModule,
   pkgs,
   lib,
-  tmux-git-root-path,
+  ...
 }:
 let
   jsonFormat = pkgs.formats.json { };
+
+  tmux-git-root-path = pkgs.writeShellApplication {
+    name = "tmux-git-root-path";
+    runtimeInputs = [ pkgs.git ];
+    text = ''
+      dir="''${1:-.}"
+      cd "$dir" && git rev-parse --show-toplevel 2>/dev/null || echo "$dir"
+    '';
+  };
 
   tmux-opencode-generating = pkgs.writeShellApplication {
     name = "tmux-opencode-generating";
@@ -219,71 +229,72 @@ let
     '';
   };
 in
-{
-  home =
-    { userCfg, ... }:
-    {
-      home.packages = [
-        tmux-notify
-        tmux-notify-widget
-        tmux-opencode-generating
-        tmux-opencode-manager
-        tmux-spawn-agent
-        tmux-agent-prompt
-      ];
+mkUserModule {
+  name = "opencode-manager";
+  requires = [
+    "tmux"
+    "opencode"
+  ];
+  home = {
+    home.packages = [
+      tmux-notify
+      tmux-notify-widget
+      tmux-opencode-generating
+      tmux-opencode-manager
+      tmux-spawn-agent
+      tmux-agent-prompt
+    ];
 
-      xdg.configFile = {
-        # Register notification widget for normal mode
-        "tmux/widgets/10-notify" = {
-          executable = true;
-          text = ''
-            #!/usr/bin/env bash
-            exec ${tmux-notify-widget}/bin/tmux-notify-widget
-          '';
-        };
-
-        # Register notification widget for remote mode (plain output)
-        "tmux/widgets-remote/10-notify" = {
-          executable = true;
-          text = ''
-            #!/usr/bin/env bash
-            exec ${tmux-notify-widget}/bin/tmux-notify-widget --plain
-          '';
-        };
-
-        # Outbound: configure opencode notifier when opencode is enabled
-        "opencode/opencode-notifier.json" = lib.mkIf userCfg.opencode.enable {
-          source = jsonFormat.generate "opencode-notifier.json" {
-            sound = true;
-            notification = false;
-            suppressWhenFocused = false;
-            command = {
-              enabled = true;
-              path = "${tmux-notify}/bin/tmux-notify";
-              args = [
-                "add"
-                "--event"
-                "{event}"
-                "{message}"
-              ];
-              minDuration = 0;
-            };
-          };
-        };
+    xdg.configFile = {
+      # Register notification widget for normal mode
+      "tmux/widgets/10-notify" = {
+        executable = true;
+        text = ''
+          #!/usr/bin/env bash
+          exec ${tmux-notify-widget}/bin/tmux-notify-widget
+        '';
       };
 
-      programs.tmux.extraConfig = ''
-        # Notification panel on prefix + n
-        bind-key 'n' display-popup -w 60 -h 20 -E "${tmux-opencode-manager}/bin/tmux-opencode-manager"
+      # Register notification widget for remote mode (plain output)
+      "tmux/widgets-remote/10-notify" = {
+        executable = true;
+        text = ''
+          #!/usr/bin/env bash
+          exec ${tmux-notify-widget}/bin/tmux-notify-widget --plain
+        '';
+      };
 
-        # Jump to last notification on prefix + N
-        bind-key 'N' run-shell "${tmux-notify}/bin/tmux-notify goto"
-
-        # Auto-dismiss notifications when switching to their window
-        set-hook -g after-select-window 'run-shell -b "${tmux-notify}/bin/tmux-notify auto-dismiss"'
-
-        # Spawn opencode agent in dedicated "agents" window (prefix + a opens prompt bar)
-        bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-agent-prompt}/bin/tmux-agent-prompt '#{pane_current_path}'"
-      '';
+      # Opencode notifier plugin configuration
+      "opencode/opencode-notifier.json".source = jsonFormat.generate "opencode-notifier.json" {
+        sound = true;
+        notification = false;
+        suppressWhenFocused = false;
+        command = {
+          enabled = true;
+          path = "${tmux-notify}/bin/tmux-notify";
+          args = [
+            "add"
+            "--event"
+            "{event}"
+            "{message}"
+          ];
+          minDuration = 0;
+        };
+      };
     };
+
+    programs.tmux.extraConfig = ''
+      # Notification panel on prefix + n
+      bind-key 'n' display-popup -w 60 -h 20 -E "${tmux-opencode-manager}/bin/tmux-opencode-manager"
+
+      # Jump to last notification on prefix + N
+      bind-key 'N' run-shell "${tmux-notify}/bin/tmux-notify goto"
+
+      # Auto-dismiss notifications when switching to their window
+      set-hook -g after-select-window 'run-shell -b "${tmux-notify}/bin/tmux-notify auto-dismiss"'
+
+      # Spawn opencode agent in dedicated "agents" window (prefix + a opens prompt bar)
+      bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-agent-prompt}/bin/tmux-agent-prompt '#{pane_current_path}'"
+    '';
+  };
 }
