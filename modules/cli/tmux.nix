@@ -41,6 +41,10 @@ mkUserModule {
         set -g extended-keys on
         set -g allow-passthrough on
 
+        # Copy to system clipboard from vi copy mode
+        bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
+        bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"
+
         # Reload config with prefix + R
         bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
 
