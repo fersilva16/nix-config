@@ -22,6 +22,7 @@ darwin.lib.darwinSystem {
     inherit inputs system;
     mkUserModule = import ./mkUserModule.nix;
     mkSystemModule = import ./mkSystemModule.nix;
+    mkUser = import ./mkUser.nix;
     forPlatform = import ./forPlatform.nix system;
   };
 
@@ -29,7 +30,6 @@ darwin.lib.darwinSystem {
     home-manager.darwinModules.home-manager
     nix-homebrew.darwinModules.nix-homebrew
 
-    ./user-bootstrap.nix
     host
     {
       nixpkgs = {

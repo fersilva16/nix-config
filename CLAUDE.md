@@ -18,9 +18,10 @@ A nix-darwin flake configuration for a single macOS Apple Silicon host (`m1`), m
 flake.nix                    # Entry point: inputs + outputs
 lib/mkDarwinHost.nix         # Factory: creates a nix-darwin system config
 lib/mkUserModule.nix         # Factory: creates a capability module with enable option
+lib/mkUser.nix               # Factory: creates a user with bootstrapping + enable flags
 lib/forPlatform.nix          # Utility: platform-aware value selector (darwin/linux)
 modules/hosts/m1.nix         # Host definition: system-level + mkUserModule imports
-modules/users/m1-fernando.nix # User composition: structural config + enable flags
+modules/users/m1-fernando.nix # User composition: mkUser with enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
 modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
 overlay/                     # Custom packages (paisa, flexoki-tmux, tmux-extras)
@@ -138,9 +139,35 @@ forPlatform { darwin = [ pkgs.iterm2 ]; }  # linux → []
 home.packages = [ sharedPkg ] ++ forPlatform { darwin = [ pkgs.iterm2 ]; };
 ```
 
+### `mkUser` — user composition
+
+`mkUser` creates a user module that bootstraps the system account, home-manager home, and module enable flags. Available via `specialArgs`. User files use it instead of writing raw `modules.users` config.
+
+```nix
+# modules/users/m1-fernando.nix
+{ mkUser, ... }:
+mkUser {
+  name = "fernando";
+  bat.enable = true;
+  git.enable = true;
+  opencode = { enable = true; server.enable = false; };
+}
+```
+
+Fields:
+
+- **`name`** — (required) Username. Creates `users.users.<name>`, `home-manager.users.<name>`, and `modules.users.<name>`.
+- **`stateVersion`** — (optional, default `"25.11"`) home-manager state version.
+- **Everything else** — Passed directly to `modules.users.<name>` as module enable flags and options.
+
+What it handles automatically:
+
+- `users.users.<name>.home` — platform-aware via `forPlatform`
+- `home-manager.users.<name>.home.{username, homeDirectory, stateVersion}`
+
 ### Adding a new app
 
-Create `modules/<category>/<app>.nix` using `mkUserModule` → import in `modules/hosts/m1.nix` → add `<name>.enable = true` to `modules.users.fernando` in the user file → rebuild.
+Create `modules/<category>/<app>.nix` using `mkUserModule` → add `<name>.enable = true` in the user file (`mkUser` call) → rebuild. Module discovery is automatic — no need to import in the host file.
 
 ### Homebrew behavior
 
