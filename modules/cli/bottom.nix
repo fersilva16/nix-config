@@ -1,5 +1,5 @@
-_: {
-  programs.bottom = {
-    enable = true;
-  };
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "bottom";
+  home.programs.bottom.enable = true;
 }

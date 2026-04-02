@@ -1,4 +1,5 @@
-{ pkgs, ... }:
-{
-  home.packages = with pkgs; [ krita ];
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "krita";
+  home.home.packages = [ pkgs.krita ];
 }

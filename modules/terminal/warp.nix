@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "warp" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "warp";
+  system.homebrew.casks = [ "warp" ];
 }

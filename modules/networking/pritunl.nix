@@ -1,5 +1,5 @@
-_: {
-  homebrew.casks = [
-    "pritunl"
-  ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "pritunl";
+  system.homebrew.casks = [ "pritunl" ];
 }

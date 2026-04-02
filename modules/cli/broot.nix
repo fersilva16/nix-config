@@ -1,5 +1,5 @@
-_: {
-  programs.broot = {
-    enable = true;
-  };
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "broot";
+  home.programs.broot.enable = true;
 }

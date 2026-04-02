@@ -1,5 +1,5 @@
-_: {
-  programs.obs-studio = {
-    enable = true;
-  };
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "obs";
+  home.programs.obs-studio.enable = true;
 }

@@ -1,20 +1,14 @@
-{
-  username,
-  pkgs,
-  inputs,
-  ...
-}:
-{
-  home-manager.users.${username} = {
-    programs.wezterm = {
-      enable = true;
-      extraConfig = ''
-        local wezterm = require 'wezterm'
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "wezterm";
+  home.programs.wezterm = {
+    enable = true;
+    extraConfig = ''
+      local wezterm = require 'wezterm'
 
-        return {
-          font = wezterm.font("CaskaydiaCove Nerd Font"),
-        }
-      '';
-    };
+      return {
+        font = wezterm.font("CaskaydiaCove Nerd Font"),
+      }
+    '';
   };
 }

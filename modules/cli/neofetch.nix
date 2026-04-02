@@ -1,4 +1,5 @@
-{ pkgs, ... }:
-{
-  home.packages = with pkgs; [ neofetch ];
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "neofetch";
+  home.home.packages = [ pkgs.neofetch ];
 }

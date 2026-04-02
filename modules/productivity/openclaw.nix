@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "openclaw" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "openclaw";
+  system.homebrew.casks = [ "openclaw" ];
 }

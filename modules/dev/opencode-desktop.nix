@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "opencode-desktop" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "opencode-desktop";
+  system.homebrew.casks = [ "opencode-desktop" ];
 }
