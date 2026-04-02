@@ -70,7 +70,7 @@
       inherit overlay overlays;
 
       darwinConfigurations = {
-        m1 = mkDarwinHost ./modules/hosts/m1.nix;
+        m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
       };
     }
     // utils.lib.eachDefaultSystem (

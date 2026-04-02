@@ -16,11 +16,11 @@ A nix-darwin flake configuration for a single macOS Apple Silicon host (`m1`), m
 
 ```
 flake.nix                    # Entry point: inputs + outputs
-lib/mkDarwinHost.nix         # Factory: creates a nix-darwin system config
+lib/mkDarwinHost.nix         # Factory: creates a nix-darwin system from structured declaration
 lib/mkUserModule.nix         # Factory: creates a capability module with enable option
-lib/mkUser.nix               # Factory: creates a user with bootstrapping + enable flags
+lib/mkUser.nix               # Factory: creates { name, module } for user bootstrapping + enable flags
 lib/forPlatform.nix          # Utility: platform-aware value selector (darwin/linux)
-modules/hosts/m1.nix         # Host definition: system-level + mkUserModule imports
+modules/hosts/m1.nix         # Host definition: mkDarwinHost call with host-specific config
 modules/users/m1-fernando.nix # User composition: mkUser with enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
 modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
@@ -139,9 +139,47 @@ forPlatform { darwin = [ pkgs.iterm2 ]; }  # linux → []
 home.packages = [ sharedPkg ] ++ forPlatform { darwin = [ pkgs.iterm2 ]; };
 ```
 
+### `mkDarwinHost` — host declaration
+
+`mkDarwinHost` creates a nix-darwin system from a structured declaration. It absorbs all system plumbing (module discovery, `specialArgs`, home-manager/nix-homebrew wiring, nixpkgs config) so host files stay declarative. Field names are platform-agnostic to support a future `mkNixOSHost`.
+
+```nix
+# modules/hosts/m1.nix
+{ mkDarwinHost }:
+let
+  fernando = import ../users/m1-fernando.nix;
+in
+mkDarwinHost {
+  hostName = "m1";
+  primaryUser = fernando;
+  users = [ fernando ];
+}
+
+# flake.nix
+m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
+```
+
+Fields:
+
+- **`hostName`** — (required) Network hostname.
+- **`primaryUser`** — (required) Primary user of the host. Accepts a user function (imported `mkUser` file) — the username is extracted automatically from `mkUser`'s `{ name, module }` return. Also accepts a plain string.
+- **`system`** — (optional, default `"aarch64-darwin"`) Nix system identifier.
+- **`stateVersion`** — (optional, default `5`) nix-darwin state version.
+- **`users`** — (optional, default `[]`) List of user functions (imported `mkUser` files). Each is unwrapped via `{ name, module }` to feed `.module` to the module system.
+- **`extraModules`** — (optional, default `[]`) Escape hatch for additional modules.
+
+What it handles automatically:
+
+- Module auto-discovery (all `modules/<category>/` modules)
+- `specialArgs` (factories: `mkUserModule`, `mkUser`, `mkSystemModule`; utilities: `forPlatform`)
+- home-manager and nix-homebrew darwin module wiring
+- nixpkgs overlays and `allowUnfree`
+
 ### `mkUser` — user composition
 
 `mkUser` creates a user module that bootstraps the system account, home-manager home, and module enable flags. Available via `specialArgs`. User files use it instead of writing raw `modules.users` config.
+
+Returns `{ name, module }` so host factories (`mkDarwinHost`, future `mkNixOSHost`) can extract the username without duplication.
 
 ```nix
 # modules/users/m1-fernando.nix

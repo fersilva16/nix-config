@@ -1,11 +1,10 @@
 # mkUser — creates a user module that bootstraps the system account,
 # home-manager home, and module enable flags in one declaration.
 #
-# Absorbs the bootstrapping that user-bootstrap.nix used to handle
-# (home directory, username, stateVersion) so user files stay declarative
-# and don't leak raw config paths.
+# Returns { name, module } so host factories (mkDarwinHost, mkNixOSHost)
+# can extract the username for primaryUser without duplication.
 #
-# Signature: { name, stateVersion? } // moduleEnables -> module
+# Signature: { name, stateVersion? } // moduleEnables -> { name, module }
 #
 # Fields:
 #
@@ -19,30 +18,33 @@
 #
 # Usage:
 #
-#   # Simple — just enable flags:
+#   # modules/users/m1-fernando.nix — user file (unchanged):
 #   { mkUser, ... }:
 #   mkUser {
 #     name = "fernando";
 #     bat.enable = true;
 #     git.enable = true;
-#     fish.enable = true;
 #   }
 #
-#   # With module options and part toggles:
-#   { mkUser, ... }:
-#   mkUser {
-#     name = "fernando";
-#     stateVersion = "25.11";
-#     bat.enable = true;
-#     opencode = { enable = true; server.enable = false; };
-#     nvim = { enable = true; ai.enable = false; };
+#   # modules/hosts/m1.nix — host file uses the { name, module } shape:
+#   { mkDarwinHost }:
+#   let
+#     fernando = import ../users/m1-fernando.nix;
+#   in
+#   mkDarwinHost {
+#     hostName = "m1";
+#     primaryUser = fernando;
+#     users = [ fernando ];
 #   }
 #
 # What it does:
 #
-#   1. Sets modules.users.<name> with all module enables/options.
-#   2. Creates users.users.<name>.home (platform-aware via forPlatform).
-#   3. Creates home-manager.users.<name>.home with username, homeDirectory,
+#   1. Returns { name, module } where:
+#      - name: the username string (for host factories to read)
+#      - module: a NixOS/darwin module that sets up the user
+#   2. The module sets modules.users.<name> with all module enables/options.
+#   3. Creates users.users.<name>.home (platform-aware via forPlatform).
+#   4. Creates home-manager.users.<name>.home with username, homeDirectory,
 #      and stateVersion.
 #
 {
@@ -57,26 +59,29 @@ let
   ];
 in
 {
-  imports = [
-    (
-      { forPlatform, ... }:
-      {
-        modules.users.${name} = moduleEnables;
+  inherit name;
+  module = {
+    imports = [
+      (
+        { forPlatform, ... }:
+        {
+          modules.users.${name} = moduleEnables;
 
-        users.users.${name}.home = forPlatform {
-          darwin = "/Users/${name}";
-          linux = "/home/${name}";
-        };
-
-        home-manager.users.${name}.home = {
-          username = name;
-          homeDirectory = forPlatform {
+          users.users.${name}.home = forPlatform {
             darwin = "/Users/${name}";
             linux = "/home/${name}";
           };
-          inherit stateVersion;
-        };
-      }
-    )
-  ];
+
+          home-manager.users.${name}.home = {
+            username = name;
+            homeDirectory = forPlatform {
+              darwin = "/Users/${name}";
+              linux = "/home/${name}";
+            };
+            inherit stateVersion;
+          };
+        }
+      )
+    ];
+  };
 }
