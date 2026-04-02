@@ -205,6 +205,41 @@ The test: **is the module fundamentally useless without the other?**
 
 Disabled config paths (`mkIf false`) are never evaluated and cost nothing. Modules can freely declare options, reference each other, and conditionally integrate — without import ordering, explicit dependency graphs, or worrying about what else is loaded. The module system collects everything, merges it, and only evaluates what's needed. This is what makes self-contained capability modules possible: they don't need to know who else is in the system.
 
+## Shell tool composability
+
+Shell tools (fish functions like `lin`, `wt`, `wtlc`) follow the same composability principle as Nix modules: **build on what exists, never duplicate**.
+
+### Tools compose, they don't copy
+
+A tool that combines two capabilities calls the existing tools — it never re-implements their logic. If the underlying tool is missing a feature the composed tool needs (like returning an issue ID), fix the underlying tool. Don't work around it by copying its code.
+
+```
+# Good: wtlc = wt + lin create
+wtlc → lin create $argv → get issue_id → wt $name $branch
+
+# Bad: wtlc re-implements lin create's prompts, API calls, label logic
+```
+
+### The contract: `_lin_ai_last_issue`
+
+`lin create` and `lin ai` both set `set -g _lin_ai_last_issue $issue_id` on success. Any tool that composes on top of Linear issue creation reads this variable instead of parsing output or duplicating the creation flow.
+
+### When you need a new composed tool
+
+1. Identify which existing tools it combines
+2. Call them directly — don't extract their internals
+3. If an existing tool doesn't expose what you need, **extend it** (add a return value, a flag, a variable)
+4. The composed tool should be short — mostly glue between existing tools
+
+### Real examples
+
+| Tool | Composition | What it does |
+|---|---|---|
+| `lin` | wrapper around `linear-cli` | All Linear operations: list, create, ai, start, etc. |
+| `wt` | git worktree + tmux | Create worktree and tmux session |
+| `wtlc` | `lin create` + `wt` | Create issue, then worktree from its branch |
+| `wtlc ai` | `lin ai` + `wt` | AI-generate issue, then worktree from its branch |
+
 ## Code style
 
 - 2-space indentation, UTF-8, LF line endings

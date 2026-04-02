@@ -165,7 +165,7 @@ mkUserModule {
                             set -l pri (gum choose --header "Priority" "0 - None" "4 - Low" "3 - Medium" "2 - High" "1 - Urgent")
                             set -l priority (string match -r '^\d' -- $pri)
 
-                            set -l cmd linear-cli i create "$title" -t $team
+                            set -l cmd linear-cli i create "$title" -t $team -o json --quiet --no-pager
                             if test -n "$priority"; set -a cmd -p $priority; end
 
                             if gum confirm "Assign to me?"
@@ -195,7 +195,16 @@ mkUserModule {
                               end
                             end
 
-                            $cmd
+                            set -l create_result ($cmd 2>&1)
+                            or begin; echo "lin: issue creation failed" >&2; printf '%s\n' $create_result; return 1; end
+
+                            set -l issue_id (printf '%s\n' $create_result | jq -r '.identifier // empty' 2>/dev/null)
+                            if test -n "$issue_id"
+                              set -g _lin_ai_last_issue $issue_id
+                              gum style --foreground 82 "  ✓ Created $issue_id"
+                            else
+                              printf '%s\n' $create_result
+                            end
 
                           case start
                             if test (count $argv) -ge 2
@@ -288,14 +297,19 @@ mkUserModule {
 
                             # Animated spinner while AI generates
                             set -l tmpfile (mktemp)
+                            set -l errfile (mktemp)
                             gum spin --spinner dot --title "Generating issue with AI..." -- \
-                              sh -c "opencode run -m 'opencode/minimax-m2.5-free' '$prompt' > '$tmpfile' 2>/dev/null"
+                              sh -c "opencode run -m 'opencode/minimax-m2.5-free' '$prompt' > '$tmpfile' 2> '$errfile'"
 
                             set -l result (cat $tmpfile)
-                            rm -f $tmpfile
+                            set -l errs (cat $errfile)
+                            rm -f $tmpfile $errfile
 
                             if test -z "$result"
                               echo "lin: AI generation failed" >&2
+                              if test -n "$errs"
+                                printf '%s\n' $errs | gum style --foreground 196 --faint
+                              end
                               return 1
                             end
 
