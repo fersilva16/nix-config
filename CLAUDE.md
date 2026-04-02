@@ -40,14 +40,7 @@ mkUserModule {
   home.programs.bat.enable = true;
 }
 
-# System-only cask:
-{ mkUserModule, ... }:
-mkUserModule {
-  name = "slack";
-  system.homebrew.casks = [ "slack" ];
-}
-
-# Unified system + user:
+# System + user:
 { mkUserModule, pkgs, ... }:
 mkUserModule {
   name = "fish";
@@ -64,11 +57,11 @@ mkUserModule {
 
 Fields:
 
-- **`name`** — Module name. Creates `modules.users.<user>.<name>.enable`.
+- **`name`** — Creates `modules.users.<user>.<name>.enable`.
 - **`system`** — (optional) System-level config, applied once when any user enables it.
-- **`home`** — (optional) Per-user home-manager config. Can be a static attrset or a function `{ cfg, username, userCfg } -> attrset` when per-user option values or cross-module checks are needed. `userCfg` is the full `modules.users.<user>` config for that user — use it for `mkIf` guards on outbound integrations (see below).
-- **`extraOptions`** — (optional) Custom per-user options (attrset of `mkOption` defs). Accessed via `cfg` in the `home` function.
-- **`requires`** — (optional) List of module names to auto-enable for every user who enables this module. Only sets `enable = true` (with `mkDefault`, so explicit `enable = false` overrides). See "requires vs mkIf" below for when to use this vs conditional integration.
+- **`home`** — (optional) Per-user HM config. Static attrset or function `{ cfg, username, userCfg } -> attrset`. `userCfg` is the full `modules.users.<user>` config — use for `mkIf` guards on outbound integrations.
+- **`extraOptions`** — (optional) Custom per-user options (`mkOption` defs). Accessed via `cfg` in `home`.
+- **`requires`** — (optional) Auto-enable listed modules (`mkDefault`, overridable). See `requires` vs `mkIf` below.
 
 ```nix
 # extraOptions + requires:
@@ -95,36 +88,21 @@ mkUserModule {
 }
 ```
 
-User composition (in user file):
-
-```nix
-modules.users.fernando = {
-  bat.enable = true;
-  "1password" = { enable = true; sshAgent = false; };
-};
-```
-
 #### `parts` — splitting modules into sub-features
 
-When a module grows large or bundles distinct concerns (e.g., a CLI tool + a background server), use `parts` to split it into separate files with independent enable toggles. Each part creates a nested option under the parent: `modules.users.<user>.<name>.<partName>.enable`.
+When a module bundles distinct concerns (e.g., a CLI tool + a background server), use `parts` to split into separate files with independent enable toggles. Each part creates a nested option: `modules.users.<user>.<name>.<partName>.enable`.
 
-Parts are plain attrsets with the same fields as `mkUserModule` (`system`, `home`, `extraOptions`), plus `default` (bool, defaults to `true`). The parent passes shared bindings via import args — parts don't need `mkUserModule` or any wrapper.
+Parts are plain attrsets with the same fields as `mkUserModule` (`system`, `home`, `extraOptions`), plus `default` (bool, defaults to `true`). The parent passes shared bindings via import args.
 
 ```nix
 # modules/dev/opencode/opencode.nix — parent owns the binary + settings
-{ mkUserModule, pkgs, lib, inputs, system, ... }:
-let
-  serverPort = 4096;
-  opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [ ./patches/cursor-style-and-blink.patch ];
-  });
-in
+{ mkUserModule, pkgs, lib, ... }:
 mkUserModule {
   name = "opencode";
   parts = {
     server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
   };
-  home = { username, ... }: {
+  home = {
     programs.opencode = {
       enable = true;
       package = lib.mkDefault opencode-unwrapped;  # part overrides when enabled
@@ -132,75 +110,37 @@ mkUserModule {
     };
   };
 }
-```
 
-```nix
 # modules/dev/opencode/server.nix — part owns the daemon + wrapper
 { pkgs, opencode-unwrapped, serverPort }:
-let
-  opencode-wrapper = pkgs.writeShellScriptBin "opencode" ''...'';
-in
 {
   system.launchd.user.agents.opencode-server = { ... };
-  home.programs.opencode.package = opencode-wrapper;
+  home.programs.opencode.package = opencode-wrapper;  # wins over mkDefault
 }
 ```
 
-User composition:
+Part `home` can be a function `{ cfg, parentCfg, username, userCfg } -> attrset`. `cfg` is the part's config; `parentCfg` is the parent's.
 
-```nix
-modules.users.fernando.opencode = {
-  enable = true;
-  # server.enable defaults to true — opt out with:
-  # server.enable = false;
-};
-```
-
-Part fields:
-
-- **`system`** — (optional) System-level config, applied once when any user enables this part.
-- **`home`** — (optional) Per-user config. Static attrset or function `{ cfg, parentCfg, username, userCfg } -> attrset`. `cfg` is the part's own config; `parentCfg` is the parent module's full config.
-- **`extraOptions`** — (optional) Additional per-user options for this part.
-- **`default`** — (optional, default `true`) Whether the part is enabled by default when the parent is enabled.
-
-**Priority trick for package overrides:** the parent sets `lib.mkDefault unwrapped` and the part sets `wrapper` at normal priority. When the part is enabled, its value wins. When disabled, the parent's default applies.
-
-**When to use `parts` vs separate modules:**
+**Priority trick:** parent sets `lib.mkDefault unwrapped`, part sets `wrapper` at normal priority. Part enabled → wrapper wins. Part disabled → parent's default applies.
 
 | Situation | Use |
 |---|---|
-| Sub-feature is useless without parent (server needs the opencode binary) | `parts` |
-| Sub-feature is genuinely independent (can be enabled alone) | Separate `mkUserModule` |
-| Home-only sub-features in a large module (nvim plugins) | `parts` or `extraOptions` + file imports |
+| Sub-feature is useless without parent | `parts` |
+| Sub-feature is genuinely independent | Separate `mkUserModule` |
 
 ### `forPlatform` utility
 
-`forPlatform` selects a value based on the current system platform. Available via `specialArgs` in all modules. When only one platform is specified, the other side's identity value is inferred from the type (`""` for strings, `[]` for lists, `{}` for attrsets).
+Available via `specialArgs`. When only one platform is specified, the other defaults to the identity value for that type.
 
 ```nix
-# Both platforms:
 forPlatform { darwin = "/Users/${u}"; linux = "/home/${u}"; }
-
-# Single platform — other side inferred:
 forPlatform { darwin = [ pkgs.iterm2 ]; }  # linux → []
-
-# Composable — strings via interpolation, lists via ++, attrsets via mkMerge:
 home.packages = [ sharedPkg ] ++ forPlatform { darwin = [ pkgs.iterm2 ]; };
 ```
 
-### Where things go
-
-- **System-level modules** (fonts, nix settings, macOS defaults, Touch ID): imported directly in `modules/hosts/m1.nix`
-- **User-level modules** (packages, programs, dotfiles, homebrew casks): imported via `modules/users/m1-fernando.nix`
-- **Custom packages/derivations**: `overlay/pkgs/` with registration in `overlay/pkgs/pkgs.nix`
-- **Shell scripts** (tmux utilities, ledger sync): bundled as custom packages in the overlay
-
 ### Adding a new app
 
-1. Create `modules/<category>/<app>.nix` using `mkUserModule`
-2. Import it in `modules/hosts/m1.nix`
-3. Add `<name>.enable = true;` to `modules.users.fernando` in the user file
-4. Run `sudo darwin-rebuild switch --flake .#m1` to apply
+Create `modules/<category>/<app>.nix` using `mkUserModule` → import in `modules/hosts/m1.nix` → add `<name>.enable = true` to `modules.users.fernando` in the user file → rebuild.
 
 ### Homebrew behavior
 
@@ -212,15 +152,11 @@ Homebrew is declarative with `onActivation.cleanup = "zap"` -- any cask not decl
 
 A module is a self-contained definition of a capability — not "some config that needs a username" or "an attrset that sets HM options." It declares what it offers (options), what the system needs to support it (system config), and what each user gets when they enable it (home config). All three concerns live in one place because they describe one thing.
 
-Users declare intent (`bat.enable = true`), modules own all the plumbing. The user never writes `home-manager.users.fernando.programs.bat.enable = true` — they say "I want bat" and the module figures out what that means at every layer.
+Users declare intent (`bat.enable = true`), modules own all the plumbing. The user never writes `home-manager.users.fernando.programs.bat.enable = true` — they say "I want bat" and the module figures out what that means at every layer. Multi-user and multi-system support fall out of this model — if you need to explicitly "add" either, the abstraction is wrong.
 
 ### User → System, not System → User
 
-The direction is always bottom-up: a user asks for a capability, the module handles system-wide dependencies as a side effect. If two users both enable fish, the module adds `pkgs.fish` to `environment.systemPackages` twice — Nix deduplicates. Nobody coordinates. The system-level setup is a consequence of user intent, never the other way around.
-
-### Multi-user and multi-system are properties, not features
-
-They fall out of the model. If modules are capabilities and users declare intent, multiple users work because Nix merges. Multiple systems work because hosts compose different capability sets. Don't "add multi-user support" — if you need to, the abstraction is wrong.
+The direction is always bottom-up: a user asks for a capability, the module handles system-wide dependencies as a side effect. The system-level setup is a consequence of user intent, never the other way around.
 
 ### Each module owns its outbound integrations
 
@@ -253,12 +189,8 @@ mkUserModule {
 
 ### `requires` vs `mkIf` — when to use which
 
-Both handle cross-module relationships, but they serve different purposes:
-
-- **`requires`** = "enabling X auto-enables Y" — a hard dependency where X is fundamentally useless without Y.
-- **`mkIf userCfg.Y.enable`** = "only apply this config when Y is also enabled" — a soft integration where X works standalone but enhances Y when present.
-
-The test: **is the module fundamentally useless without the other?**
+- **`requires`** = "enabling X auto-enables Y" — X is fundamentally useless without Y.
+- **`mkIf userCfg.Y.enable`** = "only apply when Y is also enabled" — X works standalone but enhances Y when present.
 
 | Relationship | Mechanism | Why |
 |---|---|---|
@@ -269,54 +201,16 @@ The test: **is the module fundamentally useless without the other?**
 | bat → fish | `mkIf` | Bat works without fish; the `cat` alias is a bonus |
 | starship → fish | `mkIf` | Starship works with any shell; fish prompt hook is a bonus |
 
-**Rule of thumb:** if removing the dependency means the module still installs and does something useful, use `mkIf`. If it becomes an empty shell that installs a binary nobody can use, use `requires`.
-
-### Nix is lazy — so modules can be fearless
-
-Disabled config paths (`mkIf false`) are never evaluated and cost nothing. Modules can freely declare options, reference each other, and conditionally integrate — without import ordering, explicit dependency graphs, or worrying about what else is loaded. The module system collects everything, merges it, and only evaluates what's needed. This is what makes self-contained capability modules possible: they don't need to know who else is in the system.
-
-## Shell tool composability
-
-Shell tools (fish functions like `lin`, `wt`, `wtlc`) follow the same composability principle as Nix modules: **build on what exists, never duplicate**.
-
-### Tools compose, they don't copy
-
-A tool that combines two capabilities calls the existing tools — it never re-implements their logic. If the underlying tool is missing a feature the composed tool needs (like returning an issue ID), fix the underlying tool. Don't work around it by copying its code.
-
-```
-# Good: wtlc = wt + lin create
-wtlc → lin create $argv → get issue_id → wt $name $branch
-
-# Bad: wtlc re-implements lin create's prompts, API calls, label logic
-```
-
-### The contract: `_lin_ai_last_issue`
-
-`lin create` and `lin ai` both set `set -g _lin_ai_last_issue $issue_id` on success. Any tool that composes on top of Linear issue creation reads this variable instead of parsing output or duplicating the creation flow.
-
-### When you need a new composed tool
-
-1. Identify which existing tools it combines
-2. Call them directly — don't extract their internals
-3. If an existing tool doesn't expose what you need, **extend it** (add a return value, a flag, a variable)
-4. The composed tool should be short — mostly glue between existing tools
-
-### Real examples
-
-| Tool | Composition | What it does |
-|---|---|---|
-| `lin` | wrapper around `linear-cli` | All Linear operations: list, create, ai, start, etc. |
-| `wt` | git worktree + tmux | Create worktree and tmux session |
-| `wtlc` | `lin create` + `wt` | Create issue, then worktree from its branch |
-| `wtlc ai` | `lin ai` + `wt` | AI-generate issue, then worktree from its branch |
+**Rule of thumb:** if removing the dependency means the module still does something useful, use `mkIf`. If it becomes useless, use `requires`.
 
 ## Code style
 
-- **Never use `default.nix`** — use explicit names matching the module: `opencode/opencode.nix`, not `opencode/default.nix`. `default.nix` clutters editor search results (every directory looks the same in fuzzy-find and tab bars), obscures intent (the filename tells you nothing about what's inside), and spreads virally (one `default.nix` normalizes the pattern until every directory has one). Always name files after what they define.
+- **Never use `default.nix`** — use explicit names matching the module: `opencode/opencode.nix`, not `opencode/default.nix`.
 - 2-space indentation, UTF-8, LF line endings
 - Format with `nixfmt` (nixfmt-rfc-style)
 - Lint with `statix`
 - Shell scripts linted with `shellcheck`
+- Shell tools compose by calling existing tools — never reimplement another tool's logic. Extend the underlying tool if it's missing what you need.
 - Pre-commit hooks enforce all of the above automatically
 
 ## Commit conventions
