@@ -58,17 +58,9 @@
   outputs =
     { nixpkgs, utils, ... }@inputs:
     let
-      overlay = import ./overlay/overlay.nix;
-
-      overlays = [
-        overlay
-      ];
-
-      mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs overlays; };
+      mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs; };
     in
     {
-      inherit overlay overlays;
-
       darwinConfigurations = {
         m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
       };
@@ -76,7 +68,7 @@
     // utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs { inherit system overlays; };
+        pkgs = import nixpkgs { inherit system; };
       in
       {
         packages = pkgs;
