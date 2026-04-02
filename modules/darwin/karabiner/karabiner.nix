@@ -1,12 +1,9 @@
-{ username, pkgs, ... }:
-let
-  configDir = ".config/karabiner";
-in
-{
-  homebrew.casks = [ "karabiner-elements" ];
-
-  home-manager.users.${username} = {
-    home.file."${configDir}/karabiner.json" = {
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "karabiner";
+  system.homebrew.casks = [ "karabiner-elements" ];
+  home = {
+    home.file.".config/karabiner/karabiner.json" = {
       source = ./karabiner.json;
       force = true;
     };

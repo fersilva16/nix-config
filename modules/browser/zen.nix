@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "zen-browser" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "zen";
+  system.homebrew.casks = [ "zen-browser" ];
 }

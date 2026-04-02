@@ -1,4 +1,5 @@
-{ pkgs, ... }:
-{
-  home.packages = with pkgs; [ mpv ];
+{ mkUserModule, pkgs, ... }:
+mkUserModule {
+  name = "mpv";
+  home.home.packages = [ pkgs.mpv ];
 }

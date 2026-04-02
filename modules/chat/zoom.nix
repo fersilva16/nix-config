@@ -1,3 +1,5 @@
-_: {
-  homebrew.casks = [ "zoom" ];
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "zoom";
+  system.homebrew.casks = [ "zoom" ];
 }
