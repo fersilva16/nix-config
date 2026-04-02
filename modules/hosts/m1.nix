@@ -53,13 +53,13 @@ _: {
     ../dev/doppler.nix
     ../dev/claude.nix
     ../dev/claude-code.nix
-    ../dev/opencode.nix
+    ../dev/opencode/opencode.nix
     ../dev/rtk.nix
     ../dev/ollama.nix
     ../dev/linear.nix
 
     # Editors
-    ../editor/nvim.nix
+    ../editor/nvim/nvim.nix
     ../editor/vscode/vscode.nix
     ../editor/cursor.nix
     ../editor/intellij.nix

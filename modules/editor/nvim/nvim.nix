@@ -15,62 +15,18 @@ let
       sha256 = "0j6r1rm9g6mm5b5x2wddwyhh6wjagk0x9babs73ky081sgvlyl2f";
     };
   };
-
-  nvim-treesitter = pkgs.vimPlugins.nvim-treesitter.withPlugins (
-    treesitter-plugins: with treesitter-plugins; [
-      bash
-      css
-      dart
-      elixir
-      go
-      gomod
-      gosum
-      html
-      javascript
-      json
-      lua
-      markdown
-      markdown_inline
-      nix
-      python
-      rust
-      toml
-      tsx
-      typescript
-      yaml
-    ]
-  );
 in
 mkUserModule {
   name = "nvim";
+
+  parts = {
+    lsp = import ./lsp.nix { inherit pkgs; };
+    git = import ./git.nix { inherit pkgs; };
+    explorer = import ./explorer.nix { inherit pkgs; };
+    ai = import ./ai.nix { inherit pkgs; };
+  };
+
   home = {
-    # LSP servers and dev tools installed as Nix packages (no Mason needed)
-    home.packages = with pkgs; [
-      # Language servers
-      lua-language-server
-      nil # Nix LSP
-      typescript-language-server
-      vscode-langservers-extracted # HTML, CSS, JSON, ESLint
-      pyright
-      gopls
-      rust-analyzer
-      dart
-      elixir-ls
-      tailwindcss-language-server
-      nodePackages.bash-language-server
-      yaml-language-server
-      taplo # TOML LSP
-      marksman # Markdown LSP
-
-      # Formatters & linters
-      stylua
-      nixfmt-rfc-style
-      prettierd
-      black
-      gofumpt
-      rustfmt
-    ];
-
     programs.neovim = {
       enable = true;
       defaultEditor = true;
@@ -345,122 +301,6 @@ mkUserModule {
           group = highlight_group,
           pattern = '*',
         })
-
-        -- ╔══════════════════════════════════════════╗
-        -- ║    LSP (Neovim 0.11+ native API)         ║
-        -- ╚══════════════════════════════════════════╝
-
-        -- Shared capabilities (enhanced by cmp-nvim-lsp, loaded later)
-        -- We defer the actual capability merging to LspAttach
-        vim.api.nvim_create_autocmd('LspAttach', {
-          callback = function(args)
-            local client = vim.lsp.get_client_by_id(args.data.client_id)
-            if not client then return end
-            local bufnr = args.buf
-
-            -- Enable inlay hints
-            if client.server_capabilities.inlayHintProvider then
-              vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
-            end
-
-            -- Format on save
-            if client.server_capabilities.documentFormattingProvider then
-              vim.api.nvim_create_autocmd('BufWritePre', {
-                buffer = bufnr,
-                callback = function()
-                  vim.lsp.buf.format({ bufnr = bufnr })
-                end,
-              })
-            end
-          end,
-        })
-
-        -- Default config applied to all servers
-        vim.lsp.config('*', {
-          capabilities = vim.lsp.protocol.make_client_capabilities(),
-        })
-
-        -- Per-server configuration
-        vim.lsp.config('lua_ls', {
-          settings = {
-            Lua = {
-              workspace = { checkThirdParty = false },
-              telemetry = { enable = false },
-              completion = { callSnippet = 'Replace' },
-            },
-          },
-        })
-
-        vim.lsp.config('nil_ls', {
-          settings = {
-            ['nil'] = {
-              formatting = { command = { "nixfmt" } },
-            },
-          },
-        })
-
-        vim.lsp.config('gopls', {
-          settings = {
-            gopls = {
-              analyses = { unusedparams = true },
-              staticcheck = true,
-              gofumpt = true,
-            },
-          },
-        })
-
-        vim.lsp.config('rust_analyzer', {
-          settings = {
-            ['rust-analyzer'] = {
-              checkOnSave = { command = 'clippy' },
-              cargo = { allFeatures = true },
-            },
-          },
-        })
-
-        vim.lsp.config('elixirls', {
-          cmd = { 'elixir-ls' },
-        })
-
-        -- Enable all servers (filetypes auto-detected via nvim-lspconfig definitions)
-        vim.lsp.enable({
-          'lua_ls',
-          'nil_ls',
-          'ts_ls',
-          'pyright',
-          'gopls',
-          'rust_analyzer',
-          'dartls',
-          'elixirls',
-          'tailwindcss',
-          'html',
-          'cssls',
-          'jsonls',
-          'bashls',
-          'yamlls',
-          'taplo',
-          'marksman',
-        })
-
-        -- Diagnostic UI
-        vim.diagnostic.config({
-          virtual_text = { spacing = 4, prefix = '●' },
-          signs = {
-            text = {
-              [vim.diagnostic.severity.ERROR] = ' ',
-              [vim.diagnostic.severity.WARN] = ' ',
-              [vim.diagnostic.severity.HINT] = '󰌵 ',
-              [vim.diagnostic.severity.INFO] = ' ',
-            },
-          },
-          underline = true,
-          update_in_insert = false,
-          severity_sort = true,
-          float = {
-            border = 'rounded',
-            source = true,
-          },
-        })
       '';
 
       plugins = with pkgs; [
@@ -473,65 +313,6 @@ mkUserModule {
           config = ''
             lua << EOF
               vim.cmd.colorscheme "flexoki-light"
-            EOF
-          '';
-        }
-
-        # ── Completion engine (must be before LSP setup) ───
-        {
-          plugin = vimPlugins.cmp-nvim-lsp;
-          config = ''
-            lua << EOF
-              -- Enhance default LSP capabilities with cmp completions
-              vim.lsp.config('*', {
-                capabilities = require('cmp_nvim_lsp').default_capabilities(),
-              })
-            EOF
-          '';
-        }
-        vimPlugins.cmp-buffer
-        vimPlugins.cmp-path
-        vimPlugins.cmp_luasnip
-        {
-          plugin = vimPlugins.luasnip;
-          config = ''
-            lua << EOF
-              require('luasnip.loaders.from_vscode').lazy_load()
-            EOF
-          '';
-        }
-        vimPlugins.friendly-snippets
-
-        # ── LSP progress UI ────────────────────────────────
-        {
-          plugin = vimPlugins.fidget-nvim;
-          config = ''
-            lua << EOF
-              require('fidget').setup({})
-            EOF
-          '';
-        }
-        {
-          plugin = vimPlugins.lazydev-nvim;
-          config = ''
-            lua << EOF
-              require('lazydev').setup({})
-            EOF
-          '';
-        }
-
-        # ── Treesitter (grammars managed by Nix) ──────────
-        {
-          plugin = nvim-treesitter;
-          config = ''
-            lua << EOF
-              -- Neovim 0.11+: treesitter highlight/indent are built-in
-              -- Enable for all buffers that have a parser available
-              vim.api.nvim_create_autocmd('FileType', {
-                callback = function(args)
-                  pcall(vim.treesitter.start, args.buf)
-                end,
-              })
             EOF
           '';
         }
@@ -598,41 +379,6 @@ mkUserModule {
                 { "<leader>fn", "<cmd>enew<cr>", desc = "New file" },
                 { "<leader>fs", "<cmd>w<cr>", desc = "Save file" },
 
-                -- Code (LSP)
-                { "<leader>c", group = "code" },
-                { "<leader>ca", vim.lsp.buf.code_action, desc = "Code action" },
-                { "<leader>cr", vim.lsp.buf.rename, desc = "Rename symbol" },
-                { "<leader>cf", function() vim.lsp.buf.format({ async = true }) end, desc = "Format file" },
-                { "<leader>cd", vim.lsp.buf.definition, desc = "Go to definition" },
-                { "<leader>cD", vim.lsp.buf.declaration, desc = "Go to declaration" },
-                { "<leader>ci", function() require('telescope.builtin').lsp_implementations() end, desc = "Go to implementation" },
-                { "<leader>cR", function() require('telescope.builtin').lsp_references() end, desc = "Go to references" },
-                { "<leader>ct", vim.lsp.buf.type_definition, desc = "Type definition" },
-                { "<leader>cs", group = "symbols" },
-                { "<leader>csd", function() require('telescope.builtin').lsp_document_symbols() end, desc = "Document symbols" },
-                { "<leader>csw", function() require('telescope.builtin').lsp_dynamic_workspace_symbols() end, desc = "Workspace symbols" },
-
-                -- Explorer (neo-tree)
-                { "<leader>e", "<cmd>Neotree toggle<cr>", desc = "Toggle file explorer" },
-                { "<leader>;", function()
-                    local cur_buf = vim.api.nvim_get_current_buf()
-                    if vim.bo[cur_buf].filetype == 'neo-tree' then
-                      vim.cmd('wincmd p')
-                    else
-                      for _, win in ipairs(vim.api.nvim_list_wins()) do
-                        local buf = vim.api.nvim_win_get_buf(win)
-                        if vim.bo[buf].filetype == 'neo-tree' then
-                          vim.api.nvim_set_current_win(win)
-                          return
-                        end
-                      end
-                    end
-                  end, desc = "Toggle focus file explorer" },
-                { "<leader>E", group = "explorer views" },
-                { "<leader>Ef", "<cmd>Neotree toggle reveal right<cr>", desc = "File tree" },
-                { "<leader>Eg", "<cmd>Neotree toggle git_status right<cr>", desc = "Git status" },
-                { "<leader>Eb", "<cmd>Neotree toggle buffers right<cr>", desc = "Buffers" },
-
                 -- Tabs
                 { "<leader>T", group = "tabs" },
                 { "<leader>Tt", "<cmd>tabnew<cr>", desc = "New tab" },
@@ -660,9 +406,7 @@ mkUserModule {
 
                 -- Open
                 { "<leader>o", group = "open" },
-                { "<leader>oo", "<cmd>Oil<CR>", desc = "Oil file explorer" },
                 { "<leader>ot", "<cmd>Telescope<CR>", desc = "Telescope" },
-                { "<leader>oa", function() require("opencode").toggle() end, desc = "Toggle opencode" },
 
                 -- Buffers
                 { "<leader>b", group = "buffer" },
@@ -670,96 +414,12 @@ mkUserModule {
                 { "<leader>bn", "<cmd>bnext<CR>", desc = "Next buffer" },
                 { "<leader>bp", "<cmd>bprevious<CR>", desc = "Previous buffer" },
 
-                -- Diagnostics
-                { "<leader>x", group = "diagnostics" },
-                { "<leader>xd", function() vim.diagnostic.open_float() end, desc = "Line diagnostics" },
-                { "<leader>xl", function() require('telescope.builtin').diagnostics() end, desc = "All diagnostics" },
-                { "<leader>xn", function() vim.diagnostic.goto_next() end, desc = "Next diagnostic" },
-                { "<leader>xp", function() vim.diagnostic.goto_prev() end, desc = "Previous diagnostic" },
-
                 -- Window management
                 { "<leader>w", proxy = "<C-w>", group = "window" },
 
-                -- Git
-                { "<leader>G", group = "git" },
-                { "<leader>Gg", "<cmd>Neogit<cr>", desc = "Open Neogit (source control)" },
-                { "<leader>Gc", "<cmd>Neogit commit<cr>", desc = "Commit" },
-                { "<leader>Gp", "<cmd>Neogit push<cr>", desc = "Push" },
-                { "<leader>Gl", "<cmd>Neogit pull<cr>", desc = "Pull" },
-                { "<leader>Gd", "<cmd>DiffviewOpen<cr>", desc = "Diff view (all changes)" },
-                { "<leader>Gf", "<cmd>DiffviewFileHistory %<cr>", desc = "File history" },
-                { "<leader>GL", "<cmd>DiffviewFileHistory<cr>", desc = "Repo log" },
-                { "<leader>Gq", "<cmd>DiffviewClose<cr>", desc = "Close diff view" },
-                { "<leader>Gb", "<cmd>Telescope git_branches<cr>", desc = "Branches" },
-                { "<leader>Gs", "<cmd>Telescope git_status<cr>", desc = "Status (telescope)" },
-                { "<leader>Gh", group = "hunks" },
+                -- Splits
+                { "<leader>s", group = "splits" },
               })
-            EOF
-          '';
-        }
-
-        # ── LSP setup (Neovim 0.11+ native vim.lsp.config) ──
-        #
-        # nvim-lspconfig is still needed for its /lsp/*.lua server
-        # definition files which register filetypes and default cmd/settings.
-        # We just don't call require('lspconfig') anymore.
-        vimPlugins.nvim-lspconfig
-
-        # ── Completion (nvim-cmp) ──────────────────────────
-        {
-          plugin = vimPlugins.nvim-cmp;
-          config = ''
-            lua << EOF
-              local cmp = require('cmp')
-              local luasnip = require('luasnip')
-
-              cmp.setup {
-                snippet = {
-                  expand = function(args)
-                    luasnip.lsp_expand(args.body)
-                  end,
-                },
-                mapping = cmp.mapping.preset.insert {
-                  ['<C-n>'] = cmp.mapping.select_next_item(),
-                  ['<C-p>'] = cmp.mapping.select_prev_item(),
-                  ['<C-d>'] = cmp.mapping.scroll_docs(-4),
-                  ['<C-f>'] = cmp.mapping.scroll_docs(4),
-                  ['<C-Space>'] = cmp.mapping.complete {},
-                  ['<CR>'] = cmp.mapping.confirm {
-                    behavior = cmp.ConfirmBehavior.Replace,
-                    select = true,
-                  },
-                  ['<Tab>'] = cmp.mapping(function(fallback)
-                    if cmp.visible() then
-                      cmp.select_next_item()
-                    elseif luasnip.expand_or_locally_jumpable() then
-                      luasnip.expand_or_jump()
-                    else
-                      fallback()
-                    end
-                  end, { 'i', 's' }),
-                  ['<S-Tab>'] = cmp.mapping(function(fallback)
-                    if cmp.visible() then
-                      cmp.select_prev_item()
-                    elseif luasnip.locally_jumpable(-1) then
-                      luasnip.jump(-1)
-                    else
-                      fallback()
-                    end
-                  end, { 'i', 's' }),
-                },
-                sources = cmp.config.sources({
-                  { name = 'nvim_lsp' },
-                  { name = 'luasnip' },
-                  { name = 'path' },
-                }, {
-                  { name = 'buffer' },
-                }),
-                window = {
-                  completion = cmp.config.window.bordered(),
-                  documentation = cmp.config.window.bordered(),
-                },
-              }
             EOF
           '';
         }
@@ -837,203 +497,6 @@ mkUserModule {
             EOF
           '';
         }
-        {
-          plugin = vimPlugins.gitsigns-nvim;
-          config = ''
-            lua << EOF
-              require('gitsigns').setup({
-                signs = {
-                  add          = { text = '│' },
-                  change       = { text = '│' },
-                  delete       = { text = '_' },
-                  topdelete    = { text = '‾' },
-                  changedelete = { text = '~' },
-                },
-                on_attach = function(bufnr)
-                  local gs = package.loaded.gitsigns
-
-                  local function map(mode, l, r, opts)
-                    opts = opts or {}
-                    opts.buffer = bufnr
-                    vim.keymap.set(mode, l, r, opts)
-                  end
-
-                  -- Navigation
-                  map('n', ']h', gs.next_hunk, { desc = 'Next git hunk' })
-                  map('n', '[h', gs.prev_hunk, { desc = 'Previous git hunk' })
-
-                  -- Actions
-                  map('n', '<leader>Ghs', gs.stage_hunk, { desc = 'Stage hunk' })
-                  map('n', '<leader>Ghr', gs.reset_hunk, { desc = 'Reset hunk' })
-                  map('n', '<leader>Ghp', gs.preview_hunk, { desc = 'Preview hunk' })
-                  map('n', '<leader>Ghb', function() gs.blame_line({ full = true }) end, { desc = 'Blame line' })
-                  map('n', '<leader>Ghd', gs.diffthis, { desc = 'Diff this' })
-                end,
-              })
-            EOF
-          '';
-        }
-
-        # ── Git: neogit (source control panel) ─────────────
-        {
-          plugin = vimPlugins.diffview-nvim;
-          config = ''
-            lua << EOF
-              require('diffview').setup({
-                use_icons = true,
-              })
-            EOF
-          '';
-        }
-        {
-          plugin = vimPlugins.neogit;
-          config = ''
-            lua << EOF
-              require('neogit').setup({
-                integrations = {
-                  telescope = true,
-                  diffview = true,
-                },
-                signs = {
-                  hunk = { " ", " " },
-                  item = { "▸", "▾" },
-                  section = { "▸", "▾" },
-                },
-              })
-            EOF
-          '';
-        }
-
-        # ── File explorer ──────────────────────────────────
-        {
-          plugin = vimPlugins.oil-nvim;
-          config = ''
-            lua << EOF
-              require('oil').setup({
-                default_file_explorer = true,
-                columns = {
-                  "icon",
-                  "permissions",
-                  "size",
-                  "mtime",
-                },
-                delete_to_trash = true,
-                cleanup_delay_ms = 1000,
-                use_default_keymaps = true,
-                view_options = {
-                  show_hidden = true,
-                },
-              })
-            EOF
-          '';
-        }
-
-        # ── Sidebar file tree + git status ─────────────────
-        vimPlugins.nui-nvim
-        {
-          plugin = vimPlugins.neo-tree-nvim;
-          config = ''
-            lua << EOF
-              -- Open neo-tree on startup
-              vim.api.nvim_create_autocmd('VimEnter', {
-                callback = function()
-                  -- Only open if we're not opening a specific file via stdin or with args that are directories
-                  if vim.fn.argc() == 0 then return end
-                  vim.cmd('Neotree show right')
-                end,
-              })
-
-              -- Also open when entering a buffer (covers opening nvim with a file)
-              vim.api.nvim_create_autocmd('BufReadPost', {
-                once = true,
-                callback = function()
-                  vim.schedule(function()
-                    vim.cmd('Neotree show right')
-                  end)
-                end,
-              })
-
-              require('neo-tree').setup({
-                close_if_last_window = true,
-                popup_border_style = 'rounded',
-                enable_git_status = true,
-                enable_diagnostics = true,
-                sort_case_insensitive = true,
-
-                -- Sidebar on the right
-                default_component_configs = {
-                  indent = {
-                    indent_size = 2,
-                    with_markers = true,
-                    indent_marker = "│",
-                    last_indent_marker = "└",
-                  },
-                  icon = {
-                    folder_closed = "",
-                    folder_open = "",
-                    folder_empty = "",
-                  },
-                  git_status = {
-                    symbols = {
-                      added     = "✚",
-                      modified  = "",
-                      deleted   = "✖",
-                      renamed   = "󰁕",
-                      untracked = "",
-                      ignored   = "",
-                      unstaged  = "󰄱",
-                      staged    = "",
-                      conflict  = "",
-                    },
-                  },
-                },
-
-                window = {
-                  position = 'right',
-                  width = 36,
-                  mappings = {
-                    ['<space>'] = 'none', -- don't conflict with leader
-                  },
-                },
-
-                filesystem = {
-                  follow_current_file = { enabled = true },
-                  hijack_netrw_behavior = 'disabled', -- Oil handles netrw
-                  use_libuv_file_watcher = true,
-                  filtered_items = {
-                    visible = true,
-                    hide_dotfiles = false,
-                    hide_gitignored = false,
-                    never_show = { '.DS_Store' },
-                  },
-                },
-
-                git_status = {
-                  window = {
-                    position = 'right',
-                    mappings = {
-                      ['<space>'] = 'none',
-                    },
-                  },
-                  renderers = {
-                    file = {
-                      { "indent" },
-                      { "icon" },
-                      { "git_status", highlight = "NeoTreeDimText" },
-                      { "name" },
-                      { "diagnostics" },
-                    },
-                  },
-                },
-
-                buffers = {
-                  follow_current_file = { enabled = true },
-                  window = { position = 'right' },
-                },
-              })
-            EOF
-          '';
-        }
 
         # ── Editing helpers ────────────────────────────────
         vimPlugins.nvim-comment
@@ -1042,10 +505,6 @@ mkUserModule {
           config = ''
             lua << EOF
               require('nvim-autopairs').setup({})
-              -- Integrate with cmp
-              local cmp_autopairs = require('nvim-autopairs.completion.cmp')
-              local cmp = require('cmp')
-              cmp.event:on('confirm_done', cmp_autopairs.on_confirm_done())
             EOF
           '';
         }
@@ -1059,54 +518,6 @@ mkUserModule {
 
               -- Highlight word under cursor
               require('mini.cursorword').setup({})
-            EOF
-          '';
-        }
-
-        # ── AI autocomplete (Supermaven) ───────────────────
-        {
-          plugin = vimPlugins.supermaven-nvim;
-          config = ''
-            lua << EOF
-              require('supermaven-nvim').setup({
-                keymaps = {
-                  accept_suggestion = "<C-y>",
-                  clear_suggestion = "<C-]>",
-                  accept_word = "<C-j>",
-                },
-                color = {
-                  suggestion_color = "#888888",
-                },
-                log_level = "off",
-              })
-            EOF
-          '';
-        }
-
-        # ── opencode.nvim (AI agent integration) ──────────
-        {
-          plugin = vimPlugins.opencode-nvim;
-          config = ''
-            lua << EOF
-              vim.o.autoread = true -- Required for opencode edit reloading
-
-              ---@type opencode.Opts
-              vim.g.opencode_opts = {}
-
-              -- Ask opencode about selection/cursor
-              vim.keymap.set({ "n", "x" }, "<C-a>", function() require("opencode").ask("@this: ", { submit = true }) end, { desc = "Ask opencode" })
-              -- Select from opencode actions (prompts, commands)
-              vim.keymap.set({ "n", "x" }, "<C-x>", function() require("opencode").select() end, { desc = "opencode actions" })
-              -- Toggle opencode TUI
-              vim.keymap.set({ "n", "t" }, "<C-.>", function() require("opencode").toggle() end, { desc = "Toggle opencode" })
-
-              -- Operator mode: send range to opencode (supports dot-repeat)
-              vim.keymap.set({ "n", "x" }, "go", function() return require("opencode").operator("@this ") end, { desc = "Send range to opencode", expr = true })
-              vim.keymap.set("n", "goo", function() return require("opencode").operator("@this ") .. "_" end, { desc = "Send line to opencode", expr = true })
-
-              -- Remap increment/decrement since we took <C-a>/<C-x>
-              vim.keymap.set("n", "+", "<C-a>", { desc = "Increment", noremap = true })
-              vim.keymap.set("n", "-", "<C-x>", { desc = "Decrement", noremap = true })
             EOF
           '';
         }
