@@ -9,7 +9,6 @@
 let
   jsonFormat = pkgs.formats.json { };
   inherit (pkgs)
-    tmux-extras
     figma-developer-mcp
     agentation-mcp
     ;
@@ -108,28 +107,9 @@ mkUserModule {
         };
       };
 
-      xdg.configFile = {
-        "opencode/tui.json".source = jsonFormat.generate "tui.json" {
-          cursor_style = "line";
-          cursor_blink = true;
-        };
-
-        "opencode/opencode-notifier.json".source = jsonFormat.generate "opencode-notifier.json" {
-          sound = true;
-          notification = false;
-          suppressWhenFocused = false;
-          command = {
-            enabled = true;
-            path = "${tmux-extras}/bin/tmux-notify";
-            args = [
-              "add"
-              "--event"
-              "{event}"
-              "{message}"
-            ];
-            minDuration = 0;
-          };
-        };
+      xdg.configFile."opencode/tui.json".source = jsonFormat.generate "tui.json" {
+        cursor_style = "line";
+        cursor_blink = true;
       };
     };
 }

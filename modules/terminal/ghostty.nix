@@ -1,7 +1,4 @@
 { mkUserModule, pkgs, ... }:
-let
-  inherit (pkgs) tmux-extras;
-in
 mkUserModule {
   name = "ghostty";
   home = {
@@ -11,7 +8,6 @@ mkUserModule {
       package = pkgs.ghostty-bin;
 
       settings = {
-        command = "${tmux-extras}/bin/tmux-attach";
         theme = "Flexoki Light";
 
         font-family = "CaskaydiaCove Nerd Font";
