@@ -70,7 +70,20 @@ let
             fi
             ;;
           stop)    launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "stopped" || echo "not running" ;;
-          restart) launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null; sleep 0.5; launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null && echo "restarted" || echo "failed" ;;
+          restart)
+            launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null
+            # Wait for server to fully stop before re-bootstrapping (up to 5s)
+            i=0
+            while server_up && (( i < 50 )); do
+              sleep 0.1
+              ((i++))
+            done
+            if launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null; then
+              echo "restarted"
+            else
+              echo "failed"
+            fi
+            ;;
           status)
             if server_up; then
               PID=$(launchctl list "$LABEL" 2>/dev/null | awk '/PID/ {print $NF}')
