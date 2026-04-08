@@ -6,6 +6,17 @@
 let
   serverUrl = "http://127.0.0.1:${toString serverPort}";
 
+  # Launchd agents inherit a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin),
+  # which breaks opencode plugins that shell out to user-installed tools.
+  # In particular, @simonwjackson/opencode-direnv invokes `direnv export json`
+  # via Bun's `$` shell helper, and direnv itself needs `nix` on PATH to
+  # evaluate `use flake` .envrc files.  We mirror a login shell's PATH so
+  # plugins running inside the server can find direnv, nix, and friends.
+  serverLauncher = pkgs.writeShellScript "opencode-server-launcher" ''
+    export PATH="$HOME/.nix-profile/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    exec ${opencode-unwrapped}/bin/opencode serve --port ${toString serverPort}
+  '';
+
   # Wrapper that auto-attaches TUI clients and `run` commands to the
   # shared server managed by the launchd agent.  Falls back to normal
   # (standalone) behaviour when the server is unreachable.
@@ -121,12 +132,7 @@ in
     launchd.user.agents.opencode-server = {
       serviceConfig = {
         Label = "com.opencode.server";
-        ProgramArguments = [
-          "${opencode-unwrapped}/bin/opencode"
-          "serve"
-          "--port"
-          "${toString serverPort}"
-        ];
+        ProgramArguments = [ "${serverLauncher}" ];
         RunAtLoad = true;
         KeepAlive = true;
         StandardOutPath = "/tmp/opencode-server.log";
