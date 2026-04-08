@@ -193,12 +193,13 @@ index b126d3c..e0b36c2 100644
  export const TuiOptions = z.object({
    scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
    scroll_acceleration: z
-@@ -22,6 +24,8 @@ export const TuiOptions = z.object({
+@@ -22,7 +24,9 @@ export const TuiOptions = z.object({
      .enum(["auto", "stacked"])
      .optional()
      .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
 +  cursor_style: CursorStyle.optional().describe("Cursor shape in text inputs: 'block', 'line', or 'underline'"),
 +  cursor_blink: z.boolean().optional().describe("Enable cursor blinking in text inputs"),
+   mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
  })
  
  export const TuiInfo = z
