@@ -59,7 +59,7 @@ mkUserModule {
           };
           command = {
             lin = {
-              template = "Here is the Linear issue for this branch:\n\n!`lin`\n\nSummarize the issue and ask what I want to work on.";
+              template = "!`fish -c lin`";
               description = "Load Linear issue context";
             };
           };
@@ -85,9 +85,11 @@ mkUserModule {
         };
       };
 
-      xdg.configFile."opencode/tui.json".source = jsonFormat.generate "tui.json" {
-        cursor_style = "line";
-        cursor_blink = true;
+      xdg.configFile = {
+        "opencode/tui.json".source = jsonFormat.generate "tui.json" {
+          cursor_style = "line";
+          cursor_blink = true;
+        };
       };
     };
 }
