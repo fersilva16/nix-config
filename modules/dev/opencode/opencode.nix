@@ -19,6 +19,7 @@ mkUserModule {
   name = "opencode";
   parts = {
     server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
+    direnv-plugin = import ./direnv-plugin.nix { inherit pkgs; };
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
   };
@@ -32,7 +33,6 @@ mkUserModule {
           theme = "flexoki";
           plugin = [
             "@ex-machina/opencode-anthropic-auth@0.2.1"
-            "@simonwjackson/opencode-direnv@2025.1211.9"
             "@mohak34/opencode-notifier@0.1.36"
             "oh-my-opencode@3.14.0"
             "@rama_nigg/open-cursor@2.3.20"
