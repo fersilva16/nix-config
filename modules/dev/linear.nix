@@ -314,6 +314,18 @@ mkUserModule {
                             else
                               set task (string join " " -- $argv[2..-1])
                             end
+
+                            # Strip --todo flag from task text
+                            set -l _todo_state false
+                            if string match -q -- '*--todo*' "$task"
+                              set _todo_state true
+                              set task (string replace --all -- "--todo" "" "$task" | string trim)
+                            end
+                            if test -z "$task"
+                              echo "lin: task description required" >&2
+                              return 1
+                            end
+
                             set -l available_labels (_lin_team_labels ENG | cut -f2 | string join ", ")
 
                             set -l prompt "You generate Linear issues from task descriptions.
@@ -388,6 +400,8 @@ mkUserModule {
                               return 1
                             end
 
+                            while true
+
                             set -l pri_names "None" "Urgent" "High" "Medium" "Low"
                             set -l pri_label $pri_names[(math $ai_priority + 1)]
                             set -l labels_str (string join ", " -- $ai_labels)
@@ -408,7 +422,7 @@ mkUserModule {
                             end
                             echo ""
 
-                            set -l action (gum choose --header "Action" "Create" "Edit" "Cancel")
+                            set -l action (gum choose --header "Action" "Create" "Edit with AI" "Edit" "Cancel")
 
                             switch $action
                               case Create
@@ -436,14 +450,89 @@ mkUserModule {
                                   or gum style --faint "  ⚠ Could not attach to project: $ai_project"
                                 end
 
+                                if test "$_todo_state" = true -a -n "$issue_id"
+                                  linear-cli i update $issue_id --state "Todo" --quiet --no-pager 2>/dev/null
+                                end
+
                                 if test -n "$issue_id"
                                   set -g _lin_ai_last_issue $issue_id
                                   gum style --foreground 82 "  ✓ Created $issue_id"
                                   if test -n "$ai_project"
                                     gum style --faint "    Project: $ai_project"
                                   end
+                                  if test "$_todo_state" = true
+                                    gum style --faint "    State: Todo"
+                                  end
                                 else
                                   printf '%s\n' $create_result
+                                end
+                                break
+
+                              case "Edit with AI"
+                                set -l instruction (gum write --placeholder "What to change..." --header "Refinement" --width 80)
+                                or continue
+                                if test -z "$instruction"; continue; end
+
+                                # Build current state as JSON for refinement
+                                set -l current_json (jq -n \
+                                  --arg title "$ai_title" \
+                                  --arg desc "$ai_desc" \
+                                  --argjson priority $ai_priority \
+                                  --arg ph "$project_hint" \
+                                  '{title: $title, description: $desc, priority: $priority, project_hint: (if $ph != "" then $ph else null end), labels: []}')
+                                for lbl in $ai_labels
+                                  set current_json (printf '%s' "$current_json" | jq --arg l "$lbl" '.labels += [$l]')
+                                end
+
+                                set -l refine_file (mktemp)
+                                set -l r_out (mktemp)
+                                set -l r_err (mktemp)
+                                printf 'You are refining a Linear issue. Current issue:\n%s\n\nRequested change: %s\n\nReturn ONLY the updated raw JSON object (no markdown fences, no commentary).\nSame schema: {"title": string, "description": string, "priority": int, "labels": string[], "project_hint": string|null}\nKeep fields unchanged unless the instruction implies a change.' "$current_json" "$instruction" > $refine_file
+
+                                gum spin --spinner dot --title "Refining with AI..." -- \
+                                  sh -c 'opencode run -m "opencode/minimax-m2.5-free" "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err"
+
+                                set -l r_result (cat $r_out)
+                                set -l r_errs (cat $r_err)
+                                rm -f $refine_file $r_out $r_err
+
+                                if test -z "$r_result"
+                                  gum style --foreground 196 "  ✗ AI refinement failed"
+                                  if test -n "$r_errs"
+                                    printf '%s\n' $r_errs | gum style --faint
+                                  end
+                                  continue
+                                end
+
+                                # Re-parse refined JSON
+                                set -l r_json (printf '%s\n' $r_result | sed -n '/^{/,/^}/p')
+                                if test -z "$r_json"
+                                  set r_json (printf '%s\n' $r_result | sed -n '/```/,/```/p' | grep -v '```')
+                                end
+                                if test -z "$r_json"
+                                  set r_json "$r_result"
+                                end
+
+                                set -l new_title (printf '%s\n' $r_json | jq -r '.title // empty' 2>/dev/null)
+                                if test -n "$new_title"
+                                  set ai_title "$new_title"
+                                  set ai_desc (printf '%s\n' $r_json | jq -r '.description // empty' 2>/dev/null)
+                                  set ai_priority (printf '%s\n' $r_json | jq -r '.priority // 3' 2>/dev/null)
+                                  set ai_labels (printf '%s\n' $r_json | jq -r '.labels[]? // empty' 2>/dev/null)
+                                  set project_hint (printf '%s\n' $r_json | jq -r '.project_hint // empty' 2>/dev/null)
+                                  # Re-resolve project
+                                  set ai_project ""
+                                  if test -n "$project_hint"
+                                    set -l matches (linear-cli projects list --no-pager --quiet --format "{{name}}" --all 2>/dev/null | grep -i "$project_hint")
+                                    if test (count $matches) -eq 1
+                                      set ai_project $matches[1]
+                                    else if test (count $matches) -gt 1
+                                      set ai_project (printf '%s\n' $matches | gum filter --header "Multiple projects match '$project_hint'")
+                                    end
+                                  end
+                                else
+                                  gum style --foreground 196 "  ✗ Could not parse refined response"
+                                  printf '%s\n' $r_result | head -5 | gum style --faint
                                 end
 
                               case Edit
@@ -504,18 +593,27 @@ mkUserModule {
                                   or gum style --faint "  ⚠ Could not attach to project: $project"
                                 end
 
+                                if test "$_todo_state" = true -a -n "$issue_id"
+                                  linear-cli i update $issue_id --state "Todo" --quiet --no-pager 2>/dev/null
+                                end
+
                                 if test -n "$issue_id"
                                   set -g _lin_ai_last_issue $issue_id
                                   gum style --foreground 82 "  ✓ Created $issue_id"
                                   if test -n "$project"
                                     gum style --faint "    Project: $project"
                                   end
+                                  if test "$_todo_state" = true
+                                    gum style --faint "    State: Todo"
+                                  end
                                 else
                                   printf '%s\n' $create_result
                                 end
+                                break
 
                               case Cancel
                                 return 0
+                            end
                             end
 
                           case '*'
