@@ -61,20 +61,24 @@ if tCode then
   end
 end
 
--- Hyper + C → Open Cursor at the git root of the current tmux pane directory
+-- Hyper + C → Open Cursor at the git root of the current tmux pane directory.
+-- Uses hs.task (async) instead of hs.execute to avoid blocking the main
+-- thread — a hung tmux/git would otherwise cause macOS to disable the tap.
 local cCode = hs.keycodes.map["c"]
 if cCode then
   hyperActionsByKeyCode[cCode] = function()
-    local dir = hs.execute("tmux display-message -p '#{pane_current_path}' 2>/dev/null", true)
-    dir = dir and dir:gsub("%s+$", "") or ""
-    if dir ~= "" then
-      local gitRoot = hs.execute(string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir), true)
-      gitRoot = gitRoot and gitRoot:gsub("%s+$", "") or ""
-      local target = gitRoot ~= "" and gitRoot or dir
-      hs.execute(string.format("open -a Cursor '%s'", target), true)
-    else
-      hs.execute("open -a Cursor", true)
-    end
+    hs.task.new("/bin/sh", function(_code, stdout)
+      local dir = stdout and stdout:gsub("%s+$", "") or ""
+      if dir == "" then
+        hs.execute("open -a Cursor", true)
+        return
+      end
+      hs.task.new("/bin/sh", function(_code2, stdout2)
+        local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
+        local target = gitRoot ~= "" and gitRoot or dir
+        hs.execute(string.format("open -a Cursor '%s'", target), true)
+      end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
+    end, { "-l", "-c", "tmux display-message -p '#{pane_current_path}' 2>/dev/null" }):start()
   end
 end
 
@@ -218,12 +222,76 @@ end
 
 recreateWatcher()
 
--- Monitor eventtap health every 2 seconds. If the tap has been silently
--- disabled by macOS, destroy it and create a brand new one.
+-- Secure Input monitoring state. When an app enables Secure Input (password
+-- fields, 1Password, etc.), ALL CGEventTaps are blocked — events stop flowing
+-- even though isEnabled() still returns true. Track consecutive ticks to
+-- distinguish brief password dialogs from stuck Secure Input.
+local secureInputTicks = 0
+local SECURE_INPUT_ALERT_TICKS = 5   -- first alert after 10s (5 × 2s)
+local SECURE_INPUT_REMIND_TICKS = 15 -- re-alert every 30s while stuck
+
+-- Proactive tap recreation. macOS can silently invalidate a CGEventTap's
+-- Mach port in ways that isEnabled() doesn't detect. Periodically destroying
+-- and recreating the tap gets a fresh Mach port as prevention.
+local lastRecreate = hs.timer.secondsSinceEpoch()
+local RECREATE_INTERVAL = 300 -- 5 minutes
+
+-- Monitor eventtap health every 2 seconds with three layers of protection:
+-- 1. Reactive:  detect tap disabled by macOS and recreate.
+-- 2. Proactive: recreate every 5 min to get a fresh Mach port.
+-- 3. Secure Input: detect when events are blocked despite a "healthy" tap.
+-- The entire callback is pcall-wrapped so the recovery mechanism itself
+-- cannot die from an unexpected error.
 local healthCheck = hs.timer.new(2, function()
-  if not f18Watcher or not f18Watcher:isEnabled() then
-    hs.alert.show("⌨️ Hyper key recovered", 1.5)
-    recreateWatcher()
+  local ok, err = pcall(function()
+    local now = hs.timer.secondsSinceEpoch()
+
+    -- 1. Reactive: tap explicitly disabled by macOS
+    if not f18Watcher or not f18Watcher:isEnabled() then
+      hs.alert.show("⌨️ Hyper key recovered", 1.5)
+      recreateWatcher()
+      lastRecreate = now
+      secureInputTicks = 0
+      return
+    end
+
+    -- 2. Proactive: recreate every 5 minutes
+    if now - lastRecreate >= RECREATE_INTERVAL then
+      recreateWatcher()
+      lastRecreate = now
+    end
+
+    -- 3. Secure Input: alert user with culprit process name.
+    --    isEnabled() returns true under Secure Input, so this is the only
+    --    way to detect this failure mode.
+    if hs.eventtap.isSecureInputEnabled() then
+      secureInputTicks = secureInputTicks + 1
+      local shouldAlert = secureInputTicks == SECURE_INPUT_ALERT_TICKS
+          or (secureInputTicks > SECURE_INPUT_ALERT_TICKS
+              and (secureInputTicks - SECURE_INPUT_ALERT_TICKS) % SECURE_INPUT_REMIND_TICKS == 0)
+      if shouldAlert then
+        local culprit = "unknown"
+        local raw = hs.execute(
+            "/usr/bin/ioreg -l -w 0 | /usr/bin/grep kCGSSessionSecureInputPID | /usr/bin/head -1", false)
+        if raw then
+          local pid = raw:match("= (%d+)")
+          if pid and pid ~= "0" then
+            local name = hs.execute("/bin/ps -p " .. pid .. " -o comm= 2>/dev/null", false)
+            if name and name:gsub("%s+$", "") ~= "" then
+              culprit = name:gsub("%s+$", ""):match("[^/]+$") or ("PID " .. pid)
+            else
+              culprit = "PID " .. pid
+            end
+          end
+        end
+        hs.alert.show("⚠️ Secure Input ON — hyper key blocked\nCulprit: " .. culprit, 6)
+      end
+    else
+      secureInputTicks = 0
+    end
+  end)
+  if not ok then
+    hs.alert.show("⌨️ Health check error: " .. tostring(err), 3)
   end
 end)
 healthCheck:start()
@@ -232,11 +300,16 @@ healthCheck:start()
 -- Mach ports, freeze timers, and leave watchers unresponsive. A clean
 -- reload is the only reliable recovery.
 local caffeinate = hs.caffeinate.watcher.new(function(event)
-  if event == hs.caffeinate.watcher.systemDidWake or
-      event == hs.caffeinate.watcher.screensDidWake then
-    hs.timer.doAfter(2, function()
-      hs.reload()
-    end)
+  local ok, err = pcall(function()
+    if event == hs.caffeinate.watcher.systemDidWake or
+        event == hs.caffeinate.watcher.screensDidWake then
+      hs.timer.doAfter(2, function()
+        hs.reload()
+      end)
+    end
+  end)
+  if not ok then
+    hs.alert.show("⌨️ Wake handler error: " .. tostring(err), 3)
   end
 end)
 caffeinate:start()
@@ -247,11 +320,16 @@ caffeinate:start()
 -- into a single reload.
 local reloadTimer = nil
 local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", function()
-  if reloadTimer then
-    reloadTimer:stop()
-  end
-  reloadTimer = hs.timer.doAfter(2, function()
-    hs.reload()
+  local ok, err = pcall(function()
+    if reloadTimer then
+      reloadTimer:stop()
+    end
+    reloadTimer = hs.timer.doAfter(2, function()
+      hs.reload()
+    end)
   end)
+  if not ok then
+    hs.alert.show("⌨️ Config watcher error: " .. tostring(err), 3)
+  end
 end)
 configWatcher:start()
