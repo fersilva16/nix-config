@@ -350,18 +350,29 @@ mkUserModule {
                             # Animated spinner while AI generates
                             set -l tmpfile (mktemp)
                             set -l errfile (mktemp)
+                            set -l promptfile (mktemp)
+                            printf '%s' "$prompt" > $promptfile
                             gum spin --spinner dot --title "Generating issue with AI..." -- \
-                              sh -c "opencode run -m 'opencode/minimax-m2.5-free' '$prompt' > '$tmpfile' 2> '$errfile'"
+                              sh -c 'opencode run -m "opencode/minimax-m2.5-free" "$(cat "$1")" > "$2" 2> "$3"' _ "$promptfile" "$tmpfile" "$errfile"
+                            set -l ai_exit $status
 
                             set -l result (cat $tmpfile)
                             set -l errs (cat $errfile)
-                            rm -f $tmpfile $errfile
+                            rm -f $tmpfile $errfile $promptfile
+
+                            # Persist AI interaction for debugging
+                            set -l logdir ~/.local/share/lin
+                            mkdir -p $logdir
+                            set -l logfile $logdir/ai-last.log
+                            printf '=== lin ai @ %s ===\n--- prompt ---\n%s\n--- response (exit %d) ---\n%s\n--- stderr ---\n%s\n' \
+                              (date '+%Y-%m-%d %H:%M:%S') "$prompt" $ai_exit "$result" "$errs" > $logfile
 
                             if test -z "$result"
-                              echo "lin: AI generation failed" >&2
+                              echo "lin: AI generation failed (exit $ai_exit)" >&2
                               if test -n "$errs"
                                 printf '%s\n' $errs | gum style --foreground 196 --faint
                               end
+                              gum style --faint "  see $logfile for details"
                               return 1
                             end
 
@@ -491,16 +502,26 @@ mkUserModule {
 
                                 gum spin --spinner dot --title "Refining with AI..." -- \
                                   sh -c 'opencode run -m "opencode/minimax-m2.5-free" "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err"
+                                set -l r_exit $status
 
                                 set -l r_result (cat $r_out)
                                 set -l r_errs (cat $r_err)
+                                set -l r_prompt (cat $refine_file)
                                 rm -f $refine_file $r_out $r_err
 
+                                # Persist refinement interaction for debugging
+                                set -l logdir ~/.local/share/lin
+                                mkdir -p $logdir
+                                set -l logfile $logdir/ai-last.log
+                                printf '\n=== lin ai refine @ %s ===\n--- prompt ---\n%s\n--- response (exit %d) ---\n%s\n--- stderr ---\n%s\n' \
+                                  (date '+%Y-%m-%d %H:%M:%S') "$r_prompt" $r_exit "$r_result" "$r_errs" >> $logfile
+
                                 if test -z "$r_result"
-                                  gum style --foreground 196 "  ✗ AI refinement failed"
+                                  gum style --foreground 196 "  ✗ AI refinement failed (exit $r_exit)"
                                   if test -n "$r_errs"
                                     printf '%s\n' $r_errs | gum style --faint
                                   end
+                                  gum style --faint "  see $logfile for details"
                                   continue
                                 end
 
@@ -616,6 +637,15 @@ mkUserModule {
                             end
                             end
 
+                          case ai-log
+                            set -l logfile ~/.local/share/lin/ai-last.log
+                            if test -f $logfile
+                              cat $logfile
+                            else
+                              echo "lin: no AI log found (run 'lin ai' first)" >&2
+                              return 1
+                            end
+
                           case '*'
                             linear-cli $argv
                         end
@@ -624,7 +654,7 @@ mkUserModule {
 
         shellInit = ''
           # Completion for lin: linear-cli issue subcommands
-          complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list all create ai start done cancelled duplicate comment pr open backlog todo progress"
+          complete -f -c lin -n "test (count (commandline -opc)) -eq 1" -a "view list all create ai ai-log start done cancelled duplicate comment pr open backlog todo progress"
         '';
       };
     };
