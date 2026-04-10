@@ -3,12 +3,12 @@ let
   figma-developer-mcp = pkgs.callPackage ./figma-developer-mcp.nix { };
 in
 {
-  default = false;
+  default = true;
   home =
     { username, ... }:
     {
       programs.opencode.settings.mcp.framelink = {
-        enabled = true;
+        enabled = false;
         type = "local";
         command = [
           "${figma-developer-mcp}/bin/figma-developer-mcp"
