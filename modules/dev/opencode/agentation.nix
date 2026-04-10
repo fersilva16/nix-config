@@ -3,10 +3,10 @@ let
   agentation-mcp = pkgs.callPackage ./agentation-mcp.nix { };
 in
 {
-  default = false;
+  default = true;
   home = {
     programs.opencode.settings.mcp.agentation = {
-      enabled = true;
+      enabled = false;
       type = "local";
       command = [
         "${agentation-mcp}/bin/agentation-mcp"
