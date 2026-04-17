@@ -15,18 +15,61 @@
 --     instead of hs.keycodes.map + string lookup per event).
 --   - Fast path: non-F18 events when hyper is not held are rejected with a
 --     single boolean check + integer comparison, no function calls.
+--
+-- Diagnostics:
+--   Logs to ~/.hammerspoon/hyper.log (auto-rotates at 256 KB).
+--   Tail live:  tail -f ~/.hammerspoon/hyper.log
+--   Last 50:    tail -50 ~/.hammerspoon/hyper.log
 
+-- ---------------------------------------------------------------------------
+-- Logging
+-- ---------------------------------------------------------------------------
+local LOG_PATH = os.getenv("HOME") .. "/.hammerspoon/hyper.log"
+local LOG_MAX_BYTES = 256 * 1024
+
+-- Rotate: if current log exceeds limit, move to .old and start fresh.
+local function rotateLog()
+  local f = io.open(LOG_PATH, "r")
+  if not f then return end
+  local size = f:seek("end")
+  f:close()
+  if size and size > LOG_MAX_BYTES then
+    os.remove(LOG_PATH .. ".old")
+    os.rename(LOG_PATH, LOG_PATH .. ".old")
+  end
+end
+
+local function log(category, msg)
+  local f = io.open(LOG_PATH, "a")
+  if not f then return end
+  local now = hs.timer.secondsSinceEpoch()
+  local ms = math.floor((now % 1) * 1000)
+  f:write(string.format("[%s.%03d] %-8s | %s\n", os.date("%Y-%m-%dT%H:%M:%S"), ms, category, msg))
+  f:close()
+end
+
+rotateLog()
+log("INIT", "======== Hammerspoon hyper key loading ========")
+
+-- ---------------------------------------------------------------------------
+-- Setup
+-- ---------------------------------------------------------------------------
 hs.allowAppleScript(true)
 
 if not hs.accessibilityState() then
   hs.alert.show("Hammerspoon needs Accessibility access!", 5)
+  log("ERROR", "Missing Accessibility access")
 end
 
 local hyperDown = false
 local hyperUsedAsModifier = false
+local hyperDownSince = nil   -- epoch timestamp when hyperDown was set
+local lastEventTime = nil    -- epoch timestamp of last event through the tap
+local tapEventCount = 0      -- events processed since last tap creation
 
 local function resetHyper()
   hyperDown = false
+  hyperDownSince = nil
 end
 
 -- Pre-build keyCode→{mods, key} binding table at init time.
@@ -48,16 +91,24 @@ local bindingDefs = {
 for char, binding in pairs(bindingDefs) do
   local code = hs.keycodes.map[char]
   if code then
-    -- Pre-create the event constructor args: store mods and target key
     hyperBindingsByKeyCode[code] = binding
   end
 end
 
+-- Reverse lookup for logging: keyCode → readable name
+local keyCodeNames = {}
+for char, _ in pairs(bindingDefs) do
+  local code = hs.keycodes.map[char]
+  if code then keyCodeNames[code] = char end
+end
+
 -- Hyper + T → Open a new Ghostty window
+-- Uses hs.task (async) to avoid blocking the main thread.
 local tCode = hs.keycodes.map["t"]
 if tCode then
+  keyCodeNames[tCode] = "t"
   hyperActionsByKeyCode[tCode] = function()
-    hs.execute("open -na Ghostty", true)
+    hs.task.new("/usr/bin/open", nil, { "-na", "Ghostty" }):start()
   end
 end
 
@@ -66,32 +117,36 @@ end
 -- thread — a hung tmux/git would otherwise cause macOS to disable the tap.
 local cCode = hs.keycodes.map["c"]
 if cCode then
+  keyCodeNames[cCode] = "c"
   hyperActionsByKeyCode[cCode] = function()
     hs.task.new("/bin/sh", function(_code, stdout)
       local dir = stdout and stdout:gsub("%s+$", "") or ""
       if dir == "" then
-        hs.execute("open -a Cursor", true)
+        hs.task.new("/usr/bin/open", nil, { "-a", "Cursor" }):start()
         return
       end
       hs.task.new("/bin/sh", function(_code2, stdout2)
         local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
         local target = gitRoot ~= "" and gitRoot or dir
-        hs.execute(string.format("open -a Cursor '%s'", target), true)
+        hs.task.new("/usr/bin/open", nil, { "-a", "Cursor", target }):start()
       end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
     end, { "-l", "-c", "tmux display-message -p '#{pane_current_path}' 2>/dev/null" }):start()
   end
 end
 
--- Hyper + Space → Toggle between Ghostty and Cursor; default to Ghostty
+-- Hyper + Space → Toggle between Ghostty and Cursor; default to Ghostty.
+-- Uses hs.task (async) — hs.application.open() blocks the main thread and
+-- freezes all timers when an app is slow to respond to Launch Services.
 local spaceCode = hs.keycodes.map["space"]
 if spaceCode then
+  keyCodeNames[spaceCode] = "space"
   hyperActionsByKeyCode[spaceCode] = function()
     local front = hs.application.frontmostApplication()
     local bid = front and front:bundleID() or ""
     if bid == "com.mitchellh.ghostty" then
-      hs.application.open("Cursor")
+      hs.task.new("/usr/bin/open", nil, { "-a", "Cursor" }):start()
     else
-      hs.application.open("Ghostty")
+      hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
     end
   end
 end
@@ -101,10 +156,11 @@ end
 -- they bypass our eventtap — otherwise Ctrl+Space triggers hyper+space.
 local nCode = hs.keycodes.map["n"]
 if nCode then
+  keyCodeNames[nCode] = "n"
   hyperActionsByKeyCode[nCode] = function()
     local ghostty = hs.application.get("com.mitchellh.ghostty")
     if not ghostty then
-      hs.application.open("Ghostty")
+      hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
       return
     end
     ghostty:activate()
@@ -125,9 +181,13 @@ if nCode then
   end
 end
 
--- Eventtap callback, extracted so we can recreate the tap without duplication.
+-- ---------------------------------------------------------------------------
+-- Eventtap callback
+-- ---------------------------------------------------------------------------
 local function f18Callback(event)
   local keyCode = event:getKeyCode()
+  lastEventTime = hs.timer.secondsSinceEpoch()
+  tapEventCount = tapEventCount + 1
 
   -- F18 = keyCode 79
   if keyCode == 79 then
@@ -136,13 +196,19 @@ local function f18Callback(event)
       if not hyperDown then
         hyperDown = true
         hyperUsedAsModifier = false
+        hyperDownSince = lastEventTime
+        log("HYPER", "DOWN")
       end
       return true
     elseif eventType == hs.eventtap.event.types.keyUp then
       local wasTap = not hyperUsedAsModifier
+      local heldFor = hyperDownSince and (lastEventTime - hyperDownSince) or 0
       resetHyper()
       if wasTap then
         hs.hid.capslock.toggle()
+        log("HYPER", string.format("UP tap (caps toggled) held=%.2fs", heldFor))
+      else
+        log("HYPER", string.format("UP modifier held=%.2fs", heldFor))
       end
       return true
     end
@@ -174,6 +240,8 @@ local function f18Callback(event)
     if flags.shift then mods[#mods + 1] = "shift" end
     if flags.alt then mods[#mods + 1] = "alt" end
     if flags.cmd then mods[#mods + 1] = "cmd" end
+    local name = keyCodeNames[keyCode] or tostring(keyCode)
+    log("BIND", string.format("%s → %s (mods: %s)", name, binding[2], table.concat(mods, "+") or "none"))
     return true, {
       newKeyEvent(mods, binding[2], true),
       newKeyEvent(mods, binding[2], false),
@@ -192,9 +260,12 @@ local function f18Callback(event)
     if event:getProperty(hs.eventtap.event.properties.keyboardEventAutorepeat) ~= 0 then
       return true
     end
+    local name = keyCodeNames[keyCode] or tostring(keyCode)
+    log("ACTION", name)
     hs.timer.doAfter(0, function()
       local ok, err = pcall(action)
       if not ok then
+        log("ERROR", "action " .. name .. ": " .. tostring(err))
         hs.alert.show("Hyper action error: " .. tostring(err), 3)
       end
     end)
@@ -204,13 +275,27 @@ local function f18Callback(event)
   return false
 end
 
+-- ---------------------------------------------------------------------------
+-- Tap lifecycle
+-- ---------------------------------------------------------------------------
 local f18Watcher = nil
 local tapEventTypes = { hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp }
+
+-- Check if the hidutil Caps Lock → F18 mapping is still active.
+-- Returns true if the mapping is present, false otherwise.
+local function checkHidutilMapping()
+  local raw = hs.execute("/usr/bin/hidutil property --get UserKeyMapping 2>/dev/null", false)
+  if not raw then return false end
+  -- Look for our specific mapping: Caps Lock (0x700000039) → F18 (0x70000006D)
+  return raw:find("30064771129") ~= nil and raw:find("30064771181") ~= nil
+end
 
 -- Destroy the current tap and create a fresh one. macOS can permanently
 -- invalidate a CGEventTap handle; re-enabling it via :start() does nothing
 -- in that case. Recreating from scratch gets a new Mach port.
-local function recreateWatcher()
+local function recreateWatcher(reason)
+  reason = reason or "unknown"
+  local prevCount = tapEventCount
   if f18Watcher then
     f18Watcher:stop()
     f18Watcher = nil
@@ -218,9 +303,24 @@ local function recreateWatcher()
   f18Watcher = hs.eventtap.new(tapEventTypes, f18Callback)
   f18Watcher:start()
   resetHyper()
+  tapEventCount = 0
+
+  local hidutilOk = checkHidutilMapping()
+  log("RECREATE", string.format(
+    "reason=%s prev_events=%d hidutil_mapping=%s",
+    reason, prevCount, hidutilOk and "ok" or "MISSING"))
+
+  if not hidutilOk then
+    log("ERROR", "hidutil Caps Lock → F18 mapping is MISSING — hyper key will not work")
+    hs.alert.show("⚠️ Caps Lock → F18 mapping lost!\nRun: sudo darwin-rebuild switch --flake .#m1", 8)
+  end
 end
 
-recreateWatcher()
+recreateWatcher("init")
+
+-- ---------------------------------------------------------------------------
+-- Health monitoring
+-- ---------------------------------------------------------------------------
 
 -- Secure Input monitoring state. When an app enables Secure Input (password
 -- fields, 1Password, etc.), ALL CGEventTaps are blocked — events stop flowing
@@ -234,34 +334,60 @@ local SECURE_INPUT_REMIND_TICKS = 15 -- re-alert every 30s while stuck
 -- Mach port in ways that isEnabled() doesn't detect. Periodically destroying
 -- and recreating the tap gets a fresh Mach port as prevention.
 local lastRecreate = hs.timer.secondsSinceEpoch()
-local RECREATE_INTERVAL = 300 -- 5 minutes
+local RECREATE_INTERVAL = 30 -- 30 seconds (was 300; kept short to cap outage window)
 
--- Monitor eventtap health every 2 seconds with three layers of protection:
--- 1. Reactive:  detect tap disabled by macOS and recreate.
--- 2. Proactive: recreate every 5 min to get a fresh Mach port.
--- 3. Secure Input: detect when events are blocked despite a "healthy" tap.
+-- Stuck-hyper threshold. If hyperDown has been true for longer than this,
+-- it's almost certainly stuck (missed F18 keyUp). Force-reset it.
+local STUCK_HYPER_THRESHOLD = 5 -- seconds
+
+-- Monitor eventtap health every 2 seconds with four layers of protection:
+-- 1. Reactive:    detect tap disabled by macOS and recreate.
+-- 2. Proactive:   recreate every 30s to get a fresh Mach port.
+-- 3. Stuck hyper: detect hyperDown stuck for >5s and force-reset.
+-- 4. Secure Input: detect when events are blocked despite a "healthy" tap.
 -- The entire callback is pcall-wrapped so the recovery mechanism itself
 -- cannot die from an unexpected error.
 local healthCheck = hs.timer.new(2, function()
   local ok, err = pcall(function()
     local now = hs.timer.secondsSinceEpoch()
+    local lastEvtAgo = lastEventTime and (now - lastEventTime) or -1
 
     -- 1. Reactive: tap explicitly disabled by macOS
     if not f18Watcher or not f18Watcher:isEnabled() then
+      log("HEALTH", string.format("REACTIVE: tap disabled — recreating (last_evt=%.1fs ago)", lastEvtAgo))
       hs.alert.show("⌨️ Hyper key recovered", 1.5)
-      recreateWatcher()
+      recreateWatcher("reactive:tap_disabled")
       lastRecreate = now
       secureInputTicks = 0
       return
     end
 
-    -- 2. Proactive: recreate every 5 minutes
+    -- 2. Proactive: recreate every RECREATE_INTERVAL seconds
     if now - lastRecreate >= RECREATE_INTERVAL then
-      recreateWatcher()
+      log("HEALTH", string.format(
+        "PROACTIVE: %ds elapsed — recreating (last_evt=%.1fs ago, events=%d)",
+        RECREATE_INTERVAL, lastEvtAgo, tapEventCount))
+      recreateWatcher("proactive:" .. RECREATE_INTERVAL .. "s")
       lastRecreate = now
     end
 
-    -- 3. Secure Input: alert user with culprit process name.
+    -- 3. Stuck hyper: hyperDown is true but no events flowing through the tap.
+    --    Active use (holding hyper + pressing hjkl) keeps lastEventTime fresh,
+    --    so this only fires when the tap died mid-hold and stopped receiving
+    --    events entirely.
+    if hyperDown and hyperDownSince then
+      local lastActivity = lastEventTime or hyperDownSince
+      local silentFor = now - lastActivity
+      if silentFor > STUCK_HYPER_THRESHOLD then
+        log("HEALTH", string.format(
+          "STUCK: hyperDown with no events for %.1fs (held for %.1fs) — force resetting",
+          silentFor, now - hyperDownSince))
+        hs.alert.show("⌨️ Hyper key unstuck", 1.5)
+        resetHyper()
+      end
+    end
+
+    -- 4. Secure Input: alert user with culprit process name.
     --    isEnabled() returns true under Secure Input, so this is the only
     --    way to detect this failure mode.
     if hs.eventtap.isSecureInputEnabled() then
@@ -284,17 +410,26 @@ local healthCheck = hs.timer.new(2, function()
             end
           end
         end
+        log("SECURE", string.format("Secure Input ON for %ds — culprit: %s", secureInputTicks * 2, culprit))
         hs.alert.show("⚠️ Secure Input ON — hyper key blocked\nCulprit: " .. culprit, 6)
       end
     else
+      if secureInputTicks > 0 then
+        log("SECURE", string.format("Secure Input OFF after %ds", secureInputTicks * 2))
+      end
       secureInputTicks = 0
     end
   end)
   if not ok then
+    log("ERROR", "health check: " .. tostring(err))
     hs.alert.show("⌨️ Health check error: " .. tostring(err), 3)
   end
 end)
 healthCheck:start()
+
+-- ---------------------------------------------------------------------------
+-- System wake handler
+-- ---------------------------------------------------------------------------
 
 -- Full reload on system wake. Sleep can permanently invalidate eventtap
 -- Mach ports, freeze timers, and leave watchers unresponsive. A clean
@@ -303,33 +438,55 @@ local caffeinate = hs.caffeinate.watcher.new(function(event)
   local ok, err = pcall(function()
     if event == hs.caffeinate.watcher.systemDidWake or
         event == hs.caffeinate.watcher.screensDidWake then
+      log("WAKE", "System/screen woke — scheduling full reload in 2s")
       hs.timer.doAfter(2, function()
+        log("WAKE", "Reloading now")
         hs.reload()
       end)
     end
   end)
   if not ok then
+    log("ERROR", "wake handler: " .. tostring(err))
     hs.alert.show("⌨️ Wake handler error: " .. tostring(err), 3)
   end
 end)
 caffeinate:start()
+
+-- ---------------------------------------------------------------------------
+-- Config watcher
+-- ---------------------------------------------------------------------------
 
 -- Auto-reload config on changes with debounce. The config is a nix store
 -- symlink, so darwin-rebuild changes the symlink target which can fire
 -- multiple events in quick succession. A 2-second debounce collapses them
 -- into a single reload.
 local reloadTimer = nil
-local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", function()
+local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", function(changedPaths)
   local ok, err = pcall(function()
+    if changedPaths then
+      local configChanged = false
+      for _, p in ipairs(changedPaths) do
+        if not p:match("%.log") then
+          configChanged = true
+          break
+        end
+      end
+      if not configChanged then return end
+    end
+    log("RELOAD", "Config change detected — debouncing 2s")
     if reloadTimer then
       reloadTimer:stop()
     end
     reloadTimer = hs.timer.doAfter(2, function()
+      log("RELOAD", "Reloading now")
       hs.reload()
     end)
   end)
   if not ok then
+    log("ERROR", "config watcher: " .. tostring(err))
     hs.alert.show("⌨️ Config watcher error: " .. tostring(err), 3)
   end
 end)
 configWatcher:start()
+
+log("INIT", "======== Hyper key ready ========")
