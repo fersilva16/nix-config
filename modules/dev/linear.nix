@@ -429,7 +429,7 @@ mkUserModule {
                                         set -l prompt "You generate Linear issues from task descriptions.
                         Return ONLY a raw JSON object (no markdown fences, no commentary).
 
-                        JSON schema: {\"title\": string, \"description\": string, \"priority\": int, \"labels\": string[], \"project_hint\": string|null}
+                        JSON schema: {\"title\": string, \"description\": string, \"priority\": int, \"labels\": string[], \"project_hint\": string|null, \"assign_to_me\": boolean}
 
                         Rules:
                         - title: concise, imperative (e.g. \"Fix input sizing for md/lg variants\")
@@ -437,6 +437,7 @@ mkUserModule {
                         - priority: 1=urgent 2=high 3=medium 4=low
                         - labels: pick from available: $available_labels. Empty array if none fit.
                         - project_hint: if the user mentions a project, extract their words as-is (e.g. \"react project\" or \"CDSS\"). null if no project mentioned. Do NOT invent a project name.
+                        - assign_to_me: default false. Only true when the user explicitly asks to be assigned (e.g. \"assign to me\", \"assign me\").
 
                         Examples of good descriptions:
                         - \"The input component has inconsistent sizing across md/lg variants. Need to standardize to 56px/64px respectively and normalize the overall styling.\"
@@ -487,6 +488,7 @@ mkUserModule {
                                         set -l ai_desc (printf '%s\n' $json_str | jq -r '.description // empty' 2>/dev/null)
                                         set -l ai_priority (printf '%s\n' $json_str | jq -r '.priority // 3' 2>/dev/null)
                                         set -l ai_labels (printf '%s\n' $json_str | jq -r '.labels[]? // empty' 2>/dev/null)
+                                        set -l ai_assign (printf '%s\n' $json_str | jq -r '.assign_to_me // false' 2>/dev/null)
 
                                         # Resolve project: AI extracts hint, we fuzzy-match against real list
                                         set -l ai_project ""
@@ -522,6 +524,9 @@ mkUserModule {
                                         echo ""
                                         echo "  Priority: $pri_label" | gum style --faint
                                         echo "  Labels:   $labels_str" | gum style --faint
+                                        if test "$ai_assign" = true
+                                          echo "  Assignee: me" | gum style --faint
+                                        end
                                         if test -n "$ai_project"
                                           echo "  Project:  $ai_project" | gum style --faint
                                         end
@@ -558,7 +563,8 @@ mkUserModule {
 
                                             set -l _full_desc "$ai_desc$_image_md"
 
-                                            set -l cmd linear-cli i create "$ai_title" -t ENG -p $ai_priority -a me -o json --quiet --no-pager
+                                            set -l cmd linear-cli i create "$ai_title" -t ENG -p $ai_priority -o json --quiet --no-pager
+                                            if test "$ai_assign" = true; set -a cmd -a me; end
                                             if test -n "$_full_desc"; set -a cmd -d "$_full_desc"; end
                                             set -l label_data (_lin_team_labels ENG)
                                             for lbl in $ai_labels
@@ -620,7 +626,8 @@ mkUserModule {
                                               --arg desc "$ai_desc" \
                                               --argjson priority $ai_priority \
                                               --arg ph "$project_hint" \
-                                              '{title: $title, description: $desc, priority: $priority, project_hint: (if $ph != "" then $ph else null end), labels: []}')
+                                              --argjson assign (test "$ai_assign" = true; and echo true; or echo false) \
+                                              '{title: $title, description: $desc, priority: $priority, project_hint: (if $ph != "" then $ph else null end), assign_to_me: $assign, labels: []}')
                                             for lbl in $ai_labels
                                               set current_json (printf '%s' "$current_json" | jq --arg l "$lbl" '.labels += [$l]')
                                             end
@@ -628,7 +635,7 @@ mkUserModule {
                                             set -l refine_file (mktemp)
                                             set -l r_out (mktemp)
                                             set -l r_err (mktemp)
-                                            printf 'You are refining a Linear issue. Current issue:\n%s\n\nRequested change: %s\n\nReturn ONLY the updated raw JSON object (no markdown fences, no commentary).\nSame schema: {"title": string, "description": string, "priority": int, "labels": string[], "project_hint": string|null}\nKeep fields unchanged unless the instruction implies a change.' "$current_json" "$instruction" > $refine_file
+                                            printf 'You are refining a Linear issue. Current issue:\n%s\n\nRequested change: %s\n\nReturn ONLY the updated raw JSON object (no markdown fences, no commentary).\nSame schema: {"title": string, "description": string, "priority": int, "labels": string[], "project_hint": string|null, "assign_to_me": boolean}\nKeep fields unchanged unless the instruction implies a change.' "$current_json" "$instruction" > $refine_file
 
                                             gum spin --spinner dot --title "Refining with AI..." -- \
                                               sh -c 'opencode run -m "opencode/minimax-m2.5-free" "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err"
@@ -671,6 +678,7 @@ mkUserModule {
                                               set ai_priority (printf '%s\n' $r_json | jq -r '.priority // 3' 2>/dev/null)
                                               set ai_labels (printf '%s\n' $r_json | jq -r '.labels[]? // empty' 2>/dev/null)
                                               set project_hint (printf '%s\n' $r_json | jq -r '.project_hint // empty' 2>/dev/null)
+                                              set ai_assign (printf '%s\n' $r_json | jq -r '.assign_to_me // false' 2>/dev/null)
                                               # Re-resolve project
                                               set ai_project ""
                                               if test -n "$project_hint"
@@ -730,7 +738,8 @@ mkUserModule {
 
                                             set -l _edit_full_desc "$desc$_edit_image_md"
 
-                                            set -l cmd linear-cli i create "$title" -t $team -a me -o json --quiet --no-pager
+                                            set -l cmd linear-cli i create "$title" -t $team -o json --quiet --no-pager
+                                            if gum confirm "Assign to me?"; set -a cmd -a me; end
                                             if test -n "$priority"; set -a cmd -p $priority; end
                                             if test -n "$_edit_full_desc"; set -a cmd -d "$_edit_full_desc"; end
 
