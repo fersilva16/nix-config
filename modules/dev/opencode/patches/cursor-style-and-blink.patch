@@ -1,26 +1,25 @@
-diff --git a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
-index 96563b8..a8e72c7 100644
---- a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
-+++ b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
-@@ -35,6 +35,7 @@ import { useToast } from "../../ui/toast"
- import { useKV } from "../../context/kv"
+diff -ruN a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
+--- a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx	2026-04-17 09:59:06.535356078 -0500
+@@ -39,6 +39,7 @@
  import { useTextareaKeybindings } from "../textarea-keybindings"
  import { DialogSkill } from "../dialog-skill"
+ import { useArgs } from "@tui/context/args"
 +import { useTuiConfig } from "@tui/context/tui-config"
  
  export type PromptProps = {
    sessionID?: string
-@@ -90,6 +91,7 @@ export function Prompt(props: PromptProps) {
+@@ -102,6 +103,7 @@
    const renderer = useRenderer()
    const { theme, syntax } = useTheme()
    const kv = useKV()
 +  const tuiConfig = useTuiConfig()
+   const animationsEnabled = createMemo(() => kv.get("animations_enabled", true))
    const list = createMemo(() => props.placeholders?.normal ?? [])
    const shell = createMemo(() => props.placeholders?.shell ?? [])
- 
-@@ -809,6 +811,11 @@ export function Prompt(props: PromptProps) {
-     return !!current
-   })
+@@ -871,6 +873,11 @@
+     animationsEnabled,
+   )
  
 +  const cursorStyle = createMemo(() => ({
 +    style: (tuiConfig.cursor_style ?? "block") as "block" | "line" | "underline",
@@ -30,19 +29,39 @@ index 96563b8..a8e72c7 100644
    const placeholderText = createMemo(() => {
      if (props.showPlaceholder === false) return undefined
      if (store.mode === "shell") {
-@@ -1058,6 +1065,7 @@ export function Prompt(props: PromptProps) {
+@@ -1139,6 +1146,7 @@
                onMouseDown={(r: MouseEvent) => r.target?.focus()}
                focusedBackgroundColor={theme.backgroundElement}
                cursorColor={theme.text}
 +              cursorStyle={cursorStyle()}
                syntaxStyle={syntax()}
              />
-             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
-diff --git a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
-index a50cd96..84934c3 100644
---- a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
-+++ b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
-@@ -473,6 +473,12 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
+             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
+diff -ruN a/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts b/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts
+--- a/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts	2026-04-17 09:59:06.536792502 -0500
+@@ -11,6 +11,8 @@
+   )
+   .strict()
+ 
++const CursorStyle = z.enum(["block", "line", "underline"])
++
+ export const TuiOptions = z.object({
+   scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
+   scroll_acceleration: z
+@@ -23,6 +25,8 @@
+     .enum(["auto", "stacked"])
+     .optional()
+     .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
++  cursor_style: CursorStyle.optional().describe("Cursor shape in text inputs: 'block', 'line', or 'underline'"),
++  cursor_blink: z.boolean().optional().describe("Enable cursor blinking in text inputs"),
+   mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
+ })
+ 
+diff -ruN a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
+--- a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx	2026-04-17 09:59:06.535581287 -0500
+@@ -476,6 +476,12 @@
    const dimensions = useTerminalDimensions()
    const narrow = createMemo(() => dimensions().width < 80)
    const dialog = useDialog()
@@ -55,7 +74,7 @@ index a50cd96..84934c3 100644
  
    useKeyboard((evt) => {
      if (dialog.stack.length > 0) return
-@@ -522,6 +528,7 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
+@@ -528,6 +534,7 @@
            textColor={theme.text}
            focusedTextColor={theme.text}
            cursorColor={theme.primary}
@@ -63,11 +82,10 @@ index a50cd96..84934c3 100644
            keyBindings={textareaKeybindings()}
          />
          <box flexDirection="row" gap={2} flexShrink={0}>
-diff --git a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
-index 1565a30..9ca01f5 100644
---- a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
-+++ b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
-@@ -9,12 +9,14 @@ import { useSDK } from "../../context/sdk"
+diff -ruN a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
+--- a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx	2026-04-17 09:59:06.535816455 -0500
+@@ -9,12 +9,14 @@
  import { SplitBorder } from "../../component/border"
  import { useTextareaKeybindings } from "../../component/textarea-keybindings"
  import { useDialog } from "../../ui/dialog"
@@ -82,7 +100,7 @@ index 1565a30..9ca01f5 100644
  
    const questions = createMemo(() => props.request.questions)
    const single = createMemo(() => questions().length === 1 && questions()[0]?.multiple !== true)
-@@ -42,6 +44,10 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
+@@ -42,6 +44,10 @@
      if (!value) return false
      return store.answers[store.tab]?.includes(value) ?? false
    })
@@ -93,7 +111,7 @@ index 1565a30..9ca01f5 100644
  
    function submit() {
      const answers = questions().map((_, i) => store.answers[i] ?? [])
-@@ -392,6 +398,7 @@ export function QuestionPrompt(props: { request: QuestionRequest }) {
+@@ -394,6 +400,7 @@
                          textColor={theme.text}
                          focusedTextColor={theme.text}
                          cursorColor={theme.primary}
@@ -101,22 +119,21 @@ index 1565a30..9ca01f5 100644
                          keyBindings={bindings()}
                        />
                      </box>
-diff --git a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
-index d29fe05..773582e 100644
---- a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
-+++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
-@@ -2,8 +2,9 @@ import { TextareaRenderable, TextAttributes } from "@opentui/core"
+diff -ruN a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
+--- a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx	2026-04-17 09:59:06.536254666 -0500
+@@ -2,8 +2,9 @@
  import { useTheme } from "../context/theme"
  import { useDialog, type DialogContext } from "./dialog"
  import { createStore } from "solid-js/store"
--import { onMount, Show, type JSX } from "solid-js"
-+import { createMemo, onMount, Show, type JSX } from "solid-js"
+-import { onMount, Show } from "solid-js"
++import { createMemo, onMount, Show } from "solid-js"
  import { useKeyboard } from "@opentui/solid"
 +import { useTuiConfig } from "../context/tui-config"
  
  export type DialogExportOptionsProps = {
    defaultFilename: string
-@@ -25,6 +26,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
+@@ -25,6 +26,7 @@
    const dialog = useDialog()
    const { theme } = useTheme()
    let textarea: TextareaRenderable
@@ -124,7 +141,7 @@ index d29fe05..773582e 100644
    const [store, setStore] = createStore({
      thinking: props.defaultThinking,
      toolDetails: props.defaultToolDetails,
-@@ -33,6 +35,11 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
+@@ -33,6 +35,11 @@
      active: "filename" as "filename" | "thinking" | "toolDetails" | "assistantMetadata" | "openWithoutSaving",
    })
  
@@ -136,7 +153,7 @@ index d29fe05..773582e 100644
    useKeyboard((evt) => {
      if (evt.name === "return") {
        props.onConfirm?.({
-@@ -106,6 +113,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
+@@ -110,6 +117,7 @@
            textColor={theme.text}
            focusedTextColor={theme.text}
            cursorColor={theme.text}
@@ -144,10 +161,9 @@ index d29fe05..773582e 100644
          />
        </box>
        <box flexDirection="column">
-diff --git a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
-index cb1b825..60d6933 100644
---- a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
-+++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
+diff -ruN a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
+--- a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx	2026-04-17 09:59:06.536584876 -0500
 @@ -1,8 +1,9 @@
  import { TextareaRenderable, TextAttributes } from "@opentui/core"
  import { useTheme } from "../context/theme"
@@ -159,7 +175,7 @@ index cb1b825..60d6933 100644
  import { Spinner } from "../component/spinner"
  
  export type DialogPromptProps = {
-@@ -20,6 +21,12 @@ export function DialogPrompt(props: DialogPromptProps) {
+@@ -20,6 +21,12 @@
    const dialog = useDialog()
    const { theme } = useTheme()
    let textarea: TextareaRenderable
@@ -172,7 +188,7 @@ index cb1b825..60d6933 100644
  
    useKeyboard((evt) => {
      if (props.busy) {
-@@ -77,6 +84,7 @@ export function DialogPrompt(props: DialogPromptProps) {
+@@ -87,6 +94,7 @@
            textColor={props.busy ? theme.textMuted : theme.text}
            focusedTextColor={props.busy ? theme.textMuted : theme.text}
            cursorColor={props.busy ? theme.backgroundElement : theme.text}
@@ -180,26 +196,3 @@ index cb1b825..60d6933 100644
          />
          <Show when={props.busy}>
            <Spinner color={theme.textMuted}>{props.busyText ?? "Working..."}</Spinner>
-diff --git a/packages/opencode/src/config/tui-schema.ts b/packages/opencode/src/config/tui-schema.ts
-index b126d3c..e0b36c2 100644
---- a/packages/opencode/src/config/tui-schema.ts
-+++ b/packages/opencode/src/config/tui-schema.ts
-@@ -10,6 +10,8 @@ const KeybindOverride = z
-   )
-   .strict()
- 
-+const CursorStyle = z.enum(["block", "line", "underline"])
-+
- export const TuiOptions = z.object({
-   scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
-   scroll_acceleration: z
-@@ -22,7 +24,9 @@ export const TuiOptions = z.object({
-     .enum(["auto", "stacked"])
-     .optional()
-     .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
-+  cursor_style: CursorStyle.optional().describe("Cursor shape in text inputs: 'block', 'line', or 'underline'"),
-+  cursor_blink: z.boolean().optional().describe("Enable cursor blinking in text inputs"),
-   mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
- })
- 
- export const TuiInfo = z

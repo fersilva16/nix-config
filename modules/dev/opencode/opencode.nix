@@ -13,6 +13,9 @@ let
   # Real opencode binary with patches applied
   opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [ ./patches/cursor-style-and-blink.patch ];
+    node_modules = old.node_modules.overrideAttrs {
+      outputHash = "sha256-BAoAdeLQ+lXDD7Klxoxij683OVVug8KXEMRUqIQAjc8=";
+    };
   });
 in
 mkUserModule {
@@ -32,9 +35,9 @@ mkUserModule {
         settings = {
           theme = "flexoki";
           plugin = [
-            "@ex-machina/opencode-anthropic-auth@0.2.1"
+            "@ex-machina/opencode-anthropic-auth@1.7.3"
             "@mohak34/opencode-notifier@0.1.36"
-            "oh-my-opencode@3.14.0"
+            "oh-my-openagent@3.17.4"
             "@rama_nigg/open-cursor@2.3.20"
           ];
           provider = {

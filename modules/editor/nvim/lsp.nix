@@ -39,7 +39,7 @@ in
       dart
       elixir-ls
       tailwindcss-language-server
-      nodePackages.bash-language-server
+      bash-language-server
       yaml-language-server
       taplo # TOML LSP
       marksman # Markdown LSP

@@ -11,7 +11,7 @@
 #   name:         Username. Creates the system account, home-manager home,
 #                 and sets `modules.users.<name>` with the remaining attrs.
 #
-#   stateVersion: (optional, default "25.11") home-manager state version.
+#   stateVersion: (optional, default "26.05") home-manager state version.
 #
 #   <anything else>: Passed directly to `modules.users.<name>`.
 #                    Typically module enable flags and their options.
@@ -49,7 +49,7 @@
 #
 {
   name,
-  stateVersion ? "25.11",
+  stateVersion ? "26.05",
   ...
 }@args:
 let
