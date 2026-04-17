@@ -74,6 +74,102 @@ let
     '';
   };
 
+  # Resolve a tmux pane's opencode session ID.
+  # Reads @oc-sid from tmux pane options (set by the wrapper sidecar),
+  # falls back to DB query by directory.
+  # Exit 0 + stdout: session ID
+  # Exit 1: no mapping found
+  # Exit 2: pending (session not yet resolved — caller should retry)
+  # Usage: tmux-opencode-session <pane_id> [pane_path]
+  tmux-opencode-session = pkgs.writeShellApplication {
+    name = "tmux-opencode-session";
+    runtimeInputs = [
+      pkgs.sqlite
+      pkgs.tmux
+      tmux-git-root-path
+    ];
+    text = ''
+      set -eu
+
+      PANE_ID="''${1:?usage: tmux-opencode-session <pane_id> [pane_path]}"
+      PANE_PATH="''${2:-}"
+
+      # Primary: tmux pane option (set by the wrapper SSE sidecar)
+      STATUS=$(tmux show-options -pv -t "$PANE_ID" @oc-status 2>/dev/null || true)
+      case "$STATUS" in
+        active)
+          SID=$(tmux show-options -pv -t "$PANE_ID" @oc-sid 2>/dev/null || true)
+          if [[ -n "$SID" ]]; then
+            echo "$SID"
+            exit 0
+          fi
+          ;;
+        pending)
+          exit 2
+          ;;
+      esac
+
+      # Fallback: DB query by directory (for legacy or non-wrapper panes)
+      if [[ -z "$PANE_PATH" ]]; then
+        PANE_PATH=$(tmux display-message -p -t "$PANE_ID" '#{pane_current_path}' 2>/dev/null || true)
+      fi
+      [[ -z "$PANE_PATH" ]] && exit 1
+
+      OPENCODE_DB="$HOME/.local/share/opencode/opencode-local.db"
+      [[ ! -f "$OPENCODE_DB" ]] && exit 1
+
+      GIT_ROOT=$(tmux-git-root-path "$PANE_PATH")
+      SID=$(sqlite3 "$OPENCODE_DB" \
+        "SELECT id FROM session WHERE directory = '$GIT_ROOT'
+         ORDER BY time_updated DESC LIMIT 1" 2>/dev/null || true)
+
+      if [[ -z "''${SID:-}" ]]; then
+        exit 1
+      fi
+
+      echo "$SID"
+    '';
+  };
+
+  tmux-opencode-fork-window = pkgs.writeShellApplication {
+    name = "tmux-opencode-fork-window";
+    runtimeInputs = [
+      pkgs.tmux
+      tmux-git-root-path
+      tmux-opencode-session
+    ];
+    text = ''
+      set -eu
+
+      PANE_ID="$1"
+      PANE_PATH="$2"
+
+      SESSION_ID=""
+      for _ in 1 2 3 4 5; do
+        SESSION_ID=$(tmux-opencode-session "$PANE_ID" "$PANE_PATH") && break
+        rc=$?
+        if [[ $rc -eq 2 ]]; then sleep 0.5; else exit 1; fi
+      done
+      [[ -z "$SESSION_ID" ]] && exit 1
+
+      GIT_ROOT=$(tmux-git-root-path "$PANE_PATH")
+      TMUX_SESSION=$(tmux display-message -p '#S')
+
+      tmux new-window -t "$TMUX_SESSION" -c "$GIT_ROOT" "opencode --session $SESSION_ID --fork"
+    '';
+  };
+
+  tmux-oc-sync-sid = pkgs.writeShellApplication {
+    name = "tmux-oc-sync-sid";
+    runtimeInputs = [
+      pkgs.gnugrep
+      pkgs.gnused
+      pkgs.sqlite
+      pkgs.tmux
+    ];
+    text = builtins.readFile ./scripts/oc-sync-sid.sh;
+  };
+
   tmux-agent-prompt = pkgs.writeShellApplication {
     name = "tmux-agent-prompt";
     bashOptions = [ ];
@@ -123,6 +219,8 @@ mkUserModule {
   home = {
     home.packages = [
       tmux-opencode-manager
+      tmux-opencode-session
+      tmux-opencode-fork-window
       tmux-spawn-agent
       tmux-agent-prompt
     ];
@@ -143,8 +241,6 @@ mkUserModule {
           exec ${tmux-opencode-manager}/bin/tmux-opencode-manager widget --plain
         '';
       };
-
-      "opencode/plugins/pane-mapping.ts".source = ./plugins/pane-mapping.ts;
 
       "opencode/opencode-notifier.json".source = jsonFormat.generate "opencode-notifier.json" {
         sound = true;
@@ -172,9 +268,11 @@ mkUserModule {
       set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify auto-dismiss"'
       set-hook -g pane-exited 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}; ${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       set-hook -g session-closed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-session #{session_name}"'
+      set-hook -g pane-title-changed 'run-shell -b "${tmux-oc-sync-sid}/bin/tmux-oc-sync-sid #{pane_id}"'
       set-hook -g after-split-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       set-hook -g after-new-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-agent-prompt}/bin/tmux-agent-prompt '#{pane_current_path}'"
+      bind-key 'f' run-shell "${tmux-opencode-fork-window}/bin/tmux-opencode-fork-window '#{pane_id}' '#{pane_current_path}'"
     '';
   };
 }

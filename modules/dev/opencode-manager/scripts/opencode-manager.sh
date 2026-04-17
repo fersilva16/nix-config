@@ -39,17 +39,19 @@ _get_sessions() {
     return
   fi
 
+  # Get all opencode panes with their @oc-sid from tmux pane options.
+  # Falls back to directory-based DB matching for panes without options.
   local panes
-  panes=$(tmux list-panes -a -F '#{session_name} #{window_index} #{pane_current_command} #{pane_current_path} #{pane_id}' 2>/dev/null |
-    awk '/opencode/ {print $1, $2, $4, $5}' | sort -u)
+  panes=$(tmux list-panes -a \
+    -F '#{session_name} #{window_index} #{pane_current_path} #{pane_id} #{@oc-sid} #{@oc-status}' 2>/dev/null |
+    awk '($6 == "active" || $6 == "pending") {print $1, $2, $3, $4, $5}' | sort -u)
 
   if [[ -z "$panes" ]]; then
     echo '[]'
     return
   fi
 
-  # All sessions with generating status, ordered generating-first then by recency.
-  # Each pane is matched to a unique session for its directory to avoid duplicate titles.
+  # DB query for generating status and titles, keyed by session ID
   local db_sessions=""
   if [[ -f "$OPENCODE_DB" ]] && command -v sqlite3 &>/dev/null; then
     local db_query="WITH gen AS (
@@ -60,7 +62,7 @@ _get_sessions() {
                OR json_extract(m.data, '\$.time.completed') = '')
           AND m.time_created > ((strftime('%s', 'now') - 7200) * 1000)
       )
-      SELECT s.directory, s.id,
+      SELECT s.id, s.directory,
         CASE WHEN gen.session_id IS NOT NULL THEN 'generating' ELSE 'idle' END,
         CASE WHEN s.title LIKE '<%' OR s.title LIKE '{%' OR length(s.title) = 0
           THEN '' ELSE s.title END
@@ -76,47 +78,34 @@ _get_sessions() {
   local assigned=""
   local sep
   sep=$(printf '\x1f')
-  while IFS=' ' read -r sess win path pane_id; do
+  while IFS=' ' read -r sess win path pane_id oc_sid; do
     local status="idle"
     local title=""
 
-    # Direct pane mapping (from SSE sidecar)
-    local pane_file="/tmp/opencode-pane-sessions/${pane_id//%/}"
-    if [[ -f "$pane_file" ]]; then
-      local pm_sid pm_title pm_status
-      pm_sid=$(jq -r '.sessionID // empty' "$pane_file" 2>/dev/null)
-      if [[ -n "$pm_sid" ]]; then
-        pm_title=$(jq -r '.title // empty' "$pane_file" 2>/dev/null)
-        pm_status="idle"
-        # Check DB for generating status of this specific session
-        if [[ -n "$db_sessions" ]]; then
-          while IFS="$sep" read -r s_dir s_id s_status s_title; do
-            if [[ "$s_id" == "$pm_sid" ]]; then
-              pm_status="$s_status"
-              [[ -z "$pm_title" ]] && pm_title="$s_title"
-              break
-            fi
-          done <<<"$db_sessions"
-        fi
-        status="$pm_status"
-        title="${pm_title:-}"
-        assigned="$assigned $pm_sid"
-        printf -v _entry '%s\t%s\t%s\t%s\n' "$sess" "$win" "$status" "$title"
-        result+="$_entry"
-        continue
+    if [[ -n "$oc_sid" ]]; then
+      assigned="$assigned $oc_sid"
+      if [[ -n "$db_sessions" ]]; then
+        while IFS="$sep" read -r s_id s_dir s_status _; do
+          if [[ "$s_id" == "$oc_sid" ]]; then
+            status="$s_status"
+            break
+          fi
+        done <<<"$db_sessions"
       fi
-    fi
-
-    # Fallback: match by directory using DB
-    if [[ -n "$db_sessions" ]]; then
-      while IFS="$sep" read -r s_dir s_id s_status s_title; do
+    elif [[ -n "$db_sessions" ]]; then
+      while IFS="$sep" read -r s_id s_dir s_status _; do
         [[ "$s_dir" != "$path" ]] && continue
         case " $assigned " in *" $s_id "*) continue ;; esac
         status="$s_status"
-        title="$s_title"
         assigned="$assigned $s_id"
         break
       done <<<"$db_sessions"
+    fi
+
+    local pane_title
+    pane_title=$(tmux display-message -p -t "$pane_id" '#{pane_title}' 2>/dev/null || true)
+    if [[ "$pane_title" == OC\ \|\ * ]]; then
+      title="${pane_title#OC | }"
     fi
 
     printf -v _entry '%s\t%s\t%s\t%s\n' "$sess" "$win" "$status" "$title"

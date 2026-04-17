@@ -133,6 +133,132 @@ let
           else
             DIR="$(pwd)"
           fi
+
+          # ── Pane-mapping sidecar ──
+          # Plugins run server-side without TMUX_PANE, so the wrapper
+          # (which runs client-side in the tmux pane) owns the mapping.
+          # State is stored as tmux pane user options (@oc-sid, @oc-dir,
+          # @oc-status) — auto-cleaned when panes die, survives detach.
+          _PANE="''${TMUX_PANE:-}"
+
+          if [[ -n "$_PANE" ]]; then
+            _DB="$HOME/.local/share/opencode/opencode-local.db"
+            JQ="${pkgs.jq}/bin/jq"
+
+            # Parse --session and --fork from args
+            _oc_sid="" _oc_fork=0 _prev=""
+            for _arg in "$@"; do
+              case "$_prev" in --session|-s) _oc_sid="$_arg" ;; esac
+              [[ "$_arg" == "--fork" ]] && _oc_fork=1
+              _prev="$_arg"
+            done
+
+            _SELF_PID=$BASHPID
+
+            tmux set-option -p -t "$_PANE" @oc-dir "$DIR"
+            tmux set-option -p -t "$_PANE" @oc-status pending
+
+            # ── Pre-launch session resolution ──
+            if [[ -n "$_oc_sid" && "$_oc_fork" -eq 0 ]]; then
+              # Explicit --session, no fork: known immediately
+              tmux set-option -p -t "$_PANE" @oc-sid "$_oc_sid"
+              tmux set-option -p -t "$_PANE" @oc-status active
+            elif [[ "$_oc_fork" -eq 0 ]]; then
+              # Default/continue: resolve from DB before launch
+              _sid=$(sqlite3 "$_DB" \
+                "SELECT id FROM session WHERE directory='$DIR'
+                 ORDER BY time_updated DESC LIMIT 1" 2>/dev/null || true)
+              if [[ -n "$_sid" ]]; then
+                tmux set-option -p -t "$_PANE" @oc-sid "$_sid"
+                tmux set-option -p -t "$_PANE" @oc-status active
+              fi
+              # If empty (first time in dir), fall through to post-launch resolver
+            fi
+
+            # ── Post-launch resolver for pending sessions (fork/first-launch) ──
+            if [[ "$(tmux show-options -pv -t "$_PANE" @oc-status 2>/dev/null)" == "pending" ]]; then
+              _pre_ids=$(sqlite3 "$_DB" \
+                "SELECT id FROM session WHERE directory='$DIR'" 2>/dev/null | paste -sd, - || true)
+              (
+                _pane="$_PANE" _dir="$DIR" _db="$_DB" _known="$_pre_ids"
+                for _ in $(seq 1 30); do
+                  sleep 0.5
+                  if [[ -n "$_known" ]]; then
+                    _new=$(sqlite3 "$_db" \
+                      "SELECT id FROM session WHERE directory='$_dir'
+                       AND id NOT IN ($(echo "$_known" | sed "s/[^,]*/'\0'/g"))
+                       ORDER BY time_created DESC LIMIT 1" 2>/dev/null || true)
+                  else
+                    _new=$(sqlite3 "$_db" \
+                      "SELECT id FROM session WHERE directory='$_dir'
+                       ORDER BY time_created DESC LIMIT 1" 2>/dev/null || true)
+                  fi
+                  if [[ -n "$_new" ]]; then
+                    tmux set-option -p -t "$_pane" @oc-sid "$_new" 2>/dev/null
+                    tmux set-option -p -t "$_pane" @oc-status active 2>/dev/null
+                    break
+                  fi
+                done
+              ) &
+              _RESOLVER_PID=$!
+            fi
+
+            # ── SSE sidecar: track session changes in real time ──
+            # Also monitors the parent (opencode) process for cleanup,
+            # since exec replaces the shell so no EXIT trap fires.
+            (
+              _pane="$_PANE" _dir="$DIR" _url="$URL" _jq="$JQ" _ppid="$_SELF_PID"
+
+              # Wait for initial resolution
+              while [[ "$(tmux show-options -pv -t "$_pane" @oc-status 2>/dev/null)" == "pending" ]]; do
+                sleep 0.5
+              done
+
+              # Reconnect loop (curl exits on server restart, network hiccup, etc.)
+              while kill -0 "$_ppid" 2>/dev/null && tmux show-options -pv -t "$_pane" @oc-status >/dev/null 2>&1; do
+                curl -s -N "$_url/global/event" 2>/dev/null | while IFS= read -r line; do
+                  [[ "$line" != data:\ * ]] && continue
+                  _json="''${line#data: }"
+
+                  # Filter by directory
+                  _evt_dir=$(printf '%s' "$_json" | "$_jq" -r '.directory // empty' 2>/dev/null) || continue
+                  [[ "$_evt_dir" != "$_dir" ]] && continue
+
+                  _type=$(printf '%s' "$_json" | "$_jq" -r '.payload.type // empty' 2>/dev/null) || continue
+                  _sid=$(printf '%s' "$_json" | "$_jq" -r '
+                    .payload.properties.sessionID //
+                    .payload.properties.info.id //
+                    empty' 2>/dev/null) || continue
+                  [[ -z "$_sid" ]] && continue
+
+                  _current=$(tmux show-options -pv -t "$_pane" @oc-sid 2>/dev/null) || break
+                  [[ "$_sid" == "$_current" ]] && continue
+
+                  case "$_type" in
+                    session.created)
+                      # Fork/new session — TUI auto-navigates to it
+                      tmux set-option -p -t "$_pane" @oc-sid "$_sid" 2>/dev/null || break
+                      ;;
+                    session.status|message.updated)
+                      # Session activity — only switch if not claimed by another pane
+                      if tmux list-panes -a -F '#{pane_id}:#{@oc-sid}' 2>/dev/null | \
+                           grep -v "^$_pane:" | grep -q ":$_sid$"; then
+                        continue  # Claimed by another pane
+                      fi
+                      tmux set-option -p -t "$_pane" @oc-sid "$_sid" 2>/dev/null || break
+                      ;;
+                  esac
+                done
+
+                # curl disconnected — wait and retry
+                sleep 2
+              done
+
+              # Parent (opencode) exited or pane destroyed — mark exited
+              tmux set-option -p -t "$_pane" @oc-status exited 2>/dev/null || true
+            ) &
+          fi
+
           exec "$REAL" attach "$URL" --dir "$DIR" "$@"
         fi
         exec "$REAL" "$@"
