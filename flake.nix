@@ -81,7 +81,7 @@
 
             shellcheck
 
-            nodePackages.prettier
+            prettier
 
             pre-commit
           ];

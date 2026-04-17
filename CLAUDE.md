@@ -194,7 +194,7 @@ mkUser {
 Fields:
 
 - **`name`** — (required) Username. Creates `users.users.<name>`, `home-manager.users.<name>`, and `modules.users.<name>`.
-- **`stateVersion`** — (optional, default `"25.11"`) home-manager state version.
+- **`stateVersion`** — (optional, default `"26.05"`) home-manager state version.
 - **Everything else** — Passed directly to `modules.users.<name>` as module enable flags and options.
 
 What it handles automatically:
