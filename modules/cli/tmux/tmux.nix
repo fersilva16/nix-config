@@ -35,6 +35,7 @@ mkUserModule {
     statusbar = import ./statusbar.nix { inherit pkgs; };
     remote = import ./remote.nix { inherit pkgs; };
     group = import ./group.nix { inherit pkgs; };
+    pocket = import ./pocket.nix { inherit pkgs; };
   };
   home =
     { userCfg, ... }:
@@ -89,8 +90,12 @@ mkUserModule {
           bind-key '"' split-window -c "#{pane_current_path}"
           bind-key % split-window -h -c "#{pane_current_path}"
 
-          # Session picker sorted by name (worktree sessions stay grouped with parent)
-          bind-key s choose-tree -sZO name
+          # Session picker sorted by name (worktree sessions stay grouped with parent).
+          # Filters out the `pocket` session (see pocket.nix part) — pocket is
+          # popup-only, never selected via the picker. No-op when pocket is
+          # disabled. Defined here rather than in pocket.nix to avoid relying
+          # on part/parent extraConfig merge order.
+          bind-key s choose-tree -sZO name -f '#{!=:#{session_name},pocket}'
         '';
 
         plugins = with pkgs; [
