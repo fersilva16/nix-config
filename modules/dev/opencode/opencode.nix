@@ -21,7 +21,14 @@ in
 mkUserModule {
   name = "opencode";
   parts = {
-    server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
+    server = import ./server.nix {
+      inherit
+        pkgs
+        lib
+        opencode-unwrapped
+        serverPort
+        ;
+    };
     direnv-plugin = import ./direnv-plugin.nix { inherit pkgs; };
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
