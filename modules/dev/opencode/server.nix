@@ -1,5 +1,6 @@
 {
   pkgs,
+  lib,
   opencode-unwrapped,
   serverPort,
 }:
@@ -17,256 +18,222 @@ let
     exec ${opencode-unwrapped}/bin/opencode serve --port ${toString serverPort}
   '';
 
-  # Wrapper that auto-attaches TUI clients and `run` commands to the
-  # shared server managed by the launchd agent.  Falls back to normal
-  # (standalone) behaviour when the server is unreachable.
-  opencode-wrapper = pkgs.writeShellScriptBin "opencode" ''
-    REAL="${opencode-unwrapped}/bin/opencode"
-    URL="${serverUrl}"
+  # Wrapper that provides server lifecycle commands and optionally
+  # auto-attaches TUI clients to the shared server.
+  mkWrapper =
+    autoAttach:
+    pkgs.writeShellScriptBin "opencode" ''
+      REAL="${opencode-unwrapped}/bin/opencode"
+      URL="${serverUrl}"
+      AUTO_ATTACH=${if autoAttach then "1" else "0"}
 
-    # Near-instant port check (no HTTP overhead)
-    server_up() {
-      exec 3<>/dev/tcp/127.0.0.1/${toString serverPort} 2>/dev/null
-      local rc=$?
-      exec 3>&- 2>/dev/null
-      return $rc
-    }
+      # Near-instant port check (no HTTP overhead)
+      server_up() {
+        exec 3<>/dev/tcp/127.0.0.1/${toString serverPort} 2>/dev/null
+        local rc=$?
+        exec 3>&- 2>/dev/null
+        return $rc
+      }
 
-    LABEL="com.opencode.server"
-    UID_VAL=$(id -u)
+      LABEL="com.opencode.server"
+      UID_VAL=$(id -u)
 
-    # Start the server if it isn't running, recovering stale launchd
-    # registrations when needed.  Returns 0 once the port is up.
-    ensure_server() {
-      server_up && return 0
+      # Start the server if it isn't running, recovering stale launchd
+      # registrations when needed.  Returns 0 once the port is up.
+      ensure_server() {
+        server_up && return 0
 
-      if ! launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null; then
-        # Stale registration (crashed but still registered) — auto-recover
-        launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null
-        sleep 0.3
-        launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null || return 1
-      fi
-
-      # Wait for port (up to 2s)
-      local i=0
-      while ! server_up && (( i < 20 )); do
-        sleep 0.1
-        ((i++))
-      done
-      server_up
-    }
-
-    case "''${1:-}" in
-      # ── Server lifecycle management ──
-      server)
-        case "''${2:-status}" in
-          start)
-            if server_up; then
-              echo "already running"
-            elif ensure_server; then
-              echo "started"
-            else
-              echo "failed"
-            fi
-            ;;
-          stop)    launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "stopped" || echo "not running" ;;
-          restart)
-            launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null
-            # Wait for server to fully stop before re-bootstrapping (up to 5s)
-            i=0
-            while server_up && (( i < 50 )); do
-              sleep 0.1
-              ((i++))
-            done
-            if launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null; then
-              echo "restarted"
-            else
-              echo "failed"
-            fi
-            ;;
-          status)
-            if server_up; then
-              PID=$(launchctl list "$LABEL" 2>/dev/null | awk '/PID/ {print $NF}')
-              echo "running (pid $PID, port ${toString serverPort})"
-            elif launchctl list "$LABEL" &>/dev/null; then
-              echo "stopped (stale — 'opencode server start' will auto-recover)"
-            else
-              echo "stopped"
-            fi
-            ;;
-          log)     tail -f /tmp/opencode-server.log ;;
-          debug)
-            "$0" server stop
-            while server_up; do sleep 0.1; done
-            trap '"$0" server start' EXIT
-            echo "Starting debug server on port ${toString serverPort} (Ctrl-C to stop)..."
-            echo "Logs: /tmp/opencode-debug.log"
-            "$REAL" serve --port "${toString serverPort}" --log-level DEBUG --print-logs 2>&1 | tee /tmp/opencode-debug.log
-            ;;
-          *)       echo "usage: opencode server [start|stop|restart|status|log|debug]" ;;
-        esac
-        exit
-        ;;
-
-      # ── Subcommands that always pass through unchanged ──
-      completion|acp|mcp|debug|providers|auth|agent|upgrade|uninstall \
-      |serve|web|models|stats|export|import|github|pr|session|db \
-      |workspace-serve|attach)
-        exec "$REAL" "$@"
-        ;;
-
-      # ── One-shot run: inject --attach when server is up ──
-      run)
-        if ensure_server && [[ " $* " != *" --attach "* ]]; then
-          shift
-          exec "$REAL" run --attach "$URL" "$@"
+        if ! launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null; then
+          # Stale registration (crashed but still registered) — auto-recover
+          launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null
+          sleep 0.3
+          launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null || return 1
         fi
-        exec "$REAL" "$@"
-        ;;
 
-      # ── TUI mode (no subcommand) ──
-      *)
-        if ensure_server; then
-          if [[ -n "''${1:-}" && "''${1:0:1}" != "-" && -d "$1" ]]; then
-            DIR="$1"
-            shift
-          else
-            DIR="$(pwd)"
-          fi
+        # Wait for port (up to 2s)
+        local i=0
+        while ! server_up && (( i < 20 )); do
+          sleep 0.1
+          ((i++))
+        done
+        server_up
+      }
 
-          # ── Pane-mapping sidecar ──
-          # Plugins run server-side without TMUX_PANE, so the wrapper
-          # (which runs client-side in the tmux pane) owns the mapping.
-          # State is stored as tmux pane user options (@oc-sid, @oc-dir,
-          # @oc-status) — auto-cleaned when panes die, survives detach.
-          _PANE="''${TMUX_PANE:-}"
+      # Attach TUI to the running server, mapping the tmux pane to its
+      # opencode session.
+      #
+      # State is stored as tmux pane user options (@oc-sid, @oc-dir) —
+      # auto-cleaned when panes die, survives detach. Plugins run
+      # server-side without TMUX_PANE, so the wrapper (which runs
+      # client-side in the tmux pane) owns the mapping.
+      #
+      # Live session tracking after launch is handled out-of-band by the
+      # `pane-title-changed` tmux hook in `opencode-manager`, which runs
+      # `tmux-oc-sync-sid` to re-resolve `@oc-sid` from the DB whenever
+      # the TUI updates the pane title to `OC | <session.title>`. This
+      # avoids holding a per-pane SSE subscriber against the server
+      # (which previously overflowed opencode's EventEmitter listener
+      # cap and wedged the HTTP layer).
+      #
+      # Usage: attach_to_server <DIR> [opencode args...]
+      attach_to_server() {
+        local DIR="$1"
+        shift
 
-          if [[ -n "$_PANE" ]]; then
-            _DB="$HOME/.local/share/opencode/opencode-local.db"
-            JQ="${pkgs.jq}/bin/jq"
+        _PANE="''${TMUX_PANE:-}"
 
-            # Parse --session and --fork from args
-            _oc_sid="" _oc_fork=0 _prev=""
-            for _arg in "$@"; do
-              case "$_prev" in --session|-s) _oc_sid="$_arg" ;; esac
-              [[ "$_arg" == "--fork" ]] && _oc_fork=1
-              _prev="$_arg"
-            done
+        if [[ -n "$_PANE" ]]; then
+          _DB="$HOME/.local/share/opencode/opencode-local.db"
 
-            _SELF_PID=$BASHPID
+          # Parse --session and --fork from args
+          _oc_sid="" _oc_fork=0 _prev=""
+          for _arg in "$@"; do
+            case "$_prev" in --session|-s) _oc_sid="$_arg" ;; esac
+            [[ "$_arg" == "--fork" ]] && _oc_fork=1
+            _prev="$_arg"
+          done
 
-            tmux set-option -p -t "$_PANE" @oc-dir "$DIR"
-            tmux set-option -p -t "$_PANE" @oc-status pending
+          tmux set-option -p -t "$_PANE" @oc-dir "$DIR"
 
-            # ── Pre-launch session resolution ──
-            if [[ -n "$_oc_sid" && "$_oc_fork" -eq 0 ]]; then
-              # Explicit --session, no fork: known immediately
-              tmux set-option -p -t "$_PANE" @oc-sid "$_oc_sid"
+          # ── Pre-launch session resolution ──
+          # Best-effort: set @oc-sid + @oc-status=active when we can
+          # resolve a session before exec. For fork or first-launch-in-dir
+          # we leave both unset and let the pane-title hook resolve
+          # post-launch once the TUI sets the title.
+          if [[ -n "$_oc_sid" && "$_oc_fork" -eq 0 ]]; then
+            # Explicit --session, no fork: known immediately
+            tmux set-option -p -t "$_PANE" @oc-sid "$_oc_sid"
+            tmux set-option -p -t "$_PANE" @oc-status active
+          elif [[ "$_oc_fork" -eq 0 ]]; then
+            # Default/continue: resolve from DB before launch
+            _sid=$(sqlite3 "$_DB" \
+              "SELECT id FROM session WHERE directory='$DIR'
+               ORDER BY time_updated DESC LIMIT 1" 2>/dev/null || true)
+            if [[ -n "$_sid" ]]; then
+              tmux set-option -p -t "$_PANE" @oc-sid "$_sid"
               tmux set-option -p -t "$_PANE" @oc-status active
-            elif [[ "$_oc_fork" -eq 0 ]]; then
-              # Default/continue: resolve from DB before launch
-              _sid=$(sqlite3 "$_DB" \
-                "SELECT id FROM session WHERE directory='$DIR'
-                 ORDER BY time_updated DESC LIMIT 1" 2>/dev/null || true)
-              if [[ -n "$_sid" ]]; then
-                tmux set-option -p -t "$_PANE" @oc-sid "$_sid"
-                tmux set-option -p -t "$_PANE" @oc-status active
-              fi
-              # If empty (first time in dir), fall through to post-launch resolver
             fi
-
-            # ── Post-launch resolver for pending sessions (fork/first-launch) ──
-            if [[ "$(tmux show-options -pv -t "$_PANE" @oc-status 2>/dev/null)" == "pending" ]]; then
-              _pre_ids=$(sqlite3 "$_DB" \
-                "SELECT id FROM session WHERE directory='$DIR'" 2>/dev/null | paste -sd, - || true)
-              (
-                _pane="$_PANE" _dir="$DIR" _db="$_DB" _known="$_pre_ids"
-                for _ in $(seq 1 30); do
-                  sleep 0.5
-                  if [[ -n "$_known" ]]; then
-                    _new=$(sqlite3 "$_db" \
-                      "SELECT id FROM session WHERE directory='$_dir'
-                       AND id NOT IN ($(echo "$_known" | sed "s/[^,]*/'\0'/g"))
-                       ORDER BY time_created DESC LIMIT 1" 2>/dev/null || true)
-                  else
-                    _new=$(sqlite3 "$_db" \
-                      "SELECT id FROM session WHERE directory='$_dir'
-                       ORDER BY time_created DESC LIMIT 1" 2>/dev/null || true)
-                  fi
-                  if [[ -n "$_new" ]]; then
-                    tmux set-option -p -t "$_pane" @oc-sid "$_new" 2>/dev/null
-                    tmux set-option -p -t "$_pane" @oc-status active 2>/dev/null
-                    break
-                  fi
-                done
-              ) &
-              _RESOLVER_PID=$!
-            fi
-
-            # ── SSE sidecar: track session changes in real time ──
-            # Also monitors the parent (opencode) process for cleanup,
-            # since exec replaces the shell so no EXIT trap fires.
-            (
-              _pane="$_PANE" _dir="$DIR" _url="$URL" _jq="$JQ" _ppid="$_SELF_PID"
-
-              # Wait for initial resolution
-              while [[ "$(tmux show-options -pv -t "$_pane" @oc-status 2>/dev/null)" == "pending" ]]; do
-                sleep 0.5
-              done
-
-              # Reconnect loop (curl exits on server restart, network hiccup, etc.)
-              while kill -0 "$_ppid" 2>/dev/null && tmux show-options -pv -t "$_pane" @oc-status >/dev/null 2>&1; do
-                curl -s -N "$_url/global/event" 2>/dev/null | while IFS= read -r line; do
-                  [[ "$line" != data:\ * ]] && continue
-                  _json="''${line#data: }"
-
-                  # Filter by directory
-                  _evt_dir=$(printf '%s' "$_json" | "$_jq" -r '.directory // empty' 2>/dev/null) || continue
-                  [[ "$_evt_dir" != "$_dir" ]] && continue
-
-                  _type=$(printf '%s' "$_json" | "$_jq" -r '.payload.type // empty' 2>/dev/null) || continue
-                  _sid=$(printf '%s' "$_json" | "$_jq" -r '
-                    .payload.properties.sessionID //
-                    .payload.properties.info.id //
-                    empty' 2>/dev/null) || continue
-                  [[ -z "$_sid" ]] && continue
-
-                  _current=$(tmux show-options -pv -t "$_pane" @oc-sid 2>/dev/null) || break
-                  [[ "$_sid" == "$_current" ]] && continue
-
-                  case "$_type" in
-                    session.created)
-                      # Fork/new session — TUI auto-navigates to it
-                      tmux set-option -p -t "$_pane" @oc-sid "$_sid" 2>/dev/null || break
-                      ;;
-                    session.status|message.updated)
-                      # Session activity — only switch if not claimed by another pane
-                      if tmux list-panes -a -F '#{pane_id}:#{@oc-sid}' 2>/dev/null | \
-                           grep -v "^$_pane:" | grep -q ":$_sid$"; then
-                        continue  # Claimed by another pane
-                      fi
-                      tmux set-option -p -t "$_pane" @oc-sid "$_sid" 2>/dev/null || break
-                      ;;
-                  esac
-                done
-
-                # curl disconnected — wait and retry
-                sleep 2
-              done
-
-              # Parent (opencode) exited or pane destroyed — mark exited
-              tmux set-option -p -t "$_pane" @oc-status exited 2>/dev/null || true
-            ) &
           fi
-
-          exec "$REAL" attach "$URL" --dir "$DIR" "$@"
         fi
-        exec "$REAL" "$@"
-        ;;
-    esac
-  '';
+
+        exec "$REAL" attach "$URL" --dir "$DIR" "$@"
+      }
+
+      case "''${1:-}" in
+        # ── Server lifecycle management ──
+        server)
+          case "''${2:-status}" in
+            start)
+              if server_up; then
+                echo "already running"
+              elif ensure_server; then
+                echo "started"
+              else
+                echo "failed"
+              fi
+              ;;
+            stop)    launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null && echo "stopped" || echo "not running" ;;
+            restart)
+              launchctl bootout "gui/$UID_VAL/$LABEL" 2>/dev/null
+              # Wait for server to fully stop before re-bootstrapping (up to 5s)
+              i=0
+              while server_up && (( i < 50 )); do
+                sleep 0.1
+                ((i++))
+              done
+              if launchctl bootstrap "gui/$UID_VAL" "$HOME/Library/LaunchAgents/$LABEL.plist" 2>/dev/null; then
+                echo "restarted"
+              else
+                echo "failed"
+              fi
+              ;;
+            status)
+              if server_up; then
+                PID=$(launchctl list "$LABEL" 2>/dev/null | awk '/PID/ {print $NF}')
+                echo "running (pid $PID, port ${toString serverPort})"
+              elif launchctl list "$LABEL" &>/dev/null; then
+                echo "stopped (stale — 'opencode server start' will auto-recover)"
+              else
+                echo "stopped"
+              fi
+              ;;
+            log)     tail -f /tmp/opencode-server.log ;;
+            debug)
+              "$0" server stop
+              while server_up; do sleep 0.1; done
+              trap '"$0" server start' EXIT
+              echo "Starting debug server on port ${toString serverPort} (Ctrl-C to stop)..."
+              echo "Logs: /tmp/opencode-debug.log"
+              "$REAL" serve --port "${toString serverPort}" --log-level DEBUG --print-logs 2>&1 | tee /tmp/opencode-debug.log
+              ;;
+            connect)
+              if ! ensure_server; then
+                echo "server not running — start with: opencode server start"
+                exit 1
+              fi
+              shift 2
+              if [[ -n "''${1:-}" && "''${1:0:1}" != "-" && -d "$1" ]]; then
+                DIR="$1"; shift
+              else
+                DIR="$(pwd)"
+              fi
+              attach_to_server "$DIR" "$@"
+              ;;
+            *)       echo "usage: opencode server [start|stop|restart|status|log|debug|connect]" ;;
+          esac
+          exit
+          ;;
+
+        # ── Solo: bypass all wrapper logic, exec raw opencode ──
+        # Escape hatch for when the shared server is broken or you
+        # explicitly want a session not tied to it.
+        # Usage: opencode solo [args...]
+        solo)
+          shift
+          exec "$REAL" "$@"
+          ;;
+
+        # ── Subcommands that always pass through unchanged ──
+        completion|acp|mcp|debug|providers|auth|agent|upgrade|uninstall \
+        |serve|web|models|stats|export|import|github|pr|session|db \
+        |workspace-serve|attach)
+          exec "$REAL" "$@"
+          ;;
+
+        # ── One-shot run: inject --attach when server is up ──
+        run)
+          if ensure_server && [[ " $* " != *" --attach "* ]]; then
+            shift
+            exec "$REAL" run --attach "$URL" "$@"
+          fi
+          exec "$REAL" "$@"
+          ;;
+
+        # ── TUI mode (no subcommand) ──
+        *)
+          if (( AUTO_ATTACH )) && ensure_server; then
+            if [[ -n "''${1:-}" && "''${1:0:1}" != "-" && -d "$1" ]]; then
+              DIR="$1"
+              shift
+            else
+              DIR="$(pwd)"
+            fi
+            attach_to_server "$DIR" "$@"
+          fi
+          exec "$REAL" "$@"
+          ;;
+      esac
+    '';
 in
 {
+  extraOptions = {
+    autoAttach = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Auto-attach TUI to the shared server. When false, `opencode` runs standalone and `opencode server connect` attaches manually.";
+    };
+  };
+
   system = {
     launchd.user.agents.opencode-server = {
       serviceConfig = {
@@ -280,7 +247,9 @@ in
     };
   };
 
-  home = {
-    programs.opencode.package = opencode-wrapper;
-  };
+  home =
+    { cfg, ... }:
+    {
+      programs.opencode.package = mkWrapper cfg.autoAttach;
+    };
 }
