@@ -35,7 +35,10 @@ mkUser {
   doppler.enable = true;
   claude.enable = true;
   "claude-code".enable = true;
-  opencode.enable = true;
+  opencode = {
+    enable = true;
+    server.autoAttach = false;
+  };
   playwright-cli.enable = true;
   opencode-manager.enable = true;
   # rtk.enable = true;
