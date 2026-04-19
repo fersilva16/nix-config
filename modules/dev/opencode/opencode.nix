@@ -12,10 +12,10 @@ let
 
   # Real opencode binary with patches applied
   opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
-    patches = (old.patches or [ ]) ++ [ ./patches/cursor-style-and-blink.patch ];
-    node_modules = old.node_modules.overrideAttrs {
-      outputHash = "sha256-BAoAdeLQ+lXDD7Klxoxij683OVVug8KXEMRUqIQAjc8=";
-    };
+    patches = (old.patches or [ ]) ++ [
+      ./patches/cursor-style-and-blink.patch
+      ./patches/generate-remove-prettier.patch
+    ];
   });
 in
 mkUserModule {
@@ -99,6 +99,23 @@ mkUserModule {
         "opencode/tui.json".source = jsonFormat.generate "tui.json" {
           cursor_style = "line";
           cursor_blink = true;
+        };
+
+        # oh-my-openagent plugin config. The plugin reads agent overrides from
+        # this file (NOT from opencode's `settings.agent.*`), so model bumps for
+        # plugin-registered agents (sisyphus, prometheus, oracle, metis, momus)
+        # must live here. Only the model is overridden; prompts, tools, variants,
+        # and fallback chains are inherited from the plugin defaults.
+        "opencode/oh-my-openagent.json".source = jsonFormat.generate "oh-my-openagent.json" {
+          "$schema" =
+            "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/dist/oh-my-opencode.schema.json";
+          agents = {
+            sisyphus.model = "anthropic/claude-opus-4-7";
+            prometheus.model = "anthropic/claude-opus-4-7";
+            oracle.model = "anthropic/claude-opus-4-7";
+            metis.model = "anthropic/claude-opus-4-7";
+            momus.model = "anthropic/claude-opus-4-7";
+          };
         };
       };
     };

@@ -1,0 +1,38 @@
+Nix build patch: drop `prettier` from `opencode generate`.
+
+Upstream declares `prettier` only in the workspace-root `package.json`. The
+nix build (`nix/node_modules.nix`) uses `bun install --filter '!./' --filter
+'./packages/opencode' ...`, which explicitly excludes root deps. As a result
+`prettier` never lands in the sandboxed `node_modules`, and `bun build
+--single` fails statically resolving the dynamic imports in `generate.ts`.
+
+The `opencode generate` command is only used upstream to format the
+committed OpenAPI schema file. Emit raw JSON and skip prettier entirely -
+we don't invoke this command locally.
+
+diff -ruN a/packages/opencode/src/cli/cmd/generate.ts b/packages/opencode/src/cli/cmd/generate.ts
+--- a/packages/opencode/src/cli/cmd/generate.ts	1969-12-31 19:00:01.000000000 -0500
++++ b/packages/opencode/src/cli/cmd/generate.ts	2026-04-18 00:00:00.000000000 -0500
+@@ -27,17 +27,11 @@
+     }
+     const raw = JSON.stringify(specs, null, 2)
+ 
+-    // Format through prettier so output is byte-identical to committed file
+-    // regardless of whether ./script/format.ts runs afterward.
+-    const prettier = await import("prettier")
+-    const babel = await import("prettier/plugins/babel")
+-    const estree = await import("prettier/plugins/estree")
+-    const format = prettier.format ?? prettier.default?.format
+-    const json = await format(raw, {
+-      parser: "json",
+-      plugins: [babel.default ?? babel, estree.default ?? estree],
+-      printWidth: 120,
+-    })
++    // Nix patch (nix-config): prettier is not in the sandboxed node_modules
++    // (declared only at the workspace root, filtered out by
++    // nix/node_modules.nix). `opencode generate` is only used upstream to
++    // format the committed OpenAPI schema, so emit raw JSON instead.
++    const json = raw
+ 
+     // Wait for stdout to finish writing before process.exit() is called
+     await new Promise<void>((resolve, reject) => {
