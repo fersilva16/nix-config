@@ -43,7 +43,6 @@ mkUserModule {
           theme = "flexoki";
           plugin = [
             "@ex-machina/opencode-anthropic-auth@1.7.3"
-            "@mohak34/opencode-notifier@0.1.36"
             "oh-my-openagent@3.17.4"
             "@rama_nigg/open-cursor@2.3.20"
           ];

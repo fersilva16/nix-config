@@ -5,7 +5,21 @@
   ...
 }:
 let
-  jsonFormat = pkgs.formats.json { };
+  mohak34-sounds = pkgs.stdenvNoCC.mkDerivation {
+    pname = "mohak34-opencode-notifier-sounds";
+    version = "0.1.36";
+    src = pkgs.fetchFromGitHub {
+      owner = "mohak34";
+      repo = "opencode-notifier";
+      rev = "v0.1.36";
+      sha256 = "sha256-tjxaqh9akN81MMToeGG1wNEiTp0/WEOmatmXewCThWU=";
+    };
+    dontBuild = true;
+    installPhase = ''
+      mkdir -p $out
+      cp sounds/*.wav $out/
+    '';
+  };
 
   tmux-git-root-path = pkgs.writeShellApplication {
     name = "tmux-git-root-path";
@@ -242,22 +256,10 @@ mkUserModule {
         '';
       };
 
-      # mohak34 owns sound + desktop notifications only. Tmux routing
-      # is handled by our local plugin (plugin/tmux-notifier.ts) which
-      # receives the real opencode sessionID; mohak34's command hook
-      # spawns server-side without TMUX_PANE and mis-tags notifications
-      # to the currently-attached tmux client.
-      "opencode/opencode-notifier.json".source = jsonFormat.generate "opencode-notifier.json" {
-        sound = true;
-        notification = false;
-        suppressWhenFocused = false;
-        command = {
-          enabled = false;
-        };
-      };
-
       "opencode/plugin/tmux-notifier.ts".source = ./plugins/tmux-notifier.ts;
     };
+
+    home.sessionVariables.OPENCODE_TMUX_NOTIFIER_SOUND_DIR = "${mohak34-sounds}";
 
     programs.tmux.extraConfig = ''
       bind-key 'n' run-shell "tmux display-popup -w 80 -h 30 -E -e TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager tui"
