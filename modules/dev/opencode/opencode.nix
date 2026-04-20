@@ -103,17 +103,39 @@ mkUserModule {
         # oh-my-openagent plugin config. The plugin reads agent overrides from
         # this file (NOT from opencode's `settings.agent.*`), so model bumps for
         # plugin-registered agents (sisyphus, prometheus, oracle, metis, momus)
-        # must live here. Only the model is overridden; prompts, tools, variants,
+        # must live here. Only model + variant are overridden; prompts, tools,
         # and fallback chains are inherited from the plugin defaults.
+        #
+        # `variant = "max"` matches the plugin's own built-in fallback-chain
+        # defaults for these agents (see AGENT_MODEL_REQUIREMENTS in the plugin
+        # source). When we specify `model` alone, the plugin's resolver returns
+        # `{ model, provenance: "override" }` with NO variant attached — the
+        # variant only rides along with fallback-chain entries. So overriding
+        # just `model` silently drops `max`. We re-attach it explicitly.
         "opencode/oh-my-openagent.json".source = jsonFormat.generate "oh-my-openagent.json" {
           "$schema" =
             "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/dist/oh-my-opencode.schema.json";
           agents = {
-            sisyphus.model = "anthropic/claude-opus-4-7";
-            prometheus.model = "anthropic/claude-opus-4-7";
-            oracle.model = "anthropic/claude-opus-4-7";
-            metis.model = "anthropic/claude-opus-4-7";
-            momus.model = "anthropic/claude-opus-4-7";
+            sisyphus = {
+              model = "anthropic/claude-opus-4-7";
+              variant = "max";
+            };
+            prometheus = {
+              model = "anthropic/claude-opus-4-7";
+              variant = "max";
+            };
+            oracle = {
+              model = "anthropic/claude-opus-4-7";
+              variant = "max";
+            };
+            metis = {
+              model = "anthropic/claude-opus-4-7";
+              variant = "max";
+            };
+            momus = {
+              model = "anthropic/claude-opus-4-7";
+              variant = "max";
+            };
           };
         };
       };
