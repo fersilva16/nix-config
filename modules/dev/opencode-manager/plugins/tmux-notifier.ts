@@ -1,26 +1,65 @@
-// Routes opencode session events to tmux-opencode-manager using the
-// real sessionID, bypassing @mohak34/opencode-notifier's command hook
-// (which spawns server-side without TMUX_PANE and mis-tags
-// notifications to whichever tmux client is currently attached).
-// mohak34 still owns sound + desktop notifications; its `command` is
-// disabled in the notifier config. Auto-discovered from
-// ~/.config/opencode/plugin/*.ts by opencode's ConfigPlugin.load.
+// Full-stack opencode notifier: tmux widget + sound + desktop.
+// Replaces @mohak34/opencode-notifier so we can filter synthetic turns
+// from oh-my-openagent (which would otherwise trigger on every
+// TODO CONTINUATION / BACKGROUND TASK COMPLETE etc.).
+//
+// Env (all optional):
+//   OPENCODE_TMUX_NOTIFIER_SOUND=0       disable sound
+//   OPENCODE_TMUX_NOTIFIER_DESKTOP=0     disable desktop notifications
+//   OPENCODE_TMUX_NOTIFIER_OMO_FILTER=0  allow OMO turns to notify
+//   OPENCODE_TMUX_NOTIFIER_VOLUME=0.5    sound volume 0-1 (default 0.7)
 
-import { spawn } from "child_process"
+import { spawn, spawnSync } from "child_process"
+import { existsSync } from "fs"
 import { basename } from "path"
+import { platform } from "os"
 
 const CMD = "tmux-opencode-manager"
-
 const TMUX_PANE = process.env.TMUX_PANE ?? ""
+const PLATFORM = platform()
 
-// Mirrors @mohak34/opencode-notifier's IDLE_COMPLETE_DELAY_MS. Avoids
-// firing "complete" on transient idles inside a single turn (e.g.,
-// between tool calls).
 const IDLE_DELAY_MS = 350
+
+const OMO_INTERNAL_INITIATOR_MARKER = "<!-- OMO_INTERNAL_INITIATOR -->"
+
+const SOUND_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_SOUND !== "0"
+const DESKTOP_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_DESKTOP !== "0"
+const OMO_FILTER_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_OMO_FILTER !== "0"
+
+const VOLUME = (() => {
+  const raw = process.env.OPENCODE_TMUX_NOTIFIER_VOLUME
+  const n = raw ? Number(raw) : NaN
+  if (Number.isFinite(n) && n >= 0 && n <= 1) return n
+  return 0.7
+})()
+
+const CUSTOM_SOUND_DIR = process.env.OPENCODE_TMUX_NOTIFIER_SOUND_DIR ?? ""
+
+const MAC_SOUNDS: Record<EventKind, string> = {
+  complete: "/System/Library/Sounds/Glass.aiff",
+  permission: "/System/Library/Sounds/Ping.aiff",
+  error: "/System/Library/Sounds/Basso.aiff",
+  question: "/System/Library/Sounds/Tink.aiff",
+}
+
+function resolveSoundPath(event: EventKind): string {
+  if (CUSTOM_SOUND_DIR) {
+    const custom = `${CUSTOM_SOUND_DIR}/${event}.wav`
+    if (existsSync(custom)) return custom
+  }
+  return MAC_SOUNDS[event]
+}
+
+type EventKind = "complete" | "permission" | "error" | "question"
+
+type MessagePart = { type?: string; text?: string }
+type MessageInfo = { id?: string; role?: string; time?: { created?: number } }
+type MessageEntry = { info?: MessageInfo; parts?: MessagePart[] }
 
 type Client = {
   session: {
     get: (args: { path: { id: string } }) => Promise<{ data?: { title?: string; parentID?: string | null } }>
+    messages?: (args: { path: { id: string } }) => Promise<{ data?: MessageEntry[] }>
   }
 }
 
@@ -42,32 +81,63 @@ type Hooks = {
   "tool.execute.before"?: (input: { tool: string }) => Promise<void> | void
 }
 
-function fireNotify(event: string, sessionID: string | null, message: string) {
+function runDetached(cmd: string, args: string[]) {
+  try {
+    const proc = spawn(cmd, args, { stdio: "ignore", detached: true })
+    proc.on("error", () => {})
+    proc.unref()
+  } catch {
+    // Notifier side-effects must never break the opencode session.
+  }
+}
+
+function fireTmuxNotify(event: EventKind, sessionID: string | null, message: string) {
   const args = ["notify", "add", "--event", event, "--require-target"]
   if (sessionID) args.push("--session-id", sessionID)
   if (TMUX_PANE) args.push("--pane-id", TMUX_PANE)
   args.push(message)
+  runDetached(CMD, args)
+}
 
-  try {
-    const proc = spawn(CMD, args, { stdio: "ignore", detached: true })
-    proc.on("error", () => {})
-    proc.unref()
-  } catch {
-    // Notifier must never break the opencode session.
+function playSound(event: EventKind) {
+  if (!SOUND_ENABLED) return
+  const path = resolveSoundPath(event)
+  if (!path) return
+  if (PLATFORM === "darwin") {
+    runDetached("afplay", ["-v", String(VOLUME), path])
+  } else if (PLATFORM === "linux") {
+    runDetached("paplay", [path])
+  }
+}
+
+function sendDesktopNotification(title: string, body: string) {
+  if (!DESKTOP_ENABLED) return
+  if (PLATFORM === "darwin") {
+    const escaped = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    runDetached("osascript", ["-e", `display notification "${escaped(body)}" with title "${escaped(title)}"`])
+  } else if (PLATFORM === "linux") {
+    runDetached("notify-send", ["--app-name=opencode", title, body])
   }
 }
 
 function setPaneOption(option: string, value: string) {
   if (!TMUX_PANE) return
+  runDetached("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value])
+}
+
+function isPaneFocusedInAttachedClient(): boolean {
+  if (!TMUX_PANE) return false
   try {
-    const proc = spawn("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value], {
-      stdio: "ignore",
-      detached: true,
-    })
-    proc.on("error", () => {})
-    proc.unref()
+    const res = spawnSync(
+      "tmux",
+      ["display-message", "-p", "-t", TMUX_PANE, "#{window_active} #{session_attached}"],
+      { encoding: "utf8", timeout: 300 },
+    )
+    if (res.status !== 0 || !res.stdout) return false
+    const [active, attached] = res.stdout.trim().split(/\s+/)
+    return active === "1" && Number(attached) > 0
   } catch {
-    // Pane option setup is best-effort; widget visibility is non-critical.
+    return false
   }
 }
 
@@ -84,6 +154,33 @@ async function getSessionInfo(
     return { title, isChild }
   } catch {
     return { title: "", isChild: false }
+  }
+}
+
+async function isLastUserMessageFromOmo(client: Client, sessionID: string): Promise<boolean> {
+  if (!OMO_FILTER_ENABLED) return false
+  if (typeof client.session.messages !== "function") return false
+  try {
+    const { data } = await client.session.messages({ path: { id: sessionID } })
+    if (!Array.isArray(data)) return false
+
+    let latest: MessageEntry | null = null
+    let latestTime = Number.NEGATIVE_INFINITY
+    for (const entry of data) {
+      if (entry?.info?.role !== "user") continue
+      const t = entry.info?.time?.created ?? Number.NEGATIVE_INFINITY
+      if (t > latestTime) {
+        latestTime = t
+        latest = entry
+      }
+    }
+
+    if (!latest || !Array.isArray(latest.parts)) return false
+    return latest.parts.some(
+      (p) => p?.type === "text" && typeof p.text === "string" && p.text.includes(OMO_INTERNAL_INITIATOR_MARKER),
+    )
+  } catch {
+    return false
   }
 }
 
@@ -115,21 +212,32 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
     return ""
   }
 
+  function dispatchAll(event: EventKind, sessionID: string | null, titleForDesktop: string, body: string) {
+    if (isPaneFocusedInAttachedClient()) return
+    fireTmuxNotify(event, sessionID, body)
+    playSound(event)
+    sendDesktopNotification(titleForDesktop, body)
+  }
+
   async function emitComplete(sessionID: string) {
     const { title, isChild } = await getSessionInfo(client, sessionID)
     if (isChild) return
-    fireNotify("complete", sessionID, `Session has finished${buildSuffix(title)}`)
+    if (await isLastUserMessageFromOmo(client, sessionID)) return
+    const body = `Session has finished${buildSuffix(title)}`
+    dispatchAll("complete", sessionID, projectName ?? "opencode", body)
   }
 
   async function emitError(sessionID: string | null, cancelled: boolean) {
     const { title } = await getSessionInfo(client, sessionID)
     const verb = cancelled ? "was cancelled" : "encountered an error"
-    fireNotify("error", sessionID, `Session ${verb}${buildSuffix(title)}`)
+    const body = `Session ${verb}${buildSuffix(title)}`
+    dispatchAll("error", sessionID, projectName ?? "opencode", body)
   }
 
   async function emitPermission(sessionID: string | null) {
     const { title } = await getSessionInfo(client, sessionID)
-    fireNotify("permission", sessionID, `Session needs permission${buildSuffix(title)}`)
+    const body = `Session needs permission${buildSuffix(title)}`
+    dispatchAll("permission", sessionID, projectName ?? "opencode", body)
   }
 
   return {
@@ -177,11 +285,15 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
     },
 
     "permission.ask": async () => {
-      fireNotify("permission", null, "Session needs permission")
+      const body = "Session needs permission"
+      dispatchAll("permission", null, projectName ?? "opencode", body)
     },
 
     "tool.execute.before": async ({ tool }) => {
-      if (tool === "question") fireNotify("question", null, "Session has a question")
+      if (tool === "question") {
+        const body = "Session has a question"
+        dispatchAll("question", null, projectName ?? "opencode", body)
+      }
     },
   }
 }
