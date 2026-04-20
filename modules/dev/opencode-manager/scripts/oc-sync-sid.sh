@@ -4,14 +4,24 @@ set -eu
 
 PANE_ID="${1:?}"
 
-STATUS=$(tmux show-options -pv -t "$PANE_ID" @oc-status 2>/dev/null || true)
-[[ "$STATUS" != "active" ]] && exit 0
-
-DIR=$(tmux show-options -pv -t "$PANE_ID" @oc-dir 2>/dev/null || true)
-[[ -z "$DIR" ]] && exit 0
-
 TITLE=$(tmux display-message -p -t "$PANE_ID" '#{pane_title}' 2>/dev/null || true)
 [[ "$TITLE" != OC\ \|\ * ]] && exit 0
+
+# An "OC | ..." title is ground truth that opencode is running here.
+# Backfill @oc-status / @oc-dir for panes that started before the
+# plugin was installed (pane options wouldn't have been set by the TS
+# plugin, leaving the sync path stuck).
+STATUS=$(tmux show-options -pv -t "$PANE_ID" @oc-status 2>/dev/null || true)
+if [[ "$STATUS" != "active" && "$STATUS" != "pending" ]]; then
+  tmux set-option -p -t "$PANE_ID" @oc-status active 2>/dev/null || true
+fi
+
+DIR=$(tmux show-options -pv -t "$PANE_ID" @oc-dir 2>/dev/null || true)
+if [[ -z "$DIR" ]]; then
+  DIR=$(tmux display-message -p -t "$PANE_ID" '#{pane_current_path}' 2>/dev/null || true)
+  [[ -n "$DIR" ]] && tmux set-option -p -t "$PANE_ID" @oc-dir "$DIR" 2>/dev/null || true
+fi
+[[ -z "$DIR" ]] && exit 0
 
 EXTRACTED="${TITLE#OC | }"
 

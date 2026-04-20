@@ -124,8 +124,9 @@ in
               lib.mapAttrsToList (
                 partName: partDef:
                 let
-                  partSys = partDef.system or { };
+                  partSysRaw = partDef.system or { };
                   partUsers = lib.filterAttrs (_: u: u.${name}.${partName}.enable) enabledUsers;
+                  partSys = if builtins.isFunction partSysRaw then partSysRaw { inherit partUsers; } else partSysRaw;
                 in
                 lib.mkIf (partUsers != { }) partSys
               ) parts

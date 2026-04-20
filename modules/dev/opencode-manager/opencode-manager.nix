@@ -242,31 +242,30 @@ mkUserModule {
         '';
       };
 
+      # mohak34 owns sound + desktop notifications only. Tmux routing
+      # is handled by our local plugin (plugin/tmux-notifier.ts) which
+      # receives the real opencode sessionID; mohak34's command hook
+      # spawns server-side without TMUX_PANE and mis-tags notifications
+      # to the currently-attached tmux client.
       "opencode/opencode-notifier.json".source = jsonFormat.generate "opencode-notifier.json" {
         sound = true;
         notification = false;
         suppressWhenFocused = false;
         command = {
-          enabled = true;
-          path = "${tmux-opencode-manager}/bin/tmux-opencode-manager";
-          args = [
-            "notify"
-            "add"
-            "--event"
-            "{event}"
-            "{message}"
-          ];
-          minDuration = 0;
+          enabled = false;
         };
       };
+
+      "opencode/plugin/tmux-notifier.ts".source = ./plugins/tmux-notifier.ts;
     };
 
     programs.tmux.extraConfig = ''
-      bind-key 'n' display-popup -w 80 -h 30 -E "${tmux-opencode-manager}/bin/tmux-opencode-manager tui"
-      bind-key 'N' run-shell "${tmux-opencode-manager}/bin/tmux-opencode-manager notify goto"
-      set-hook -g after-select-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify auto-dismiss"'
-      set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify auto-dismiss"'
-      set-hook -g pane-exited 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}; ${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
+      bind-key 'n' run-shell "tmux display-popup -w 80 -h 30 -E -e TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager tui"
+      bind-key 'N' run-shell -b "env TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager notify goto"
+      set-hook -g after-select-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
+      set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
+      set-hook -g after-kill-pane 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-pane \"#{hook_arguments}\"; ${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
+      set-hook -g window-unlinked 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       set-hook -g session-closed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-session #{session_name}"'
       set-hook -g pane-title-changed 'run-shell -b "${tmux-oc-sync-sid}/bin/tmux-oc-sync-sid #{pane_id}"'
       set-hook -g after-split-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'

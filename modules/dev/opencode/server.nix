@@ -122,6 +122,15 @@ let
       case "''${1:-}" in
         # ── Server lifecycle management ──
         server)
+          if (( ! AUTO_ATTACH )); then
+            if [[ "''${2:-status}" == "status" ]]; then
+              echo "disabled (autoAttach=false)"
+            else
+              echo "opencode server is disabled (autoAttach=false). Use 'opencode' directly." >&2
+              exit 1
+            fi
+            exit 0
+          fi
           case "''${2:-status}" in
             start)
               if server_up; then
@@ -202,7 +211,7 @@ let
 
         # ── One-shot run: inject --attach when server is up ──
         run)
-          if ensure_server && [[ " $* " != *" --attach "* ]]; then
+          if (( AUTO_ATTACH )) && ensure_server && [[ " $* " != *" --attach "* ]]; then
             shift
             exec "$REAL" run --attach "$URL" "$@"
           fi
@@ -234,18 +243,20 @@ in
     };
   };
 
-  system = {
-    launchd.user.agents.opencode-server = {
-      serviceConfig = {
-        Label = "com.opencode.server";
-        ProgramArguments = [ "${serverLauncher}" ];
-        RunAtLoad = true;
-        KeepAlive = true;
-        StandardOutPath = "/tmp/opencode-server.log";
-        StandardErrorPath = "/tmp/opencode-server.log";
+  system =
+    { partUsers }:
+    lib.mkIf (lib.any (u: u.opencode.server.autoAttach) (lib.attrValues partUsers)) {
+      launchd.user.agents.opencode-server = {
+        serviceConfig = {
+          Label = "com.opencode.server";
+          ProgramArguments = [ "${serverLauncher}" ];
+          RunAtLoad = true;
+          KeepAlive = true;
+          StandardOutPath = "/tmp/opencode-server.log";
+          StandardErrorPath = "/tmp/opencode-server.log";
+        };
       };
     };
-  };
 
   home =
     { cfg, ... }:
