@@ -16,6 +16,25 @@ mkUserModule {
         }
       ];
     };
+
+    # Disable App Nap for Hammerspoon.
+    #
+    # Hammerspoon is a background agent with no visible windows, so macOS App
+    # Nap is free to throttle its run loop and timers when the user isn't
+    # actively interacting with it. When throttled:
+    #   - hs.timer callbacks fire sparsely or not at all
+    #   - The proactive 30s eventtap recreate in init.lua stops running
+    #   - Secure Input / stuck-hyper recovery stops running
+    #   - Any transient tap hiccup becomes a permanent outage until the user
+    #     types enough to wake the app, at which point it "magically" recovers
+    #
+    # Opting out of App Nap keeps the run loop at normal priority and lets the
+    # health checks in init.lua actually do their job.
+    system.defaults.CustomUserPreferences = {
+      "org.hammerspoon.Hammerspoon" = {
+        NSAppSleepDisabled = true;
+      };
+    };
   };
   home = {
     home.file.".hammerspoon/init.lua" = {

@@ -428,26 +428,86 @@ end)
 healthCheck:start()
 
 -- ---------------------------------------------------------------------------
--- System wake handler
+-- Power / session event handler
 -- ---------------------------------------------------------------------------
 
--- Full reload on system wake. Sleep can permanently invalidate eventtap
--- Mach ports, freeze timers, and leave watchers unresponsive. A clean
--- reload is the only reliable recovery.
-local caffeinate = hs.caffeinate.watcher.new(function(event)
+-- macOS can freeze Hammerspoon's run loop and invalidate eventtap Mach ports
+-- across a variety of power/session transitions. The built-in health checks
+-- can't catch all of these because the run loop itself may be paused during
+-- the transition, so we react directly to the transition events.
+--
+-- Upstream issue describing the underlying NSTimer-pauses-during-sleep bug:
+--   https://github.com/Hammerspoon/hammerspoon/issues/1942
+--
+-- Severity ladder:
+--   HEAVY (full hs.reload): system/screen sleep → wake. These can pause timers
+--     for arbitrary durations and permanently invalidate Mach ports. Only a
+--     full reload is guaranteed to recover.
+--   LIGHT (recreate tap only): screen unlock, screensaver stop, session
+--     reactivation. Usually the Lua state is fine; the tap just needs a
+--     fresh Mach port and hyper state needs resetting in case a keyUp was
+--     missed while the screen was locked.
+--   PASSIVE (log only): going-inactive events (lock, sleep, resign). Nothing
+--     to recover yet — just annotate the log so post-mortem analysis can
+--     correlate outages with the transition that preceded them.
+
+local caffeinateWatcher = hs.caffeinate.watcher
+
+local heavyReloadEvents = {
+  [caffeinateWatcher.systemDidWake] = "systemDidWake",
+  [caffeinateWatcher.screensDidWake] = "screensDidWake",
+}
+
+local lightRecoveryEvents = {
+  [caffeinateWatcher.screensDidUnlock] = "screensDidUnlock",
+  [caffeinateWatcher.screensaverDidStop] = "screensaverDidStop",
+  [caffeinateWatcher.sessionDidBecomeActive] = "sessionDidBecomeActive",
+}
+
+local passiveLogEvents = {
+  [caffeinateWatcher.systemWillSleep] = "systemWillSleep",
+  [caffeinateWatcher.screensDidSleep] = "screensDidSleep",
+  [caffeinateWatcher.screensDidLock] = "screensDidLock",
+  [caffeinateWatcher.screensaverDidStart] = "screensaverDidStart",
+  [caffeinateWatcher.sessionDidResignActive] = "sessionDidResignActive",
+  [caffeinateWatcher.systemWillPowerOff] = "systemWillPowerOff",
+}
+
+local caffeinate = caffeinateWatcher.new(function(event)
   local ok, err = pcall(function()
-    if event == hs.caffeinate.watcher.systemDidWake or
-        event == hs.caffeinate.watcher.screensDidWake then
-      log("WAKE", "System/screen woke — scheduling full reload in 2s")
+    local heavyName = heavyReloadEvents[event]
+    if heavyName then
+      log("POWER", heavyName .. " — scheduling full reload in 2s")
       hs.timer.doAfter(2, function()
-        log("WAKE", "Reloading now")
+        log("POWER", "Reloading now (" .. heavyName .. ")")
         hs.reload()
       end)
+      return
+    end
+
+    local lightName = lightRecoveryEvents[event]
+    if lightName then
+      log("POWER", lightName .. " — light recovery (tap recreate + reset)")
+      -- Small delay so macOS has fully finished the transition before we
+      -- ask for a new Mach port. Observed on Sonoma: recreating a tap in
+      -- the same tick as screensDidUnlock can produce a tap that starts
+      -- disabled.
+      hs.timer.doAfter(0.5, function()
+        recreateWatcher("power:" .. lightName)
+        lastRecreate = hs.timer.secondsSinceEpoch()
+        secureInputTicks = 0
+      end)
+      return
+    end
+
+    local passiveName = passiveLogEvents[event]
+    if passiveName then
+      log("POWER", passiveName)
     end
   end)
   if not ok then
-    log("ERROR", "wake handler: " .. tostring(err))
-    hs.alert.show("⌨️ Wake handler error: " .. tostring(err), 3)
+    log("ERROR", "power handler: " .. tostring(err))
+    hs.alert.show("⌨️ Power handler error: " .. tostring(err), 3)
   end
 end)
 caffeinate:start()
