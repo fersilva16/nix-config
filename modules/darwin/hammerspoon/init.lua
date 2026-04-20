@@ -279,8 +279,11 @@ end
 -- Arrow key blocker
 -- ---------------------------------------------------------------------------
 -- Force hjkl usage by blocking the physical arrow keys. The hyper+hjkl
--- remapping still works because those bindings post synthetic arrow events
--- via CGEventTapPostEvent, which bypass all eventtaps (including this one).
+-- remapping still works: the f18 tap's CGEventTapPostEvent posts synthetic
+-- arrow events, and while those events do flow through this tap, they only
+-- occur while F18 (hyper) is held — so a single `hyperDown` check is enough
+-- to distinguish "user pressed hjkl with hyper" from "user pressed a real
+-- arrow key". Real arrow presses always happen with hyperDown == false.
 --
 -- Arrow key codes: left=123, right=124, down=125, up=126
 local arrowKeyCodes = {
@@ -293,6 +296,7 @@ local arrowKeyCodes = {
 local arrowBlocker = hs.eventtap.new(
   { hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp },
   function(event)
+    if hyperDown then return false end
     local name = arrowKeyCodes[event:getKeyCode()]
     if name then
       if event:getType() == hs.eventtap.event.types.keyDown
