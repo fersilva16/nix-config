@@ -276,6 +276,37 @@ local function f18Callback(event)
 end
 
 -- ---------------------------------------------------------------------------
+-- Arrow key blocker
+-- ---------------------------------------------------------------------------
+-- Force hjkl usage by blocking the physical arrow keys. The hyper+hjkl
+-- remapping still works because those bindings post synthetic arrow events
+-- via CGEventTapPostEvent, which bypass all eventtaps (including this one).
+--
+-- Arrow key codes: left=123, right=124, down=125, up=126
+local arrowKeyCodes = {
+  [123] = "left",
+  [124] = "right",
+  [125] = "down",
+  [126] = "up",
+}
+
+local arrowBlocker = hs.eventtap.new(
+  { hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp },
+  function(event)
+    local name = arrowKeyCodes[event:getKeyCode()]
+    if name then
+      if event:getType() == hs.eventtap.event.types.keyDown
+          and event:getProperty(hs.eventtap.event.properties.keyboardEventAutorepeat) == 0 then
+        log("BLOCK", "arrow " .. name)
+      end
+      return true
+    end
+    return false
+  end
+)
+arrowBlocker:start()
+
+-- ---------------------------------------------------------------------------
 -- Tap lifecycle
 -- ---------------------------------------------------------------------------
 local f18Watcher = nil
