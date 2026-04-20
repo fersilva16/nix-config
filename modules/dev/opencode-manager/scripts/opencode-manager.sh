@@ -39,19 +39,27 @@ _get_sessions() {
     return
   fi
 
-  # Get all opencode panes with their @oc-sid from tmux pane options.
-  # Falls back to directory-based DB matching for panes without options.
+  # Include a pane if it is CURRENTLY running opencode (command check).
+  # Stale @oc-sid/@oc-status options persist after opencode exits, so
+  # relying on pane options alone surfaces ghost sessions; we intersect
+  # with pane_current_command to filter them out.
+  # Uses a tab separator so empty @oc-sid/@oc-status fields (pre-session
+  # panes) don't shift columns when parsed.
   local panes
   panes=$(tmux list-panes -a \
-    -F '#{session_name} #{window_index} #{pane_current_path} #{pane_id} #{@oc-sid} #{@oc-status}' 2>/dev/null |
-    awk '($6 == "active" || $6 == "pending") {print $1, $2, $3, $4, $5}' | sort -u)
+    -F '#{session_name}	#{window_index}	#{pane_current_path}	#{pane_id}	#{@oc-sid}	#{@oc-status}	#{pane_current_command}' 2>/dev/null |
+    awk -F'\t' '$7 ~ /opencode/ {print $1 " " $2 " " $3 " " $4 " " $5}' | sort -u)
 
   if [[ -z "$panes" ]]; then
     echo '[]'
     return
   fi
 
-  # DB query for generating status and titles, keyed by session ID
+  # DB query for generating status and titles, keyed by session ID.
+  # A session is "generating" iff its latest assistant message has no
+  # time.completed AND was created within the last 5 minutes. The tight
+  # window avoids reporting stuck/orphaned messages (crashed opencode
+  # never wrote the completion timestamp) as live generation.
   local db_sessions=""
   if [[ -f "$OPENCODE_DB" ]] && command -v sqlite3 &>/dev/null; then
     local db_query="WITH gen AS (
@@ -60,7 +68,7 @@ _get_sessions() {
         WHERE json_extract(m.data, '\$.role') = 'assistant'
           AND (json_extract(m.data, '\$.time.completed') IS NULL
                OR json_extract(m.data, '\$.time.completed') = '')
-          AND m.time_created > ((strftime('%s', 'now') - 7200) * 1000)
+          AND m.time_created > ((strftime('%s', 'now') - 300) * 1000)
       )
       SELECT s.id, s.directory,
         CASE WHEN gen.session_id IS NOT NULL THEN 'generating' ELSE 'idle' END,
@@ -132,11 +140,31 @@ _get_notifications() {
 # @cmd Notification management
 notify() { :; }
 
+# Resolve a tmux target (session:window) for a given opencode session ID
+# by scanning pane options for a matching @oc-sid.
+# Exit 0 + stdout: "session:window [paneId] [window_active] [session_attached]"
+# Exit 1: no match
+_resolve_target_by_sid() {
+  local sid="$1"
+  [[ -z "$sid" ]] && return 1
+
+  tmux list-panes -a \
+    -F '#{@oc-sid} #{session_name}:#{window_index} #{pane_id} #{window_active} #{session_attached}' \
+    2>/dev/null |
+    awk -v sid="$sid" '$1 == sid { print $2, $3, $4, $5; exit }'
+}
+
 # @cmd Add a notification
-# @option --event <EVENT>   Event type (complete, permission, error, question)
-# @arg message!             Notification message
+# @option --event <EVENT>         Event type (complete, permission, error, question)
+# @option --session-id <SID>      OpenCode session ID (resolves via @oc-sid when no --pane-id)
+# @option --pane-id <PANE>        tmux pane id (preferred when provided)
+# @flag --require-target          Drop notification if no tmux target resolves (filters out `opencode run`)
+# @arg message!                   Notification message
 notify::add() {
   local event="${argc_event:-}"
+  local sid="${argc_session_id:-}"
+  local pane_id_arg="${argc_pane_id:-}"
+  local require_target="${argc_require_target:-0}"
   # shellcheck disable=SC2154 # set by argc
   local message="$argc_message"
 
@@ -147,37 +175,60 @@ notify::add() {
     esac
   fi
 
-  local id timestamp session window target
+  local id timestamp session window target pane_id
   id="$(printf '%s%s' "$(date +%s)" "$$" | shasum | head -c 8)"
   timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  session="${TMUX_NOTIFY_SESSION:-}"
+  session=""
   window=""
   target=""
+  pane_id=""
   local pane_active="" session_attached=""
 
   if command -v tmux &>/dev/null; then
-    local pane_target="${TMUX_PANE:-}"
+    local primary_pane="${pane_id_arg:-${TMUX_PANE:-}}"
 
-    if [[ -n "$pane_target" ]]; then
-      if [[ -z "$session" ]]; then
-        session="$(tmux display-message -p -t "$pane_target" '#S' 2>/dev/null || true)"
+    # Preferred: a real tmux pane id (plugin forwards TMUX_PANE via
+    # --pane-id in standalone mode; falls back to inherited TMUX_PANE
+    # for manual CLI callers). Most reliable signal — no DB lookup.
+    if [[ -n "$primary_pane" ]]; then
+      session="$(tmux display-message -p -t "$primary_pane" '#S' 2>/dev/null || true)"
+      window="$(tmux display-message -p -t "$primary_pane" '#I' 2>/dev/null || true)"
+      pane_active="$(tmux display-message -p -t "$primary_pane" '#{window_active}' 2>/dev/null || true)"
+      session_attached="$(tmux display-message -p -t "$primary_pane" '#{session_attached}' 2>/dev/null || true)"
+      pane_id="$primary_pane"
+      if [[ -n "$session" && -n "$window" ]]; then
+        target="${session}:${window}"
       fi
-      window="$(tmux display-message -p -t "$pane_target" '#I' 2>/dev/null || true)"
-      pane_active="$(tmux display-message -p -t "$pane_target" '#{window_active}' 2>/dev/null || true)"
-      session_attached="$(tmux display-message -p -t "$pane_target" '#{session_attached}' 2>/dev/null || true)"
-    else
-      if [[ -z "$session" ]]; then
-        session="$(tmux display-message -p '#S' 2>/dev/null || true)"
-      fi
-      window="$(tmux display-message -p '#I' 2>/dev/null || true)"
     fi
-    if [[ -n "$session" && -n "$window" ]]; then
-      target="${session}:${window}"
+
+    # Fallback: resolve pane via @oc-sid (attach-mode where the plugin
+    # runs server-side without TMUX_PANE; wrapper sets @oc-sid on
+    # attach, oc-sync-sid.sh keeps it in sync).
+    # Never fall back to bare `tmux display-message -p '#S'` — that
+    # queries whichever client is currently attached, the root bug
+    # this plugin fixes.
+    if [[ -z "$target" && -n "$sid" ]]; then
+      local resolved
+      resolved="$(_resolve_target_by_sid "$sid" || true)"
+      if [[ -n "$resolved" ]]; then
+        read -r target pane_id pane_active session_attached <<<"$resolved"
+        session="${target%%:*}"
+        window="${target##*:}"
+      fi
     fi
   fi
+
+  # Drop notification when caller requires a target and none resolved.
+  # Used by the opencode plugin to filter out sessions with no tmux
+  # home (e.g., `opencode run`, sessions in closed panes).
+  if [[ "$require_target" == "1" && -z "$target" ]]; then
+    exit 0
+  fi
+
   session="${session:-opencode}"
 
+  # Suppress when the resolved pane is focused in an attached client.
   if [[ "$pane_active" == "1" && "${session_attached:-0}" -gt 0 ]]; then
     exit 0
   fi
@@ -192,10 +243,26 @@ notify::add() {
     --arg sess "$session" \
     --arg msg "$message" \
     --arg tgt "$target" \
-    '{id: $id, timestamp: $ts, session: $sess, message: $msg, target: $tgt}')
+    --arg sid "$sid" \
+    --arg ev "${event:-}" \
+    '{id: $id, timestamp: $ts, session: $sess, message: $msg, target: $tgt, sessionID: $sid, event: $ev}')
 
-  jq --argjson entry "$entry" '[.[] | select(.target != $entry.target)] + [$entry]' "$NOTIFY_FILE" >"${NOTIFY_FILE}.tmp" &&
-    mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
+  # Dedupe by (sessionID, event) when we have a sessionID — the same
+  # opencode session firing the same event twice in quick succession
+  # should collapse to one entry. Otherwise fall back to target-based
+  # dedupe for legacy TMUX_PANE-only callers (which still produce
+  # distinct targets per pane).
+  if [[ -n "$sid" ]]; then
+    jq --argjson entry "$entry" \
+      '[.[] | select(.sessionID != $entry.sessionID or .event != $entry.event)] + [$entry]' \
+      "$NOTIFY_FILE" >"${NOTIFY_FILE}.tmp" &&
+      mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
+  else
+    jq --argjson entry "$entry" \
+      '[.[] | select(.target != $entry.target or $entry.target == "")] + [$entry]' \
+      "$NOTIFY_FILE" >"${NOTIFY_FILE}.tmp" &&
+      mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
+  fi
 
   _unlock
 
@@ -206,9 +273,8 @@ notify::add() {
   fi
 
   if [[ -f "/tmp/tmux-remote-state" ]]; then
-    local pane_target="${TMUX_PANE:-}"
-    if [[ -n "$pane_target" ]]; then
-      tmux send-keys -t "$pane_target" "" 2>/dev/null || true
+    if [[ -n "${TMUX_PANE:-}" ]]; then
+      tmux send-keys -t "$TMUX_PANE" "" 2>/dev/null || true
     else
       printf '\a'
     fi
@@ -247,6 +313,62 @@ notify::dismiss_session() {
     mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
 
   _unlock
+}
+
+# @cmd Dismiss notifications whose opencode sessionID is no longer claimed
+#      by any live tmux pane (via @oc-sid). Called by the after-kill-pane
+#      hook — since the pane is already gone by the time we fire, we can't
+#      look up its @oc-sid anymore; instead we reconcile the notification
+#      set against the currently-live set of claimed session IDs.
+notify::dismiss_orphans() {
+  _init_file
+  _lock
+
+  local live_sids
+  live_sids="$(tmux list-panes -a -F '#{@oc-sid}' 2>/dev/null | awk 'NF>0' | sort -u | paste -sd, -)"
+
+  local before after
+  before=$(jq 'length' "$NOTIFY_FILE")
+  jq --arg live "$live_sids" '
+    ($live | split(",") | map(select(length > 0))) as $alive |
+    [.[] | select(.sessionID == "" or (.sessionID | IN($alive[])))]
+  ' "$NOTIFY_FILE" >"${NOTIFY_FILE}.tmp" && mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
+  after=$(jq 'length' "$NOTIFY_FILE")
+
+  _unlock
+
+  if [[ "$before" != "$after" ]] && command -v tmux &>/dev/null; then
+    tmux refresh-client -S 2>/dev/null || true
+  fi
+}
+
+# @cmd Dismiss notifications for a specific tmux pane (parses hook args)
+#      Accepts tmux after-kill-pane's "hook_arguments" string like "-t %123".
+# @arg args!   hook_arguments string from tmux
+notify::dismiss_pane() {
+  # shellcheck disable=SC2154 # set by argc
+  local args="$argc_args"
+
+  local pane_id=""
+  if [[ "$args" =~ -t[[:space:]]+(%[0-9]+) ]]; then
+    pane_id="${BASH_REMATCH[1]}"
+  fi
+
+  if [[ -n "$pane_id" ]]; then
+    local sid
+    sid="$(tmux show-options -pv -t "$pane_id" @oc-sid 2>/dev/null || true)"
+    if [[ -n "$sid" ]]; then
+      _init_file
+      _lock
+      jq --arg sid "$sid" '[.[] | select(.sessionID != $sid)]' "$NOTIFY_FILE" >"${NOTIFY_FILE}.tmp" &&
+        mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
+      _unlock
+      command -v tmux &>/dev/null && tmux refresh-client -S 2>/dev/null || true
+      return
+    fi
+  fi
+
+  notify::dismiss_orphans
 }
 
 # @cmd Dismiss notifications for a specific target
@@ -329,8 +451,12 @@ notify::goto() {
   if command -v tmux &>/dev/null; then
     tmux refresh-client -S 2>/dev/null || true
     if [[ -n "$target" ]]; then
-      tmux select-window -t "$target" 2>/dev/null || true
-      tmux switch-client -t "$target" 2>/dev/null || true
+      if [[ -n "${TMUX_OPENCODE_CALLER_TTY:-}" ]]; then
+        tmux switch-client -c "$TMUX_OPENCODE_CALLER_TTY" -t "$target" 2>/dev/null || true
+      else
+        tmux select-window -t "$target" 2>/dev/null || true
+        tmux switch-client -t "$target" 2>/dev/null || true
+      fi
     fi
   fi
 }
@@ -679,8 +805,16 @@ tui() {
 
     if [[ -n "$target" ]]; then
       [[ "$notif_count" -gt 0 ]] && _dismiss_selected
-      tmux select-window -t "$target" 2>/dev/null || true
-      tmux switch-client -t "$target" 2>/dev/null || true
+      # Target the CALLER's client explicitly. Inside a display-popup,
+      # tmux picks "the client currently in use" for unscoped commands,
+      # which is the popup's own client — not the user's terminal.
+      # opencode-manager.nix passes TMUX_OPENCODE_CALLER_TTY via `-e`.
+      if [[ -n "${TMUX_OPENCODE_CALLER_TTY:-}" ]]; then
+        tmux switch-client -c "$TMUX_OPENCODE_CALLER_TTY" -t "$target" 2>/dev/null || true
+      else
+        tmux select-window -t "$target" 2>/dev/null || true
+        tmux switch-client -t "$target" 2>/dev/null || true
+      fi
       exit 0
     fi
   }
