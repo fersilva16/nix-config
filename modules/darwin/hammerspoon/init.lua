@@ -121,6 +121,16 @@ end
 -- Hyper + C → Open Cursor at the git root of the current tmux pane directory.
 -- Uses hs.task (async) instead of hs.execute to avoid blocking the main
 -- thread — a hung tmux/git would otherwise cause macOS to disable the tap.
+--
+-- Resolving "the current tmux session" from outside tmux:
+--   `tmux display-message -p '#{pane_current_path}'` without a target is
+--   ambiguous when multiple sessions exist — tmux falls back to an internal
+--   default (often the first/oldest session) rather than the one the user
+--   is actually attached to. We fix this by picking the most recently
+--   active *client* (sorted by client_activity), then resolving that
+--   client's session's active pane path. If no client is attached, the
+--   command produces empty output and the existing fallback opens Cursor
+--   without a path.
 local cCode = hs.keycodes.map["c"]
 if cCode then
   keyCodeNames[cCode] = "c"
@@ -136,7 +146,7 @@ if cCode then
         local target = gitRoot ~= "" and gitRoot or dir
         hs.task.new("/usr/bin/open", nil, { "-a", "Cursor", target }):start()
       end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
-    end, { "-l", "-c", "tmux display-message -p '#{pane_current_path}' 2>/dev/null" }):start()
+    end, { "-l", "-c", "S=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2); [ -n \"$S\" ] && tmux display-message -p -t \"$S\" '#{pane_current_path}' 2>/dev/null" }):start()
   end
 end
 
