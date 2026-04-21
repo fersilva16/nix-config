@@ -61,6 +61,59 @@ if not hs.accessibilityState() then
   log("ERROR", "Missing Accessibility access")
 end
 
+-- ---------------------------------------------------------------------------
+-- ⚠️  CRITICAL: GARBAGE COLLECTION RETENTION ⚠️
+-- ---------------------------------------------------------------------------
+-- READ THIS BEFORE MODIFYING ANY hs.timer / hs.caffeinate.watcher /
+-- hs.pathwatcher / hs.eventtap CODE IN THIS FILE.
+--
+-- Hammerspoon objects (timers, watchers, taps) have __gc finalizers that
+-- STOP the underlying OS object (NSTimer, NSWorkspace observer, FSEvents
+-- stream, CGEventTap) when the Lua userdata is garbage-collected.
+-- Hammerspoon does NOT retain these objects internally — it relies entirely
+-- on the user to keep a Lua-side reference alive.
+--
+-- This means: if you write `local myTimer = hs.timer.new(...)` at chunk
+-- scope, the `myTimer` local goes out of scope the moment init.lua finishes
+-- executing. Lua's GC eventually (typically ~10-15 minutes in) collects the
+-- userdata. The __gc finalizer invalidates the NSTimer. The timer SILENTLY
+-- STOPS FIRING. No error, no log, no indication of failure.
+--
+-- We learned this the hard way. Diagnostic instrumentation caught the
+-- signature: hs.timer.new(2, ...) fired perfectly (drift=0.00s) for
+-- 12.5 minutes and then stopped cold. hs.caffeinate.watcher never fired
+-- a single event despite 58 sleep/wake cycles.
+--
+-- THE FIX: All long-lived observer objects MUST be retained via the global
+-- retention table `_G.__hsHyperRetain` declared below. Anything created
+-- with hs.timer.new, hs.caffeinate.watcher.new, hs.pathwatcher.new,
+-- or hs.eventtap.new that needs to outlive the init.lua chunk execution
+-- MUST be assigned to this table.
+--
+-- Exceptions: objects reassigned from inside a function that's itself
+-- retained (e.g., f18Watcher is mutated inside recreateWatcher, which is
+-- an upvalue of healthCheck's callback — so f18Watcher stays reachable
+-- through the healthCheck→recreateWatcher chain).
+--
+-- References:
+--   https://github.com/asmagill/hammerspoon/wiki/Variable-Scope-and-Garbage-Collection
+--   https://github.com/Hammerspoon/hammerspoon/issues/1713
+--   https://github.com/Hammerspoon/hammerspoon/issues/2202
+--   https://github.com/Hammerspoon/hammerspoon/issues/2416
+--   https://github.com/Hammerspoon/hammerspoon/issues/3001
+--   https://github.com/Hammerspoon/hammerspoon/issues/3102
+--   https://github.com/Hammerspoon/hammerspoon/issues/3300
+--   https://github.com/Hammerspoon/hammerspoon/issues/3557
+--
+-- Source code proof (Hammerspoon extensions/timer/libtimer.m timer_gc):
+--   [timer stop];  // ← invalidates NSTimer on GC
+--   timer.fnRef = [skin luaUnref:refTable ref:timer.fnRef];
+--
+-- hs.reload() creates a fresh Lua state, so resetting the table on each
+-- init is safe: old state is cleaned up via __gc, new table is empty.
+_G.__hsHyperRetain = {}
+local retain = _G.__hsHyperRetain
+
 local hyperDown = false
 local hyperUsedAsModifier = false
 local hyperDownSince = nil   -- epoch timestamp when hyperDown was set
@@ -313,7 +366,8 @@ local arrowKeyCodes = {
   [126] = "up",
 }
 
-local arrowBlocker = hs.eventtap.new(
+-- Retained via _G.__hsHyperRetain — see GC warning at top of file.
+retain.arrowBlocker = hs.eventtap.new(
   { hs.eventtap.event.types.keyDown, hs.eventtap.event.types.keyUp },
   function(event)
     if hyperDown then return false end
@@ -328,7 +382,7 @@ local arrowBlocker = hs.eventtap.new(
     return false
   end
 )
-arrowBlocker:start()
+retain.arrowBlocker:start()
 
 -- ---------------------------------------------------------------------------
 -- Tap lifecycle
@@ -414,7 +468,8 @@ local HEALTH_DRIFT_THRESHOLD = 1.0 -- log immediately if a tick is >1s late
 -- 4. Secure Input: detect when events are blocked despite a "healthy" tap.
 -- The entire callback is pcall-wrapped so the recovery mechanism itself
 -- cannot die from an unexpected error.
-local healthCheck = hs.timer.new(2, function()
+-- Retained via _G.__hsHyperRetain — see GC warning at top of file.
+retain.healthCheck = hs.timer.new(2, function()
   local ok, err = pcall(function()
     local now = hs.timer.secondsSinceEpoch()
     local lastEvtAgo = lastEventTime and (now - lastEventTime) or -1
@@ -502,7 +557,7 @@ local healthCheck = hs.timer.new(2, function()
     hs.alert.show("⌨️ Health check error: " .. tostring(err), 3)
   end
 end)
-healthCheck:start()
+retain.healthCheck:start()
 
 -- ---------------------------------------------------------------------------
 -- Power / session event handler
@@ -550,7 +605,8 @@ local passiveLogEvents = {
   [caffeinateWatcher.systemWillPowerOff] = "systemWillPowerOff",
 }
 
-local caffeinate = caffeinateWatcher.new(function(event)
+-- Retained via _G.__hsHyperRetain — see GC warning at top of file.
+retain.caffeinate = caffeinateWatcher.new(function(event)
   local ok, err = pcall(function()
     -- Always log the event first, before any branching. This is the
     -- diagnostic baseline: if we ever see "broken" with no POWER entries,
@@ -585,7 +641,7 @@ local caffeinate = caffeinateWatcher.new(function(event)
     hs.alert.show("⌨️ Power handler error: " .. tostring(err), 3)
   end
 end)
-caffeinate:start()
+retain.caffeinate:start()
 
 -- ---------------------------------------------------------------------------
 -- Config watcher
@@ -596,7 +652,8 @@ caffeinate:start()
 -- multiple events in quick succession. A 2-second debounce collapses them
 -- into a single reload.
 local reloadTimer = nil
-local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", function(changedPaths)
+-- Retained via _G.__hsHyperRetain — see GC warning at top of file.
+retain.configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", function(changedPaths)
   local ok, err = pcall(function()
     if changedPaths then
       local configChanged = false
@@ -622,6 +679,6 @@ local configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/", 
     hs.alert.show("⌨️ Config watcher error: " .. tostring(err), 3)
   end
 end)
-configWatcher:start()
+retain.configWatcher:start()
 
 log("INIT", "======== Hyper key ready ========")
