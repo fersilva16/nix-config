@@ -67,6 +67,12 @@ local hyperDownSince = nil   -- epoch timestamp when hyperDown was set
 local lastEventTime = nil    -- epoch timestamp of last event through the tap
 local tapEventCount = 0      -- events processed since last tap creation
 
+-- Diagnostic counters (NEVER reset across recreates) for forensic analysis
+-- of the "timer dies but eventtap keeps running" failure mode. Compare these
+-- against HEALTH ticks to see which subsystem stopped first.
+local totalTapEvents = 0     -- events ever processed by f18 tap, for lifetime
+local TAP_HEARTBEAT_EVERY = 100  -- emit TAP marker every N events
+
 local function resetHyper()
   hyperDown = false
   hyperDownSince = nil
@@ -188,6 +194,10 @@ local function f18Callback(event)
   local keyCode = event:getKeyCode()
   lastEventTime = hs.timer.secondsSinceEpoch()
   tapEventCount = tapEventCount + 1
+  totalTapEvents = totalTapEvents + 1
+  if totalTapEvents % TAP_HEARTBEAT_EVERY == 0 then
+    log("TAP", string.format("alive total=%d", totalTapEvents))
+  end
 
   -- F18 = keyCode 79
   if keyCode == 79 then
@@ -375,6 +385,18 @@ local RECREATE_INTERVAL = 30 -- 30 seconds (was 300; kept short to cap outage wi
 -- it's almost certainly stuck (missed F18 keyUp). Force-reset it.
 local STUCK_HYPER_THRESHOLD = 5 -- seconds
 
+-- Timer-liveness diagnostics. macOS can throttle NSTimer-backed callbacks
+-- during display-idle periods even with NSAppSleepDisabled set (see
+-- Hammerspoon issue #1942 for the related sleep case). Tracking tick count
+-- and inter-tick gap lets us forensically distinguish three failure modes:
+--   1. Timer dies clean: ticks stop entirely (totalHealthTicks frozen)
+--   2. Timer drifts:     gaps balloon to seconds/minutes between ticks
+--   3. Timer is fine:    gaps stay near 2s, ticks keep incrementing
+local totalHealthTicks = 0
+local lastHealthTickTime = nil
+local HEALTH_HEARTBEAT_EVERY = 15  -- log a TICK marker every 30s (15 × 2s)
+local HEALTH_DRIFT_THRESHOLD = 1.0 -- log immediately if a tick is >1s late
+
 -- Monitor eventtap health every 2 seconds with four layers of protection:
 -- 1. Reactive:    detect tap disabled by macOS and recreate.
 -- 2. Proactive:   recreate every 30s to get a fresh Mach port.
@@ -386,6 +408,16 @@ local healthCheck = hs.timer.new(2, function()
   local ok, err = pcall(function()
     local now = hs.timer.secondsSinceEpoch()
     local lastEvtAgo = lastEventTime and (now - lastEventTime) or -1
+
+    totalHealthTicks = totalHealthTicks + 1
+    local sinceLastTick = lastHealthTickTime and (now - lastHealthTickTime) or 0
+    lastHealthTickTime = now
+    local drift = sinceLastTick - 2
+    if totalHealthTicks % HEALTH_HEARTBEAT_EVERY == 0 or drift > HEALTH_DRIFT_THRESHOLD then
+      log("TICK", string.format(
+        "n=%d gap=%.2fs drift=%+.2fs tap_total=%d",
+        totalHealthTicks, sinceLastTick, drift, totalTapEvents))
+    end
 
     -- 1. Reactive: tap explicitly disabled by macOS
     if not f18Watcher or not f18Watcher:isEnabled() then
@@ -510,34 +542,32 @@ local passiveLogEvents = {
 
 local caffeinate = caffeinateWatcher.new(function(event)
   local ok, err = pcall(function()
-    local heavyName = heavyReloadEvents[event]
-    if heavyName then
-      log("POWER", heavyName .. " — scheduling full reload in 2s")
+    -- Always log the event first, before any branching. This is the
+    -- diagnostic baseline: if we ever see "broken" with no POWER entries,
+    -- we know macOS isn't delivering caffeinate notifications at all.
+    local eventName = heavyReloadEvents[event]
+        or lightRecoveryEvents[event]
+        or passiveLogEvents[event]
+        or ("unknown:" .. tostring(event))
+    log("POWER", "received " .. eventName)
+
+    if heavyReloadEvents[event] then
+      log("POWER", "scheduling full reload in 2s (" .. eventName .. ")")
       hs.timer.doAfter(2, function()
-        log("POWER", "Reloading now (" .. heavyName .. ")")
+        log("POWER", "Reloading now (" .. eventName .. ")")
         hs.reload()
       end)
-      return
-    end
-
-    local lightName = lightRecoveryEvents[event]
-    if lightName then
-      log("POWER", lightName .. " — light recovery (tap recreate + reset)")
+    elseif lightRecoveryEvents[event] then
+      log("POWER", "light recovery in 0.5s (" .. eventName .. ")")
       -- Small delay so macOS has fully finished the transition before we
       -- ask for a new Mach port. Observed on Sonoma: recreating a tap in
       -- the same tick as screensDidUnlock can produce a tap that starts
       -- disabled.
       hs.timer.doAfter(0.5, function()
-        recreateWatcher("power:" .. lightName)
+        recreateWatcher("power:" .. eventName)
         lastRecreate = hs.timer.secondsSinceEpoch()
         secureInputTicks = 0
       end)
-      return
-    end
-
-    local passiveName = passiveLogEvents[event]
-    if passiveName then
-      log("POWER", passiveName)
     end
   end)
   if not ok then
