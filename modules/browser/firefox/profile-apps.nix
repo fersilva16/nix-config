@@ -232,6 +232,26 @@
               local launcher="$target_app/Contents/MacOS/$executable_name"
               /bin/cat > "$launcher" <<LAUNCHER
             #!/bin/sh
+            # Self-heal stale compatibility.ini.
+            #
+            # Firefox stamps \$PROFILE/compatibility.ini with the bundle path that
+            # last opened the profile. If another Firefox (the base /Applications/Firefox.app
+            # or the in-browser profile switcher from another bundle) has touched
+            # this profile, our launch would silently exit because Firefox 137+
+            # treats the path mismatch as a version/install downgrade. Detect the
+            # mismatch up front, drop the stale compat, and launch with
+            # --first-startup so Firefox re-stamps the file with OUR path.
+            COMPAT="$PROFILES_DIR/$profile_dir/compatibility.ini"
+            EXPECTED="LastPlatformDir=$target_app/Contents/Resources"
+            if [ -f "\$COMPAT" ] && ! /usr/bin/grep -qxF "\$EXPECTED" "\$COMPAT"; then
+              /bin/rm -f "\$COMPAT"
+              exec "\$(dirname "\$0")/firefox" \\
+                --no-remote \\
+                --first-startup \\
+                --profile "$PROFILES_DIR/$profile_dir" \\
+                "\$@"
+            fi
+
             exec "\$(dirname "\$0")/firefox" \\
               --no-remote \\
               --profile "$PROFILES_DIR/$profile_dir" \\
