@@ -71,6 +71,35 @@ mkUser {
   };
   chrome.enable = true;
 
+  # URL router — set Finicky as the default browser so links from Slack/email/etc
+  # route to the right Firefox profile instead of piling into one.
+  finicky = {
+    enable = true;
+    hideIcon = true;
+    defaultBrowser = "/Applications/Firefox Personal.app";
+    handlers = [
+      # x.com always → Personal, even when clicked from Slack. Must come first
+      # (handlers are first-match-wins) so it beats the Slack rule below.
+      {
+        match = [
+          "x.com/*"
+          "*.x.com/*"
+        ];
+        browser = "/Applications/Firefox Personal.app";
+      }
+      # Every link clicked inside the Slack app → Telepatia (work).
+      {
+        fromApp = "com.tinyspeck.slackmacgap";
+        browser = "/Applications/Firefox Telepatia.app";
+      }
+      # Work GitHub org → Telepatia.
+      {
+        match = [ "github.com/telepatia-ai/*" ];
+        browser = "/Applications/Firefox Telepatia.app";
+      }
+    ];
+  };
+
   # Terminal
   ghostty.enable = true;
 
