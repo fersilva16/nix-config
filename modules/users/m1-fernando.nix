@@ -53,7 +53,22 @@ mkUser {
   "android-studio".enable = true;
 
   # Browsers
-  firefox.enable = true;
+  firefox = {
+    enable = true;
+    profileApps = {
+      enable = true;
+      profiles = {
+        personal = {
+          displayName = "Firefox Personal";
+          profileDir = "pmbNxl3q.Profile 1";
+        };
+        telepatia = {
+          displayName = "Firefox Telepatia";
+          profileDir = "xpo8mNTY.Profile 2";
+        };
+      };
+    };
+  };
   chrome.enable = true;
 
   # Terminal
