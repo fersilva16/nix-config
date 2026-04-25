@@ -61,10 +61,18 @@ mkUser {
         personal = {
           displayName = "Firefox Personal";
           profileDir = "pmbNxl3q.Profile 1";
+          # Navy + hot pink. The profile's auto-detected light theme tints
+          # to monochrome, so override with a multi-hue palette.
+          themeBg = "#1B2540";
+          themeFg = "#FF6B9D";
         };
         telepatia = {
           displayName = "Firefox Telepatia";
           profileDir = "xpo8mNTY.Profile 2";
+          # Solarized-dark palette - calmer than the bright greens auto-
+          # detected from the profile's theme.
+          themeBg = "#002B36";
+          themeFg = "#B58900";
         };
       };
     };
