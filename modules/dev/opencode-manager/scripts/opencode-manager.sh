@@ -483,8 +483,9 @@ sessions() {
 widget() {
   local BG="#f2f0e5"
   local FG="#100f0f"
+  local PURPLE="#8b7ec8"
   local ORANGE="#da702c"
-  local GREEN="#879a39"
+  local WHITE="#fffcf0"
   local RST="#[fg=${FG},bg=${BG},nobold,noitalics,nounderscore,nodim]"
 
   local all_sessions
@@ -500,19 +501,31 @@ widget() {
 
   local output=""
 
-  if [[ "$active" -gt 0 ]]; then
-    if [[ "${argc_plain:-}" -eq 1 ]]; then
+  if [[ "${argc_plain:-}" -eq 1 ]]; then
+    if [[ "$active" -gt 0 ]]; then
       output="G:${active}"
-    else
-      output="#[fg=${GREEN},bg=${BG},bold] ⏳ ${active}${RST}"
     fi
-  fi
-
-  if [[ "$notifs" -gt 0 ]]; then
-    if [[ "${argc_plain:-}" -eq 1 ]]; then
+    if [[ "$notifs" -gt 0 ]]; then
       output="${output} !${notifs}"
-    else
-      output="${output}#[fg=${ORANGE},bg=${BG},bold] 󰂞 ${notifs}${RST}"
+    fi
+  else
+    # Urgency shift: orange when notifications need attention, purple otherwise.
+    local badge_bg="${PURPLE}"
+    if [[ "$notifs" -gt 0 ]]; then
+      badge_bg="${ORANGE}"
+    fi
+
+    local body=""
+    if [[ "$active" -gt 0 ]]; then
+      body="${body}#[fg=${WHITE},bg=${badge_bg},bold]  ${active}"
+    fi
+    if [[ "$notifs" -gt 0 ]]; then
+      body="${body}#[fg=${WHITE},bg=${badge_bg},bold]  ${notifs}"
+    fi
+
+    if [[ -n "$body" ]]; then
+      # Powerline rounded ends form a pill:  on the left,  on the right.
+      output="#[fg=${badge_bg},bg=${BG}]${body} #[fg=${badge_bg},bg=${BG}]${RST} "
     fi
   fi
 
@@ -721,7 +734,7 @@ tui() {
       local bullet="${DIM}○${RESET}" status_text="" notif_text=""
 
       case "$status" in
-        generating) bullet="${GREEN}●${RESET}"; status_text="${GREEN}⏳${RESET}" ;;
+        generating) bullet="${GREEN}●${RESET}"; status_text="${GREEN}${RESET}" ;;
         idle) bullet="${CYAN}●${RESET}"; status_text="${DIM}idle${RESET}" ;;
       esac
 
