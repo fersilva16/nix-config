@@ -1,45 +1,90 @@
 { pkgs }:
 let
-  tmux-git-status = pkgs.writeShellApplication {
-    name = "tmux-git-status";
+  tmux-cpu-widget = pkgs.writeShellApplication {
+    name = "tmux-cpu-widget";
     bashOptions = [ ];
-    runtimeInputs = [
-      pkgs.git
-      pkgs.coreutils
-    ];
-    text = builtins.readFile ./scripts/git-status.sh;
-  };
-
-  tmux-path-widget = pkgs.writeShellApplication {
-    name = "tmux-path-widget";
-    bashOptions = [ ];
-    runtimeInputs = [ pkgs.tmux ];
     text = ''
       # Flexoki light theme colors
       BG="#f2f0e5"
       FG="#100f0f"
-      BLUE="#4385be"
+      GREEN="#879a39"
+      YELLOW="#d0a215"
+      ORANGE="#da702c"
+      RED="#d14d41"
 
       RESET="#[fg=''${FG},bg=''${BG},nobold,noitalics,nounderscore,nodim]"
 
-      SHOW_PATH=$(tmux show-option -gv @flexoki-tmux_show_path 2>/dev/null || true)
-      PATH_FORMAT=$(tmux show-option -gv @flexoki-tmux_path_format 2>/dev/null || true)
+      # Instantaneous CPU usage from top (-l 1 = single sample, -n 0 = no process list).
+      # After stripping %, the line tokenises as:
+      #   $1=CPU $2=usage: $3=user% $4=user, $5=sys% $6=sys, $7=idle% $8=idle
+      cpu=$(top -l 1 -n 0 2>/dev/null | awk '/CPU usage/ { gsub(/%/, ""); printf "%.0f", $3 + $5 }')
+      [[ -z "''${cpu}" ]] && exit 0
 
-      # Enabled by default; set @flexoki-tmux_show_path to "0" to disable
-      if [ "''${SHOW_PATH}" = "0" ]; then
-        exit 0
+      if (( cpu < 30 )); then
+        color="''${GREEN}"
+      elif (( cpu < 60 )); then
+        color="''${YELLOW}"
+      elif (( cpu < 85 )); then
+        color="''${ORANGE}"
+      else
+        color="''${RED}"
       fi
 
-      current_path="''${1}"
-      PATH_FORMAT="''${PATH_FORMAT:-relative}"
+      echo "#[fg=''${color},bg=''${BG},bold]  ''${cpu}%''${RESET} "
+    '';
+  };
 
-      if [[ ''${PATH_FORMAT} == "relative" ]]; then
-        home_dir="''${HOME:-$(dscl . -read "/Users/$(id -un)" NFSHomeDirectory 2>/dev/null | awk '{print $2}')}"
-        home_dir="''${home_dir:-/Users/$(id -un)}"
-        current_path="''${current_path/#''${home_dir}/\~}"
+  tmux-memory-widget = pkgs.writeShellApplication {
+    name = "tmux-memory-widget";
+    bashOptions = [ ];
+    text = ''
+      # Flexoki light theme colors
+      BG="#f2f0e5"
+      FG="#100f0f"
+      GREEN="#879a39"
+      YELLOW="#d0a215"
+      ORANGE="#da702c"
+      RED="#d14d41"
+
+      RESET="#[fg=''${FG},bg=''${BG},nobold,noitalics,nounderscore,nodim]"
+
+      # Memory usage derived from top's PhysMem line, e.g.:
+      #   "PhysMem: 60G used (3055M wired, 3527M compressor), 3915M unused."
+      phys=$(top -l 1 -n 0 2>/dev/null | awk '/^PhysMem:/ { print; exit }')
+      [[ -z "''${phys}" ]] && exit 0
+
+      used=$(echo "''${phys}" | sed -nE 's/^PhysMem: +([0-9]+)([GMK]) used.*/\1 \2/p')
+      unused=$(echo "''${phys}" | sed -nE 's/.*, ([0-9]+)([GMK]) unused.*/\1 \2/p')
+      [[ -z "''${used}" || -z "''${unused}" ]] && exit 0
+
+      to_mb() {
+        local num unit
+        read -r num unit <<< "$1"
+        case "''${unit}" in
+          G) echo $(( num * 1024 )) ;;
+          M) echo "''${num}" ;;
+          K) echo $(( num / 1024 )) ;;
+          *) echo 0 ;;
+        esac
+      }
+
+      used_mb=$(to_mb "''${used}")
+      unused_mb=$(to_mb "''${unused}")
+      total_mb=$(( used_mb + unused_mb ))
+      (( total_mb == 0 )) && exit 0
+      pct=$(( used_mb * 100 / total_mb ))
+
+      if (( pct < 60 )); then
+        color="''${GREEN}"
+      elif (( pct < 75 )); then
+        color="''${YELLOW}"
+      elif (( pct < 90 )); then
+        color="''${ORANGE}"
+      else
+        color="''${RED}"
       fi
 
-      echo "#[fg=''${BLUE},bg=''${BG}]  ''${RESET}''${current_path} "
+      echo "#[fg=''${color},bg=''${BG},bold]  ''${pct}%''${RESET} "
     '';
   };
 
@@ -77,23 +122,23 @@ in
   home = {
     home.packages = [
       tmux-status-right
-      tmux-git-status
-      tmux-path-widget
+      tmux-cpu-widget
+      tmux-memory-widget
     ];
 
     # Register widgets for normal mode (ordered by filename prefix)
-    xdg.configFile."tmux/widgets/50-path" = {
+    xdg.configFile."tmux/widgets/50-cpu" = {
       executable = true;
       text = ''
         #!/usr/bin/env bash
-        exec ${tmux-path-widget}/bin/tmux-path-widget "$@"
+        exec ${tmux-cpu-widget}/bin/tmux-cpu-widget "$@"
       '';
     };
-    xdg.configFile."tmux/widgets/60-git" = {
+    xdg.configFile."tmux/widgets/60-memory" = {
       executable = true;
       text = ''
         #!/usr/bin/env bash
-        exec ${tmux-git-status}/bin/tmux-git-status "$@"
+        exec ${tmux-memory-widget}/bin/tmux-memory-widget "$@"
       '';
     };
 
