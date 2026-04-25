@@ -14,7 +14,25 @@
 # Default disabled so fresh installs don't build bundles pointing at profile
 # directories that don't exist yet. Flip `profileApps.enable = true` after
 # Firefox profiles are set up (manually or via backup restore).
-{ lib }:
+#
+# Icon rendering: each bundle's icon is the Firefox shield re-tinted with
+# per-profile theme colors. The original Firefox artwork (shield, fox curl,
+# gradients, anti-aliased edges) is preserved exactly — we only swap colors.
+#
+# Pipeline (see `tintFirefoxIcon` below):
+#   1. Convert firefox.icns to grayscale, preserving alpha.
+#   2. Apply a sigmoidal-3 contrast curve so the original brightness range
+#      (~0–78 % gray) stretches to use the full output range; without this
+#      the brightest theme color is never reached and the fox silhouette
+#      visually shrinks.
+#   3. Build a 1×256 lookup-table gradient from the darker theme color to
+#      the lighter one and remap the grayscale via ImageMagick `-clut`.
+#
+# CFBundleIconName is stripped from the cloned Info.plist so macOS loads our
+# tinted firefox.icns instead of the AppIcon stored in Assets.car.
+# Compositing uses pkgs.imagemagick referenced by nix store path (no system-
+# wide install).
+{ lib, pkgs }:
 {
   default = false;
 
@@ -50,14 +68,25 @@
                       "SELECT name, path FROM profiles;"
                 '';
               };
-              iconFile = lib.mkOption {
-                type = lib.types.nullOr lib.types.path;
+              themeBg = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
                 default = null;
+                example = "#1B2540";
                 description = ''
-                  Optional path to a custom icon file (PNG or ICNS). When null,
-                  the module auto-detects the profile's Firefox avatar from the
-                  Profile Groups SQLite database and uses that. If no avatar is
-                  found either, the default Firefox icon is kept.
+                  Background color used when tinting the Firefox shield.
+                  Accepts any CSS color ImageMagick understands ("#RRGGBB",
+                  "rgb(r,g,b)", "rgba(r,g,b,a)", named colors). When unset
+                  (null), the bundle keeps the original Firefox icon.
+                '';
+              };
+              themeFg = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                example = "#FF6B9D";
+                description = ''
+                  Foreground (accent) color used when tinting the Firefox
+                  shield. Same accepted formats as themeBg. Set both
+                  themeBg and themeFg to enable tinting.
                 '';
               };
             };
@@ -68,8 +97,7 @@
       description = ''
         Named Firefox profiles to get their own macOS .app bundles with unique
         Cmd+Tab entries. Each profile gets a full copy of Firefox.app at
-        /Applications/<displayName>.app with a modified CFBundleIdentifier,
-        rebuilt automatically whenever the base Firefox version changes.
+        /Applications/<displayName>.app with a modified CFBundleIdentifier.
       '';
     };
 
@@ -97,7 +125,8 @@
                 ${lib.escapeShellArg profile.displayName} \
                 ${lib.escapeShellArg profile.profileDir} \
                 ${lib.escapeShellArg profile.bundleId} \
-                ${lib.escapeShellArg (if profile.iconFile == null then "" else toString profile.iconFile)}
+                ${lib.escapeShellArg (if profile.themeBg == null then "" else profile.themeBg)} \
+                ${lib.escapeShellArg (if profile.themeFg == null then "" else profile.themeFg)}
             '';
             hideCmd = lib.optionalString cfg.hideBaseApp ''
               if [ -d "$SOURCE_APP" ]; then
@@ -110,60 +139,114 @@
 
             SOURCE_APP="/Applications/Firefox.app"
             PROFILES_DIR="$HOME/Library/Application Support/Firefox/Profiles"
-            PROFILE_GROUPS_DIR="$HOME/Library/Application Support/Firefox/Profile Groups"
 
             if [ ! -d "$SOURCE_APP" ]; then
               echo "[firefox] $SOURCE_APP not installed yet; skipping profile app build." >&2
               exit 0
             fi
 
-            # Look up a profile's Firefox avatar image by querying every Profile Groups
-            # SQLite database for the profile's path. Prints the full path to the avatar
-            # PNG on success, returns 1 on miss.
-            findProfileAvatar() {
-              local profile_dir="$1"
-              [ -d "$PROFILE_GROUPS_DIR" ] || return 1
-
-              local db avatar_id=""
-              for db in "$PROFILE_GROUPS_DIR"/*.sqlite; do
-                [ -f "$db" ] || continue
-                avatar_id=$(/usr/bin/sqlite3 "$db" \
-                  "SELECT avatar FROM Profiles WHERE path='Profiles/$profile_dir' LIMIT 1;" \
-                  2>/dev/null || echo "")
-                [ -n "$avatar_id" ] && break
+            # Extract the largest PNG representation from an ICNS bundle.
+            # Echoes the path to the extracted PNG on success, returns 1 on failure.
+            # Caller is responsible for cleaning up the containing temp dir.
+            extractLargestIcnsPng() {
+              local icns="$1"
+              local out_iconset="$2"
+              /usr/bin/iconutil -c iconset "$icns" -o "$out_iconset" 2>/dev/null || return 1
+              local candidate
+              for candidate in icon_512x512@2x.png icon_512x512.png icon_256x256@2x.png icon_256x256.png icon_128x128@2x.png icon_128x128.png; do
+                if [ -f "$out_iconset/$candidate" ]; then
+                  printf '%s' "$out_iconset/$candidate"
+                  return 0
+                fi
               done
-
-              if [ -n "$avatar_id" ] && [ -f "$PROFILE_GROUPS_DIR/avatars/$avatar_id" ]; then
-                printf '%s' "$PROFILE_GROUPS_DIR/avatars/$avatar_id"
-                return 0
-              fi
               return 1
             }
 
-            # Convert an image (PNG or existing ICNS) to a multi-resolution ICNS file.
-            convertToIcns() {
-              local input="$1"
-              local output="$2"
+            # Compute approximate luminance (0–255) of a CSS-style color via
+            # ImageMagick. Used to decide which of two theme colors maps to
+            # "shield-dark" and which to "fox-light".
+            colorLuminance() {
+              local color="$1"
+              ${pkgs.imagemagick}/bin/magick xc:"$color" -colorspace gray \
+                -format "%[fx:int(mean*255)]" info: 2>/dev/null || echo "128"
+            }
 
-              # Already an ICNS? Just copy.
-              if /usr/bin/file "$input" | /usr/bin/grep -qi "Mac OS X icon"; then
-                /bin/cp "$input" "$output"
-                return 0
+            # Re-tint a base ICNS with a 2-stop color gradient derived from the
+            # profile's theme colors. Dark areas (the shield background) become
+            # the darker theme color; bright areas (the orange fox) become the
+            # lighter one. Output is a fresh multi-resolution ICNS file.
+            tintFirefoxIcon() {
+              local base_icns="$1"
+              local theme_bg="$2"
+              local theme_fg="$3"
+              local output="$4"
+
+              local tmp base_png
+              tmp=$(/usr/bin/mktemp -d)
+
+              base_png=$(extractLargestIcnsPng "$base_icns" "$tmp/base.iconset") || {
+                echo "[firefox]   error: could not extract PNG from base icon $base_icns" >&2
+                /bin/rm -rf "$tmp"
+                return 1
+              }
+
+              # Pick the darker color for the shield background, the lighter
+              # for the fox highlights — preserves Firefox's visual hierarchy
+              # (dark backdrop, bright accent) regardless of whether the input
+              # theme is "light" or "dark".
+              local lum_bg lum_fg dark light
+              lum_bg=$(colorLuminance "$theme_bg")
+              lum_fg=$(colorLuminance "$theme_fg")
+              if [ "$lum_bg" -lt "$lum_fg" ]; then
+                dark="$theme_bg"
+                light="$theme_fg"
+              else
+                dark="$theme_fg"
+                light="$theme_bg"
               fi
 
-              local tmp iconset size
-              tmp=$(/usr/bin/mktemp -d)
-              iconset="$tmp/icon.iconset"
-              /bin/mkdir -p "$iconset"
+              # Build a 1×256 vertical gradient (top=dark, bottom=light), then
+              # use it as a CLUT mapping the grayscaled base to themed colors.
+              # Pipeline:
+              #   alpha = base.alpha
+              #   gray  = base | -alpha off | -colorspace gray | -sigmoidal-contrast 3,50%
+              #   tinted = gray | -clut <gradient(dark→light)>
+              #   out    = tinted | composite(alpha) -compose CopyOpacity
+              #
+              # The sigmoidal-contrast S-curve pushes mid-tones toward their
+              # respective ends (darks darker, brights brighter), expanding the
+              # gray range the CLUT actually sees. Without it the fox highlights
+              # cap at ~78 % gray (the brightest pixel in firefox.icns), so
+              # the brightest CLUT color (themeFg) is never reached and the fox
+              # silhouette visually shrinks vs the original. Strength 3 is mild
+              # enough to keep gradients smooth.
+              if ! ${pkgs.imagemagick}/bin/magick \
+                     -size 1x256 "gradient:$dark-$light" "$tmp/clut.png" 2>/dev/null; then
+                echo "[firefox]   error: imagemagick failed to build CLUT for theme ($dark → $light)" >&2
+                /bin/rm -rf "$tmp"
+                return 1
+              fi
+              ${pkgs.imagemagick}/bin/magick "$base_png" -alpha extract "$tmp/alpha.png" 2>/dev/null
+              ${pkgs.imagemagick}/bin/magick "$base_png" -alpha off -colorspace gray -sigmoidal-contrast 3,50% "$tmp/gray.png" 2>/dev/null
+              ${pkgs.imagemagick}/bin/magick "$tmp/gray.png" "$tmp/clut.png" -clut "$tmp/colored.png" 2>/dev/null
+              if ! ${pkgs.imagemagick}/bin/magick "$tmp/colored.png" "$tmp/alpha.png" \
+                     -alpha off -compose CopyOpacity -composite "$tmp/tinted.png" 2>/dev/null; then
+                echo "[firefox]   error: imagemagick failed to apply tint" >&2
+                /bin/rm -rf "$tmp"
+                return 1
+              fi
 
+              # Package the tinted PNG as a multi-resolution ICNS.
+              local out_iconset="$tmp/out.iconset" size
+              /bin/mkdir -p "$out_iconset"
               for size in 16 32 128 256 512; do
-                /usr/bin/sips -s format png -z "$size" "$size" "$input" \
-                  --out "$iconset/icon_''${size}x''${size}.png" >/dev/null 2>&1 || true
-                /usr/bin/sips -s format png -z "$((size * 2))" "$((size * 2))" "$input" \
-                  --out "$iconset/icon_''${size}x''${size}@2x.png" >/dev/null 2>&1 || true
+                /usr/bin/sips -s format png -z "$size" "$size" "$tmp/tinted.png" \
+                  --out "$out_iconset/icon_''${size}x''${size}.png" >/dev/null 2>&1 || true
+                /usr/bin/sips -s format png -z "$((size * 2))" "$((size * 2))" "$tmp/tinted.png" \
+                  --out "$out_iconset/icon_''${size}x''${size}@2x.png" >/dev/null 2>&1 || true
               done
 
-              /usr/bin/iconutil -c icns "$iconset" -o "$output" 2>/dev/null
+              /usr/bin/iconutil -c icns "$out_iconset" -o "$output" 2>/dev/null
               local status=$?
               /bin/rm -rf "$tmp"
               return $status
@@ -173,47 +256,18 @@
               local display_name="$1"
               local profile_dir="$2"
               local bundle_id="$3"
-              local custom_icon="$4"
+              local theme_bg="$4"
+              local theme_fg="$5"
               local target_app="/Applications/$display_name.app"
               local executable_name
               executable_name="firefox-$(printf '%s' "$display_name" | /usr/bin/tr '[:upper:] ' '[:lower:]-')"
-
-              local base_version
-              base_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$SOURCE_APP/Contents/Info.plist")
-              local stored_version=""
-              if [ -f "$target_app/Contents/Info.plist" ]; then
-                stored_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$target_app/Contents/Info.plist" 2>/dev/null || echo "")
-              fi
-
-              # Decide which icon we want and hash it so we also rebuild on icon changes.
-              local desired_icon=""
-              if [ -n "$custom_icon" ] && [ -f "$custom_icon" ]; then
-                desired_icon="$custom_icon"
-              elif avatar_path=$(findProfileAvatar "$profile_dir"); then
-                desired_icon="$avatar_path"
-              fi
-              local desired_icon_hash=""
-              if [ -n "$desired_icon" ]; then
-                desired_icon_hash=$(/sbin/md5 -q "$desired_icon" 2>/dev/null || echo "")
-              fi
-              local stored_icon_hash=""
-              if [ -f "$target_app/Contents/Resources/.profile-icon-hash" ]; then
-                stored_icon_hash=$(/bin/cat "$target_app/Contents/Resources/.profile-icon-hash" 2>/dev/null || echo "")
-              fi
-
-              if [ -n "$stored_version" ] \
-                 && [ "$base_version" = "$stored_version" ] \
-                 && [ "$desired_icon_hash" = "$stored_icon_hash" ]; then
-                echo "[firefox] $target_app up-to-date (v$base_version)."
-                return 0
-              fi
 
               if [ ! -d "$PROFILES_DIR/$profile_dir" ]; then
                 echo "[firefox] warning: profile directory missing: $PROFILES_DIR/$profile_dir" >&2
                 echo "[firefox]          launching $display_name will create an empty profile there." >&2
               fi
 
-              echo "[firefox] Building $target_app (Firefox v$base_version)..."
+              echo "[firefox] Building $target_app..."
               /bin/rm -rf "$target_app"
               /bin/cp -R "$SOURCE_APP" "$target_app"
               /usr/bin/xattr -cr "$target_app" 2>/dev/null || true
@@ -228,6 +282,9 @@
               fi
               /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $executable_name" "$plist"
               /usr/libexec/PlistBuddy -c "Delete :SMPrivilegedExecutables" "$plist" 2>/dev/null || true
+              # macOS 11+ prefers CFBundleIconName (Assets.car AppIcon) over
+              # CFBundleIconFile (firefox.icns). Drop it so our tinted icns wins.
+              /usr/libexec/PlistBuddy -c "Delete :CFBundleIconName" "$plist" 2>/dev/null || true
 
               local launcher="$target_app/Contents/MacOS/$executable_name"
               /bin/cat > "$launcher" <<LAUNCHER
@@ -259,14 +316,21 @@
             LAUNCHER
               /bin/chmod +x "$launcher"
 
-              # Replace the bundle icon (firefox.icns) with the profile's avatar when available.
-              if [ -n "$desired_icon" ]; then
-                if convertToIcns "$desired_icon" "$target_app/Contents/Resources/firefox.icns"; then
-                  echo "[firefox]   icon: $desired_icon"
-                  printf '%s' "$desired_icon_hash" > "$target_app/Contents/Resources/.profile-icon-hash"
+              # Apply the theme tint when both colors are set; otherwise leave
+              # the cloned firefox.icns untouched (default Firefox look). On
+              # any tinting failure we just keep the default icon — the bundle
+              # is still functional.
+              if [ -n "$theme_bg" ] && [ -n "$theme_fg" ]; then
+                if tintFirefoxIcon \
+                     "$SOURCE_APP/Contents/Resources/firefox.icns" \
+                     "$theme_bg" "$theme_fg" \
+                     "$target_app/Contents/Resources/firefox.icns"; then
+                  echo "[firefox]   icon: theme-tinted ($theme_bg → $theme_fg)"
                 else
-                  echo "[firefox]   icon conversion failed, keeping default Firefox icon" >&2
+                  echo "[firefox]   theme tinting failed, keeping default Firefox icon" >&2
                 fi
+              else
+                echo "[firefox]   icon: default Firefox (no theme set)"
               fi
 
               /bin/rm -rf "$target_app/Contents/_CodeSignature"
