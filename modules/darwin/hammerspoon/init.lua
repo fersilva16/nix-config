@@ -681,4 +681,28 @@ retain.configWatcher = hs.pathwatcher.new(os.getenv("HOME") .. "/.hammerspoon/",
 end)
 retain.configWatcher:start()
 
+-- ---------------------------------------------------------------------------
+-- Extras loader
+-- ---------------------------------------------------------------------------
+-- Other modules (e.g. modules/browser/finicky-firefox-router.nix) drop
+-- additional .lua snippets into ~/.hammerspoon/extras/ via home-manager.
+-- This loader runs each one in pcall so a single broken extra cannot break
+-- the rest of the config. Each snippet is responsible for its own retention
+-- (typically via a _G.__<name>Retain table — see init.lua's _G.__hsHyperRetain
+-- pattern).
+local extrasDir = os.getenv("HOME") .. "/.hammerspoon/extras"
+if hs.fs.attributes(extrasDir, "mode") == "directory" then
+  for f in hs.fs.dir(extrasDir) do
+    if f:match("%.lua$") then
+      local path = extrasDir .. "/" .. f
+      local ok, err = pcall(dofile, path)
+      if ok then
+        log("INIT", "Loaded extra: " .. f)
+      else
+        log("ERROR", "extras/" .. f .. ": " .. tostring(err))
+      end
+    end
+  end
+end
+
 log("INIT", "======== Hyper key ready ========")
