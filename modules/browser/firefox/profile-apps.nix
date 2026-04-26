@@ -289,6 +289,32 @@
               local launcher="$target_app/Contents/MacOS/$executable_name"
               /bin/cat > "$launcher" <<LAUNCHER
             #!/bin/sh
+            # MOZ_APP_REMOTINGNAME gives this profile a unique remoting name so
+            # its CFMessagePort (Mozilla_<name>_<profile>_RemoteWindow) and its
+            # /tmp/<name> startup mutex live in their own namespace, separated
+            # from every other profile bundle. Without this all Firefox
+            # processes share the literal name \`firefox\` and URL Apple Events
+            # delivered to one bundle leak into whichever process won the
+            # shared-namespace IPC race.
+            #
+            # We deliberately do NOT set MOZ_NEW_INSTANCE / pass --new-instance.
+            # That flag (the modern replacement for the now-stripped --no-remote)
+            # disables this Firefox's cross-process remote *client* so it cannot
+            # forward command lines to itself either. We still need same-profile
+            # forwarding so that \`open -b $bundle_id <url>\`, which macOS
+            # dispatches by spawning a fresh firefox with the URL on argv when
+            # the existing instance can't accept the Apple Event, forwards the
+            # URL via CFMessagePort to the running same-profile Firefox instead
+            # of failing on the profile lock with "A copy of Firefox is already
+            # open". With unique remoting names per profile the forwarding only
+            # ever resolves to a sibling of the same profile, so cross-bundle
+            # leakage is impossible.
+            #
+            # See:
+            #   toolkit/xre/nsAppRunner.cpp           — appRemotingName lookup
+            #   toolkit/components/remote/RemoteUtils.h — BuildClassName uses it
+            export MOZ_APP_REMOTINGNAME=$bundle_id
+
             # Self-heal stale compatibility.ini.
             #
             # Firefox stamps \$PROFILE/compatibility.ini with the bundle path that
@@ -303,14 +329,12 @@
             if [ -f "\$COMPAT" ] && ! /usr/bin/grep -qxF "\$EXPECTED" "\$COMPAT"; then
               /bin/rm -f "\$COMPAT"
               exec "\$(dirname "\$0")/firefox" \\
-                --no-remote \\
                 --first-startup \\
                 --profile "$PROFILES_DIR/$profile_dir" \\
                 "\$@"
             fi
 
             exec "\$(dirname "\$0")/firefox" \\
-              --no-remote \\
               --profile "$PROFILES_DIR/$profile_dir" \\
               "\$@"
             LAUNCHER
