@@ -140,6 +140,18 @@
             SOURCE_APP="/Applications/Firefox.app"
             PROFILES_DIR="$HOME/Library/Application Support/Firefox/Profiles"
 
+            # Bump SCRIPT_VERSION to invalidate every bundle's stamp on the
+            # next activation. Required when changing launcher logic, codesign
+            # flags, plist edits, policies.json contents, or anything else
+            # that affects bundle output beyond the per-profile inputs already
+            # encoded in the stamp (display name, profile dir, bundle id,
+            # theme colors, source Firefox version). Forgetting to bump here
+            # leaves stale bundles in place until the next Homebrew Firefox
+            # update happens to also invalidate the stamp via source_version.
+            SCRIPT_VERSION="v1"
+            STAMP_DIR="$HOME/Library/Caches/firefox-profile-apps"
+            /bin/mkdir -p "$STAMP_DIR"
+
             if [ ! -d "$SOURCE_APP" ]; then
               echo "[firefox] $SOURCE_APP not installed yet; skipping profile app build." >&2
               exit 0
@@ -267,7 +279,27 @@
                 echo "[firefox]          launching $display_name will create an empty profile there." >&2
               fi
 
-              echo "[firefox] Building $target_app..."
+              # Idempotency: skip rebuilding when nothing observable has
+              # changed. Every rebuild regenerates the bundle's ad-hoc code
+              # signature with a fresh CDHash, which causes 1Password (and any
+              # other code-signature-aware tool) to lose trust and re-prompt
+              # for the master password on next browser launch. The stamp
+              # encodes everything that affects bundle output, so an exact
+              # match means the existing bundle is bit-identical to what we'd
+              # produce. Stamp lives outside the bundle (in ~/Library/Caches)
+              # so it isn't part of the codesign resource seal — the bundle
+              # itself stays sealed and stable across activations.
+              local stamp_file="$STAMP_DIR/$bundle_id.stamp"
+              local source_version
+              source_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$SOURCE_APP/Contents/Info.plist" 2>/dev/null || echo "unknown")
+              local desired_stamp="$SCRIPT_VERSION|src=$source_version|id=$bundle_id|name=$display_name|profile=$profile_dir|bg=$theme_bg|fg=$theme_fg"
+              if [ -d "$target_app" ] && [ -f "$stamp_file" ] \
+                && [ "$(/bin/cat "$stamp_file" 2>/dev/null)" = "$desired_stamp" ]; then
+                echo "[firefox] $target_app up to date (stamp $SCRIPT_VERSION src=$source_version), skipping rebuild."
+                return 0
+              fi
+
+              echo "[firefox] Building $target_app (stamp $SCRIPT_VERSION src=$source_version)..."
               /bin/rm -rf "$target_app"
               /bin/cp -R "$SOURCE_APP" "$target_app"
               /usr/bin/xattr -cr "$target_app" 2>/dev/null || true
@@ -366,6 +398,21 @@
               /bin/rm -f  "$target_app/Contents/Resources/updater.ini"
               /bin/rm -f  "$target_app/Contents/Resources/update-settings.ini"
 
+              # Disable Firefox's in-browser update check. Removing updater.app
+              # above kills the *installer* but the update *check* is compiled
+              # into the firefox binary itself and keeps showing "update
+              # available" notifications regardless. policies.json with
+              # DisableAppUpdate=true suppresses both the check and the UI.
+              # Schema reference: https://mozilla.github.io/policy-templates/
+              /bin/mkdir -p "$target_app/Contents/Resources/distribution"
+              /bin/cat > "$target_app/Contents/Resources/distribution/policies.json" <<'POLICIES'
+            {
+              "policies": {
+                "DisableAppUpdate": true
+              }
+            }
+            POLICIES
+
               /usr/bin/codesign --force --sign - --deep --identifier "$bundle_id" "$target_app" 2>/dev/null \
                 || /usr/bin/codesign --force --sign - --deep "$target_app"
 
@@ -373,6 +420,12 @@
 
               # Bump mtime so Finder/Dock invalidate their icon caches.
               /usr/bin/touch "$target_app"
+
+              # Stamp written last — partial failures above (set -e) skip this
+              # line, so the next activation will detect a missing/stale stamp
+              # and rebuild. This guarantees the stamp only ever indicates a
+              # fully built+signed bundle.
+              printf '%s' "$desired_stamp" > "$stamp_file"
 
               echo "[firefox] $target_app ready."
             }
