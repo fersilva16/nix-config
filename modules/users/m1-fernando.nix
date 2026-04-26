@@ -81,10 +81,17 @@ mkUser {
 
   # URL router — set Finicky as the default browser so links from Slack/email/etc
   # route to the right Firefox profile instead of piling into one.
+  #
+  # `defaultBrowser` points at Hammerspoon, which the finicky-firefox-router
+  # module configures (via an extras Lua snippet) to receive http/https URL
+  # events and dispatch them to whichever Firefox profile bundle is most
+  # recently active. In-memory routing in an already-running Lua VM, so the
+  # un-handled-URL fallback adds ~5ms of latency instead of the ~350ms an
+  # AppleScript wrapper bundle would.
   finicky = {
     enable = true;
     hideIcon = true;
-    defaultBrowser = "/Applications/Firefox Personal.app";
+    defaultBrowser = "/Applications/Hammerspoon.app";
     handlers = [
       # x.com always → Personal, even when clicked from Slack. Must come first
       # (handlers are first-match-wins) so it beats the Slack rule below.
@@ -106,6 +113,12 @@ mkUser {
         browser = "/Applications/Firefox Telepatia.app";
       }
     ];
+  };
+  finicky-firefox-router = {
+    enable = true;
+    # Used when no Firefox profile bundle is currently running. Personal is
+    # the closest match to the previous fixed default.
+    fallbackBundle = "org.mozilla.firefox.personal";
   };
 
   # Terminal
