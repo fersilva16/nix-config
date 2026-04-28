@@ -7,6 +7,13 @@
 //   OPENCODE_TMUX_NOTIFIER_SOUND=0       disable sound
 //   OPENCODE_TMUX_NOTIFIER_DESKTOP=0     disable desktop notifications
 //   OPENCODE_TMUX_NOTIFIER_OMO_FILTER=0  allow OMO turns to notify
+//   OPENCODE_TMUX_NOTIFIER_BG_FILTER=0   allow notifications when waiting on
+//                                        spawned background task() agents
+//   OPENCODE_TMUX_NOTIFIER_IDLE_DELAY_MS=1500
+//                                        debounce window before firing on idle.
+//                                        Larger values give OMO directives
+//                                        (TODO CONTINUATION etc.) time to land
+//                                        and cancel the pending notification.
 //   OPENCODE_TMUX_NOTIFIER_VOLUME=0.5    sound volume 0-1 (default 0.7)
 
 import { spawn, spawnSync } from "child_process"
@@ -18,13 +25,19 @@ const CMD = "tmux-opencode-manager"
 const TMUX_PANE = process.env.TMUX_PANE ?? ""
 const PLATFORM = platform()
 
-const IDLE_DELAY_MS = 350
+const IDLE_DELAY_MS = (() => {
+  const raw = process.env.OPENCODE_TMUX_NOTIFIER_IDLE_DELAY_MS
+  const n = raw ? Number(raw) : NaN
+  if (Number.isFinite(n) && n >= 0) return n
+  return 1500
+})()
 
 const OMO_INTERNAL_INITIATOR_MARKER = "<!-- OMO_INTERNAL_INITIATOR -->"
 
 const SOUND_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_SOUND !== "0"
 const DESKTOP_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_DESKTOP !== "0"
 const OMO_FILTER_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_OMO_FILTER !== "0"
+const BG_FILTER_ENABLED = process.env.OPENCODE_TMUX_NOTIFIER_BG_FILTER !== "0"
 
 const VOLUME = (() => {
   const raw = process.env.OPENCODE_TMUX_NOTIFIER_VOLUME
@@ -52,7 +65,16 @@ function resolveSoundPath(event: EventKind): string {
 
 type EventKind = "complete" | "permission" | "error" | "question"
 
-type MessagePart = { type?: string; text?: string }
+type ToolState = {
+  status?: string
+  input?: Record<string, unknown>
+}
+type MessagePart = {
+  type?: string
+  text?: string
+  tool?: string
+  state?: ToolState
+}
 type MessageInfo = { id?: string; role?: string; time?: { created?: number } }
 type MessageEntry = { info?: MessageInfo; parts?: MessagePart[] }
 
@@ -184,6 +206,37 @@ async function isLastUserMessageFromOmo(client: Client, sessionID: string): Prom
   }
 }
 
+function isPendingBackgroundTaskPart(part: MessagePart): boolean {
+  if (part?.type !== "tool" || part.tool !== "task") return false
+  if (part.state?.status !== "completed") return false
+  return part.state?.input?.run_in_background === true
+}
+
+async function isWaitingOnBackgroundTasks(client: Client, sessionID: string): Promise<boolean> {
+  if (!BG_FILTER_ENABLED) return false
+  if (typeof client.session.messages !== "function") return false
+  try {
+    const { data } = await client.session.messages({ path: { id: sessionID } })
+    if (!Array.isArray(data)) return false
+
+    let latest: MessageEntry | null = null
+    let latestTime = Number.NEGATIVE_INFINITY
+    for (const entry of data) {
+      if (entry?.info?.role !== "assistant") continue
+      const t = entry.info?.time?.created ?? Number.NEGATIVE_INFINITY
+      if (t > latestTime) {
+        latestTime = t
+        latest = entry
+      }
+    }
+
+    if (!latest || !Array.isArray(latest.parts)) return false
+    return latest.parts.some(isPendingBackgroundTaskPart)
+  } catch {
+    return false
+  }
+}
+
 export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Promise<Hooks> => {
   const projectName = directory ? basename(directory) : null
   const pendingIdle = new Map<string, ReturnType<typeof setTimeout>>()
@@ -223,6 +276,7 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
     const { title, isChild } = await getSessionInfo(client, sessionID)
     if (isChild) return
     if (await isLastUserMessageFromOmo(client, sessionID)) return
+    if (await isWaitingOnBackgroundTasks(client, sessionID)) return
     const body = `Session has finished${buildSuffix(title)}`
     dispatchAll("complete", sessionID, projectName ?? "opencode", body)
   }
