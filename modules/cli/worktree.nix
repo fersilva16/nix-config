@@ -107,6 +107,101 @@ mkUserModule {
 
           wtls = "git worktree list $argv";
 
+          wtpr = ''
+            set git_root (git rev-parse --show-toplevel 2>/dev/null)
+            or begin; echo "wtpr: not a git repo"; return 1; end
+
+            _git_clean_stale_lock
+
+            set pr_num $argv[1]
+            set name $argv[2]
+
+            # No PR number: fzf picker over open PRs
+            if test -z "$pr_num"
+              set -l selection (gh pr list --limit 50 --json number,title,headRefName,author,isDraft --template '{{range .}}#{{.number}}  {{if .isDraft}}[DRAFT] {{end}}{{.title}}  ({{.headRefName}})  @{{.author.login}}{{"\n"}}{{end}}' 2>/dev/null | fzf --prompt="PR> " --height=40%)
+              or return 1
+              set pr_num (string match -r '^#(\d+)' -- $selection)[2]
+            end
+
+            # Strip optional leading #
+            set pr_num (string replace -r '^#' "" -- $pr_num)
+
+            # Validate: non-empty and digits only
+            if test -z "$pr_num"; or string match -qr '[^0-9]' -- "$pr_num"
+              echo "wtpr: invalid PR number"
+              return 1
+            end
+
+            # Resolve PR head branch (used for default name + tracking)
+            set head_branch (gh pr view $pr_num --json headRefName --jq .headRefName 2>/dev/null)
+            or begin; echo "wtpr: PR #$pr_num not found"; return 1; end
+
+            # Default worktree name = sanitized branch (slashes become dashes)
+            if test -z "$name"
+              set name (string replace -a '/' '-' -- $head_branch)
+            end
+
+            set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
+            set repo_name (basename $main_root)
+            set wt_base (dirname $main_root)
+            set wt_path "$wt_base/$repo_name.worktrees/$name"
+
+            # tmux: switch to existing session if it exists
+            if set -q TMUX
+              set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
+              set session_name "$parent_session/$name"
+
+              if command tmux has-session -t "=$session_name" 2>/dev/null
+                command tmux switch-client -t "=$session_name"
+                return 0
+              end
+            end
+
+            # Create worktree if missing
+            set -l is_new 0
+            if not test -d "$wt_path"
+              # Fetch the PR's HEAD via GitHub's pull/N/head ref into a local
+              # branch. Works for same-repo and fork PRs uniformly without
+              # adding fork remotes. The + forces fast-forward to handle
+              # force-pushed PRs.
+              set local_branch "pr-$pr_num"
+              git fetch origin "+pull/$pr_num/head:refs/heads/$local_branch" 2>/dev/null
+              or begin; echo "wtpr: failed to fetch PR"; return 1; end
+
+              # Atomic worktree creation on the PR branch (mirrors wt's pattern)
+              git worktree add "$wt_path" "$local_branch"
+              or begin; echo "wtpr: failed to create worktree"; return 1; end
+
+              # For same-repo PRs, set tracking so git pull/push work naturally.
+              # Fork PRs stay untracked (no push access; pull/N/head stays fresh
+              # via re-running wtpr).
+              set is_fork (gh pr view $pr_num --json isCrossRepository --jq .isCrossRepository 2>/dev/null)
+              if test "$is_fork" = "false"
+                git -C "$wt_path" branch --set-upstream-to="origin/$head_branch" "$local_branch" 2>/dev/null
+              end
+
+              echo "Created worktree at $wt_path (PR #$pr_num: $head_branch)"
+              direnv allow "$wt_path" 2>/dev/null
+              set is_new 1
+            end
+
+            # Create tmux session and switch
+            if set -q TMUX
+              command tmux new-session -d -s "$session_name" -c "$wt_path"
+
+              if test $is_new -eq 1
+                set -l setup_file "$wt_base/$repo_name.worktrees/.setup"
+                if test -f "$setup_file"
+                  command tmux send-keys -t "=$session_name" "sh '$setup_file'" Enter
+                end
+              end
+
+              command tmux switch-client -t "=$session_name"
+            else
+              echo "Not in tmux — run: cd $wt_path && opencode"
+            end
+          '';
+
           wtrm = ''
             set git_root (git rev-parse --show-toplevel 2>/dev/null)
             or begin; echo "wtrm: not a git repo"; return 1; end
