@@ -32,6 +32,7 @@ mkUserModule {
     direnv-plugin = import ./direnv-plugin.nix { inherit pkgs; };
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
+    autoresearch = import ./autoresearch.nix { inherit pkgs; };
   };
   home =
     { username, ... }:
