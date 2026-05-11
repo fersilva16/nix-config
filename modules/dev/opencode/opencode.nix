@@ -33,6 +33,7 @@ mkUserModule {
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
     autoresearch = import ./autoresearch.nix { inherit pkgs; };
+    cache = import ./cache.nix { };
   };
   home =
     { username, ... }:
