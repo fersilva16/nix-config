@@ -145,10 +145,11 @@
             # flags, plist edits, policies.json contents, or anything else
             # that affects bundle output beyond the per-profile inputs already
             # encoded in the stamp (display name, profile dir, bundle id,
-            # theme colors, source Firefox version). Forgetting to bump here
-            # leaves stale bundles in place until the next Homebrew Firefox
-            # update happens to also invalidate the stamp via source_version.
-            SCRIPT_VERSION="v1"
+            # theme colors, source Firefox version, signing identity).
+            # Forgetting to bump here leaves stale bundles in place until the
+            # next Homebrew Firefox update happens to also invalidate the
+            # stamp via source_version.
+            SCRIPT_VERSION="v2"
             STAMP_DIR="$HOME/Library/Caches/firefox-profile-apps"
             /bin/mkdir -p "$STAMP_DIR"
 
@@ -156,6 +157,76 @@
               echo "[firefox] $SOURCE_APP not installed yet; skipping profile app build." >&2
               exit 0
             fi
+
+            # Auto-detect an Apple-issued code-signing identity for the cloned
+            # bundles. Required for 1Password's browser-trust check: 1Password's
+            # BrowserSupport binary verifies each browser via a macOS code
+            # requirement that mandates `anchor apple generic` (cert chain must
+            # terminate at Apple's root CA). Ad-hoc signatures populate
+            # `TeamIdentifier=not set` and fail this check, which manifests as
+            # 1Password prompting for the master password on every Firefox
+            # restart with "1Password has an update available" wording.
+            #
+            # One-time setup (per Mac): Xcode → Settings → Accounts → add Apple
+            # ID → Manage Certificates → `+` → "Apple Development". The cert is
+            # free (no Apple Developer Program enrollment required), populates
+            # `TeamIdentifier` with your free Apple Team ID, and renews via a
+            # single Xcode click each year. The CN format is stable across
+            # renewals, so this auto-detection keeps working seamlessly.
+            #
+            # Activation aborts when no Apple-issued identity is present —
+            # silently falling back to ad-hoc would yield bundles that launch
+            # fine but trigger the 1Password re-prompt loop, which is exactly
+            # what we're trying to prevent. The error message below documents
+            # both recovery paths (import .p12 from 1Password / regenerate via
+            # Xcode) so the fix is self-contained.
+            SIGN_IDENTITY=$(/usr/bin/security find-identity -v -p codesigning 2>/dev/null \
+              | /usr/bin/grep -E '"Apple Development|"Developer ID Application' \
+              | /usr/bin/head -1 \
+              | /usr/bin/sed -E 's/.*"([^"]+)".*/\1/')
+
+            if [ -z "$SIGN_IDENTITY" ]; then
+              /bin/cat >&2 <<'SIGN_ERR'
+            [firefox] ERROR: no Apple-issued code-signing identity found in the keychain.
+
+              Firefox profile bundles require an Apple Development (or Developer ID
+              Application) cert so 1Password's browser-trust check passes. Without
+              one, 1Password rejects the bundles and prompts for the master password
+              on every Firefox restart.
+
+              To fix, EITHER:
+
+              (a) Re-import the saved .p12 (you stashed it in 1Password):
+
+                    security import <path-to-apple-cert.p12> \
+                      -k "$HOME/Library/Keychains/login.keychain-db" \
+                      -P '<export-password-from-1password>' \
+                      -T /usr/bin/codesign \
+                      -A
+
+                  Also ensure the Apple WWDR G3 intermediate is in your keychain
+                  (one-time per Mac, harmless to re-run):
+
+                    TMP=$(mktemp -d) && \
+                      curl -fsSL -o "$TMP/wwdr.cer" \
+                        https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer && \
+                      security import "$TMP/wwdr.cer" \
+                        -k "$HOME/Library/Keychains/login.keychain-db" && \
+                      rm -rf "$TMP"
+
+              (b) Generate a fresh cert via Xcode → Settings → Accounts → add Apple
+                  ID → Manage Certificates → + → Apple Development. (Free; no
+                  Apple Developer Program enrollment required.)
+
+              Verify with:
+                security find-identity -v -p codesigning
+
+            [firefox] Aborting activation.
+            SIGN_ERR
+              exit 1
+            fi
+
+            echo "[firefox] Code-signing with identity: $SIGN_IDENTITY"
 
             # Extract the largest PNG representation from an ICNS bundle.
             # Echoes the path to the extracted PNG on success, returns 1 on failure.
@@ -292,7 +363,7 @@
               local stamp_file="$STAMP_DIR/$bundle_id.stamp"
               local source_version
               source_version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$SOURCE_APP/Contents/Info.plist" 2>/dev/null || echo "unknown")
-              local desired_stamp="$SCRIPT_VERSION|src=$source_version|id=$bundle_id|name=$display_name|profile=$profile_dir|bg=$theme_bg|fg=$theme_fg"
+              local desired_stamp="$SCRIPT_VERSION|src=$source_version|sign=$SIGN_IDENTITY|id=$bundle_id|name=$display_name|profile=$profile_dir|bg=$theme_bg|fg=$theme_fg"
               if [ -d "$target_app" ] && [ -f "$stamp_file" ] \
                 && [ "$(/bin/cat "$stamp_file" 2>/dev/null)" = "$desired_stamp" ]; then
                 echo "[firefox] $target_app up to date (stamp $SCRIPT_VERSION src=$source_version), skipping rebuild."
@@ -413,8 +484,8 @@
             }
             POLICIES
 
-              /usr/bin/codesign --force --sign - --deep --identifier "$bundle_id" "$target_app" 2>/dev/null \
-                || /usr/bin/codesign --force --sign - --deep "$target_app"
+              /usr/bin/codesign --force --sign "$SIGN_IDENTITY" --deep --identifier "$bundle_id" "$target_app" 2>/dev/null \
+                || /usr/bin/codesign --force --sign "$SIGN_IDENTITY" --deep "$target_app"
 
               /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$target_app" >/dev/null 2>&1 || true
 
