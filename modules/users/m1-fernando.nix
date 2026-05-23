@@ -135,6 +135,7 @@ mkUser {
   iina.enable = true;
   spotify.enable = true;
   stremio.enable = true;
+  affinity.enable = true;
 
   # Productivity
   anki.enable = true;
