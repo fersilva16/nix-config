@@ -1,194 +1,50 @@
-diff -ruN a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
---- a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx	1969-12-31 19:00:01.000000000 -0500
-+++ b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx	2026-04-17 09:59:06.535356078 -0500
-@@ -39,6 +39,7 @@
- import { useTextareaKeybindings } from "../textarea-keybindings"
- import { DialogSkill } from "../dialog-skill"
- import { useArgs } from "@tui/context/args"
-+import { useTuiConfig } from "@tui/context/tui-config"
- 
- export type PromptProps = {
-   sessionID?: string
-@@ -102,6 +103,7 @@
-   const renderer = useRenderer()
-   const { theme, syntax } = useTheme()
-   const kv = useKV()
-+  const tuiConfig = useTuiConfig()
-   const animationsEnabled = createMemo(() => kv.get("animations_enabled", true))
-   const list = createMemo(() => props.placeholders?.normal ?? [])
-   const shell = createMemo(() => props.placeholders?.shell ?? [])
-@@ -871,6 +873,11 @@
-     animationsEnabled,
-   )
- 
+Add `cursor_style` and `cursor_blink` options to opencode TUI config.
+
+Upstream `tui-schema.ts` ships only color/scroll/diff settings — cursor
+appearance (block vs line, blink on/off) isn't exposed.  This patch:
+
+  1. Adds a `CursorStyle` Schema literal (`"block" | "line" | "underline"`)
+     and registers `cursor_style` + `cursor_blink` on the `TuiInfo` schema,
+     so values written to `~/.config/opencode/tui.json` survive validation.
+  2. Threads a per-component `cursorStyle` memo (read from `tuiConfig`)
+     into every `TextareaRenderable` JSX site, so all text inputs honor
+     the configured style/blink.
+
+Upstream already imports `useTuiConfig` in these files (and declares
+`tuiConfig` locally where applicable), so this patch only adds the new
+schema fields, the per-component memos, and the `cursorStyle={cursorStyle()}`
+prop on each textarea.  Files touched:
+
+  - packages/opencode/src/cli/cmd/tui/config/tui-schema.ts
+  - packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
+  - packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
+  - packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
+  - packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
+  - packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
+
+--- a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
++++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
+@@ -1,7 +1,7 @@
+ import { TextareaRenderable, TextAttributes } from "@opentui/core"
+ import { useTheme } from "../context/theme"
+ import { useDialog, type DialogContext } from "./dialog"
+-import { Show, createEffect, createSignal, onMount, type JSX } from "solid-js"
++import { Show, createEffect, createMemo, createSignal, onMount, type JSX } from "solid-js"
+ import { Spinner } from "../component/spinner"
+ import { useTuiConfig } from "../context/tui-config"
+ import { useBindings, useCommandShortcut } from "../keymap"
+@@ -21,6 +21,10 @@
+   const dialog = useDialog()
+   const { theme } = useTheme()
+   const tuiConfig = useTuiConfig()
 +  const cursorStyle = createMemo(() => ({
 +    style: (tuiConfig.cursor_style ?? "block") as "block" | "line" | "underline",
 +    blinking: tuiConfig.cursor_blink ?? true,
 +  }))
-+
-   const placeholderText = createMemo(() => {
-     if (props.showPlaceholder === false) return undefined
-     if (store.mode === "shell") {
-@@ -1139,6 +1146,7 @@
-               onMouseDown={(r: MouseEvent) => r.target?.focus()}
-               focusedBackgroundColor={theme.backgroundElement}
-               cursorColor={theme.text}
-+              cursorStyle={cursorStyle()}
-               syntaxStyle={syntax()}
-             />
-             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
-diff -ruN a/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts b/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts
---- a/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts	1969-12-31 19:00:01.000000000 -0500
-+++ b/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts	2026-04-17 09:59:06.536792502 -0500
-@@ -11,6 +11,8 @@
-   )
-   .strict()
- 
-+const CursorStyle = z.enum(["block", "line", "underline"])
-+
- export const TuiOptions = z.object({
-   scroll_speed: z.number().min(0.001).optional().describe("TUI scroll speed"),
-   scroll_acceleration: z
-@@ -23,6 +25,8 @@
-     .enum(["auto", "stacked"])
-     .optional()
-     .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
-+  cursor_style: CursorStyle.optional().describe("Cursor shape in text inputs: 'block', 'line', or 'underline'"),
-+  cursor_blink: z.boolean().optional().describe("Enable cursor blinking in text inputs"),
-   mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
- })
- 
-diff -ruN a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
---- a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx	1969-12-31 19:00:01.000000000 -0500
-+++ b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx	2026-04-17 09:59:06.535581287 -0500
-@@ -476,6 +476,12 @@
-   const dimensions = useTerminalDimensions()
-   const narrow = createMemo(() => dimensions().width < 80)
-   const dialog = useDialog()
-+  const config = useTuiConfig()
-+
-+  const cursorStyle = createMemo(() => ({
-+    style: (config.cursor_style ?? "block") as "block" | "line" | "underline",
-+    blinking: config.cursor_blink ?? true,
-+  }))
- 
-   useKeyboard((evt) => {
-     if (dialog.stack.length > 0) return
-@@ -528,6 +534,7 @@
-           textColor={theme.text}
-           focusedTextColor={theme.text}
-           cursorColor={theme.primary}
-+          cursorStyle={cursorStyle()}
-           keyBindings={textareaKeybindings()}
-         />
-         <box flexDirection="row" gap={2} flexShrink={0}>
-diff -ruN a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
---- a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx	1969-12-31 19:00:01.000000000 -0500
-+++ b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx	2026-04-17 09:59:06.535816455 -0500
-@@ -9,12 +9,14 @@
- import { SplitBorder } from "../../component/border"
- import { useTextareaKeybindings } from "../../component/textarea-keybindings"
- import { useDialog } from "../../ui/dialog"
-+import { useTuiConfig } from "../../context/tui-config"
- 
- export function QuestionPrompt(props: { request: QuestionRequest }) {
-   const sdk = useSDK()
-   const { theme } = useTheme()
-   const keybind = useKeybind()
-   const bindings = useTextareaKeybindings()
-+  const config = useTuiConfig()
- 
-   const questions = createMemo(() => props.request.questions)
-   const single = createMemo(() => questions().length === 1 && questions()[0]?.multiple !== true)
-@@ -42,6 +44,10 @@
-     if (!value) return false
-     return store.answers[store.tab]?.includes(value) ?? false
-   })
-+  const cursorStyle = createMemo(() => ({
-+    style: (config.cursor_style ?? "block") as "block" | "line" | "underline",
-+    blinking: config.cursor_blink ?? true,
-+  }))
- 
-   function submit() {
-     const answers = questions().map((_, i) => store.answers[i] ?? [])
-@@ -394,6 +400,7 @@
-                         textColor={theme.text}
-                         focusedTextColor={theme.text}
-                         cursorColor={theme.primary}
-+                        cursorStyle={cursorStyle()}
-                         keyBindings={bindings()}
-                       />
-                     </box>
-diff -ruN a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
---- a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx	1969-12-31 19:00:01.000000000 -0500
-+++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx	2026-04-17 09:59:06.536254666 -0500
-@@ -2,8 +2,9 @@
- import { useTheme } from "../context/theme"
- import { useDialog, type DialogContext } from "./dialog"
- import { createStore } from "solid-js/store"
--import { onMount, Show } from "solid-js"
-+import { createMemo, onMount, Show } from "solid-js"
- import { useKeyboard } from "@opentui/solid"
-+import { useTuiConfig } from "../context/tui-config"
- 
- export type DialogExportOptionsProps = {
-   defaultFilename: string
-@@ -25,6 +26,7 @@
-   const dialog = useDialog()
-   const { theme } = useTheme()
+   const submitShortcut = useCommandShortcut("dialog.prompt.submit")
+   const [textareaTarget, setTextareaTarget] = createSignal<TextareaRenderable>()
    let textarea: TextareaRenderable
-+  const config = useTuiConfig()
-   const [store, setStore] = createStore({
-     thinking: props.defaultThinking,
-     toolDetails: props.defaultToolDetails,
-@@ -33,6 +35,11 @@
-     active: "filename" as "filename" | "thinking" | "toolDetails" | "assistantMetadata" | "openWithoutSaving",
-   })
- 
-+  const cursorStyle = createMemo(() => ({
-+    style: (config.cursor_style ?? "block") as "block" | "line" | "underline",
-+    blinking: config.cursor_blink ?? true,
-+  }))
-+
-   useKeyboard((evt) => {
-     if (evt.name === "return") {
-       props.onConfirm?.({
-@@ -110,6 +117,7 @@
-           textColor={theme.text}
-           focusedTextColor={theme.text}
-           cursorColor={theme.text}
-+          cursorStyle={cursorStyle()}
-         />
-       </box>
-       <box flexDirection="column">
-diff -ruN a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx
---- a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx	1969-12-31 19:00:01.000000000 -0500
-+++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx	2026-04-17 09:59:06.536584876 -0500
-@@ -1,8 +1,9 @@
- import { TextareaRenderable, TextAttributes } from "@opentui/core"
- import { useTheme } from "../context/theme"
- import { useDialog, type DialogContext } from "./dialog"
--import { Show, createEffect, onMount, type JSX } from "solid-js"
-+import { Show, createEffect, createMemo, onMount, type JSX } from "solid-js"
- import { useKeyboard } from "@opentui/solid"
-+import { useTuiConfig } from "../context/tui-config"
- import { Spinner } from "../component/spinner"
- 
- export type DialogPromptProps = {
-@@ -20,6 +21,12 @@
-   const dialog = useDialog()
-   const { theme } = useTheme()
-   let textarea: TextareaRenderable
-+  const config = useTuiConfig()
-+
-+  const cursorStyle = createMemo(() => ({
-+    style: (config.cursor_style ?? "block") as "block" | "line" | "underline",
-+    blinking: config.cursor_blink ?? true,
-+  }))
- 
-   useKeyboard((evt) => {
-     if (props.busy) {
-@@ -87,6 +94,7 @@
+@@ -96,6 +100,7 @@
            textColor={props.busy ? theme.textMuted : theme.text}
            focusedTextColor={props.busy ? theme.textMuted : theme.text}
            cursorColor={props.busy ? theme.backgroundElement : theme.text}
@@ -196,3 +52,123 @@ diff -ruN a/packages/opencode/src/cli/cmd/tui/ui/dialog-prompt.tsx b/packages/op
          />
          <Show when={props.busy}>
            <Spinner color={theme.textMuted}>{props.busyText ?? "Working..."}</Spinner>
+--- a/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
++++ b/packages/opencode/src/cli/cmd/tui/ui/dialog-export-options.tsx
+@@ -2,7 +2,8 @@
+ import { useTheme } from "../context/theme"
+ import { useDialog, type DialogContext } from "./dialog"
+ import { createStore } from "solid-js/store"
+-import { onMount, Show } from "solid-js"
++import { createMemo, onMount, Show } from "solid-js"
++import { useTuiConfig } from "../context/tui-config"
+ import { useBindings } from "../keymap"
+ 
+ export type DialogExportOptionsProps = {
+@@ -24,6 +25,11 @@
+ export function DialogExportOptions(props: DialogExportOptionsProps) {
+   const dialog = useDialog()
+   const { theme } = useTheme()
++  const tuiConfig = useTuiConfig()
++  const cursorStyle = createMemo(() => ({
++    style: (tuiConfig.cursor_style ?? "block") as "block" | "line" | "underline",
++    blinking: tuiConfig.cursor_blink ?? true,
++  }))
+   let textarea: TextareaRenderable
+   const [store, setStore] = createStore({
+     thinking: props.defaultThinking,
+@@ -116,6 +122,7 @@
+           textColor={theme.text}
+           focusedTextColor={theme.text}
+           cursorColor={theme.text}
++          cursorStyle={cursorStyle()}
+         />
+       </box>
+       <box flexDirection="column">
+--- a/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts
++++ b/packages/opencode/src/cli/cmd/tui/config/tui-schema.ts
+@@ -52,6 +52,10 @@
+   description: "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column",
+ })
+ 
++export const CursorStyle = Schema.Literals(["block", "line", "underline"]).annotate({
++  description: "Cursor shape in text inputs: 'block', 'line', or 'underline'",
++})
++
+ export const Attention = Schema.Struct({
+   enabled: Schema.optional(Schema.Boolean),
+   notifications: Schema.optional(Schema.Boolean),
+@@ -74,5 +78,11 @@
+   }),
+   scroll_acceleration: Schema.optional(ScrollAcceleration),
+   diff_style: Schema.optional(DiffStyle),
++  cursor_style: Schema.optional(CursorStyle).annotate({
++    description: "Cursor shape in text inputs: 'block', 'line', or 'underline'",
++  }),
++  cursor_blink: Schema.optional(Schema.Boolean).annotate({
++    description: "Enable cursor blinking in text inputs",
++  }),
+   mouse: Schema.optional(Schema.Boolean).annotate({ description: "Enable or disable mouse capture (default: true)" }),
+ })
+--- a/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
++++ b/packages/opencode/src/cli/cmd/tui/component/prompt/index.tsx
+@@ -145,6 +145,10 @@
+   const project = useProject()
+   const sync = useSync()
+   const tuiConfig = useTuiConfig()
++  const cursorStyle = createMemo(() => ({
++    style: (tuiConfig.cursor_style ?? "block") as "block" | "line" | "underline",
++    blinking: tuiConfig.cursor_blink ?? true,
++  }))
+   const dialog = useDialog()
+   const toast = useToast()
+   const status = createMemo(() => sync.data.session_status?.[props.sessionID ?? ""] ?? { type: "idle" })
+@@ -1550,6 +1554,7 @@
+               onMouseDown={(r: MouseEvent) => r.target?.focus()}
+               focusedBackgroundColor={theme.backgroundElement}
+               cursorColor={props.disabled ? theme.backgroundElement : theme.text}
++              cursorStyle={cursorStyle()}
+               syntaxStyle={syntax()}
+             />
+             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1} justifyContent="space-between">
+--- a/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
++++ b/packages/opencode/src/cli/cmd/tui/routes/session/question.tsx
+@@ -16,6 +16,10 @@
+   const { theme } = useTheme()
+   const renderer = useRenderer()
+   const tuiConfig = useTuiConfig()
++  const cursorStyle = createMemo(() => ({
++    style: (tuiConfig.cursor_style ?? "block") as "block" | "line" | "underline",
++    blinking: tuiConfig.cursor_blink ?? true,
++  }))
+   const modeStack = useOpencodeModeStack()
+ 
+   const questions = createMemo(() => props.request.questions)
+@@ -438,6 +442,7 @@
+                         textColor={theme.text}
+                         focusedTextColor={theme.text}
+                         cursorColor={theme.primary}
++                        cursorStyle={cursorStyle()}
+                       />
+                     </box>
+                   </Show>
+--- a/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
++++ b/packages/opencode/src/cli/cmd/tui/routes/session/permission.tsx
+@@ -445,6 +445,10 @@
+   let input: TextareaRenderable
+   const { theme } = useTheme()
+   const tuiConfig = useTuiConfig()
++  const cursorStyle = createMemo(() => ({
++    style: (tuiConfig.cursor_style ?? "block") as "block" | "line" | "underline",
++    blinking: tuiConfig.cursor_blink ?? true,
++  }))
+   const dimensions = useTerminalDimensions()
+   const narrow = createMemo(() => dimensions().width < 80)
+   useBindings(() => ({
+@@ -508,6 +512,7 @@
+           textColor={theme.text}
+           focusedTextColor={theme.text}
+           cursorColor={theme.primary}
++          cursorStyle={cursorStyle()}
+         />
+         <box flexDirection="row" gap={2} flexShrink={0}>
+           <text fg={theme.text}>

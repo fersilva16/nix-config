@@ -2,23 +2,28 @@
   lib,
   stdenv,
   fetchFromGitHub,
-  nodejs,
+  nodejs_22,
   pnpm_10,
   pnpmConfigHook,
   fetchPnpmDeps,
   makeWrapper,
   python3,
 }:
-
+let
+  # See figma-developer-mcp.nix for context: Node.js 24.15.0 in current
+  # nixpkgs crashes pnpm with "Abort trap: 6". Pin the pnpm runtime to
+  # nodejs_22 (LTS) which doesn't have the FD-tracking regression.
+  pnpm = pnpm_10.override { nodejs = nodejs_22; };
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "agentation-mcp";
-  version = "1.2.0-unstable-2026-03-23";
+  version = "3.0.2-unstable-2026-03-25";
 
   src = fetchFromGitHub {
     owner = "benjitaylor";
     repo = "agentation";
-    rev = "f0a4a2b9359ed98e64f839e3307e043fe7a0cb8a";
-    hash = "sha256-b9bIDCw2EnfrUUXqzRVySPtQ5k9V/R8Et9qGkh7Lqu8=";
+    rev = "7dc5d65378fa901e6eead81d4e2bb62950d49f0b";
+    hash = "sha256-qddLnszOYdZZrmtSPoFzh5KTL5Z3n+yXl4C7Hcai7w8=";
   };
 
   sourceRoot = "${finalAttrs.src.name}/mcp";
@@ -31,8 +36,8 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   nativeBuildInputs = [
-    nodejs
-    pnpm_10
+    nodejs_22
+    pnpm
     pnpmConfigHook
     makeWrapper
     python3 # needed by better-sqlite3 node-gyp build
@@ -45,6 +50,7 @@ stdenv.mkDerivation (finalAttrs: {
       src
       sourceRoot
       ;
+    inherit pnpm;
     fetcherVersion = 3;
     hash = "sha256-aEfhVfaAJaHhLUhm3lASlaE+2/f5rLqnpWAKRZgIKU4=";
     postUnpack = ''
@@ -67,7 +73,7 @@ stdenv.mkDerivation (finalAttrs: {
     cp -r dist package.json node_modules $out/lib/agentation-mcp/
 
     mkdir -p $out/bin
-    makeWrapper ${nodejs}/bin/node $out/bin/agentation-mcp \
+    makeWrapper ${nodejs_22}/bin/node $out/bin/agentation-mcp \
       --add-flags "$out/lib/agentation-mcp/dist/cli.js"
 
     runHook postInstall

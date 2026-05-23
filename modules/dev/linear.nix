@@ -41,7 +41,7 @@ let
 in
 mkUserModule {
   name = "linear";
-  system.homebrew.casks = [ "linear-linear" ];
+  system.homebrew.casks = [ "linear" ];
   home =
     { userCfg, ... }:
     {

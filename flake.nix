@@ -30,7 +30,12 @@
     };
 
     homebrew-cask = {
-      url = "github:homebrew/homebrew-cask";
+      # Pin to May 8, 2026: anything newer ships a broken `stremio` cask
+      # ("Only a single 'depends_on macos' is allowed" — see
+      # https://github.com/Homebrew/homebrew-cask/pull/264299 which was
+      # closed without merging the fix). Bump to HEAD once upstream
+      # repairs the cask.
+      url = "github:homebrew/homebrew-cask?rev=be239533b25436c7d39ceadc19bb9b5fffc0d428";
       flake = false;
     };
 
@@ -50,7 +55,7 @@
     };
 
     opencode = {
-      url = "github:anomalyco/opencode?rev=9ed93715efde1db921b952448a4bc64f7a48ee1e";
+      url = "github:anomalyco/opencode?rev=7fe7b9f258e36ad9f9acded20c5a9df201da19d5";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

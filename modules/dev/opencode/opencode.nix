@@ -15,6 +15,7 @@ let
     patches = (old.patches or [ ]) ++ [
       ./patches/cursor-style-and-blink.patch
       ./patches/generate-remove-prettier.patch
+      ./patches/relax-bun-version-check.patch
     ];
   });
 in
@@ -44,9 +45,9 @@ mkUserModule {
         settings = {
           theme = "flexoki";
           plugin = [
-            "@ex-machina/opencode-anthropic-auth@1.7.5"
-            "oh-my-openagent@3.17.4"
-            "@rama_nigg/open-cursor@2.3.20"
+            "@ex-machina/opencode-anthropic-auth@1.8.1"
+            "oh-my-openagent@4.4.0"
+            "@rama_nigg/open-cursor@2.4.5"
           ];
           provider = {
             cursor-acp = {
