@@ -46,7 +46,7 @@ in
 
       # Formatters & linters
       stylua
-      nixfmt-rfc-style
+      nixfmt
       prettierd
       black
       gofumpt
