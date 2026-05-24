@@ -90,7 +90,7 @@ mkUserModule {
           };
           agent = {
             title = {
-              model = "opencode/minimax-m2.5-free";
+              model = "anthropic/claude-haiku-4-5";
             };
           };
 

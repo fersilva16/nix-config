@@ -452,7 +452,7 @@ mkUserModule {
                                         set -l promptfile (mktemp)
                                         printf '%s' "$prompt" > $promptfile
                                         gum spin --spinner dot --title "Generating issue with AI..." -- \
-                                          sh -c 'opencode run -m "opencode/minimax-m2.5-free" "$(cat "$1")" > "$2" 2> "$3"' _ "$promptfile" "$tmpfile" "$errfile"
+                                          sh -c 'opencode run -m "anthropic/claude-haiku-4-5" "$(cat "$1")" > "$2" 2> "$3"' _ "$promptfile" "$tmpfile" "$errfile"
                                         set -l ai_exit $status
 
                                         set -l result (cat $tmpfile)
@@ -638,7 +638,7 @@ mkUserModule {
                                             printf 'You are refining a Linear issue. Current issue:\n%s\n\nRequested change: %s\n\nReturn ONLY the updated raw JSON object (no markdown fences, no commentary).\nSame schema: {"title": string, "description": string, "priority": int, "labels": string[], "project_hint": string|null, "assign_to_me": boolean}\nKeep fields unchanged unless the instruction implies a change.' "$current_json" "$instruction" > $refine_file
 
                                             gum spin --spinner dot --title "Refining with AI..." -- \
-                                              sh -c 'opencode run -m "opencode/minimax-m2.5-free" "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err"
+                                              sh -c 'opencode run -m "anthropic/claude-haiku-4-5" "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err"
                                             set -l r_exit $status
 
                                             set -l r_result (cat $r_out)
