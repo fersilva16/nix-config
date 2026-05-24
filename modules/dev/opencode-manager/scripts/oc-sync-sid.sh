@@ -25,7 +25,7 @@ fi
 
 EXTRACTED="${TITLE#OC | }"
 
-DB="$HOME/.local/share/opencode/opencode-local.db"
+DB="$HOME/.local/share/opencode/opencode.db"
 [[ ! -f "$DB" ]] && exit 0
 
 SAFE=$(printf '%s' "$EXTRACTED" | sed "s/'/''/g")

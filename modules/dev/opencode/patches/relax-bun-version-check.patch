@@ -2,17 +2,17 @@ Relax the bun version check in `opencode generate` build script.
 
 Upstream pins `bun@1.3.14` via the root `packageManager` field and the
 script enforces `^1.3.14` at the start of every build.  Nixpkgs currently
-ships `bun@1.3.13` (the previous opencode rev's pin) — a single patch
-version behind upstream — so the strict caret range fails the build
-without offering any actual incompatibility (bun's 1.3.x line is
-backwards compatible across patch versions).
+ships `bun@1.3.11` — a few patch versions behind upstream — so the strict
+caret range fails the build without offering any actual incompatibility
+(bun's 1.3.x line is backwards compatible across patch versions).
 
 Upstream's own comment above the version constraint already reads
 "relax version requirement", suggesting the intent is to be permissive.
 This patch widens the range from `^${expectedBunVersion}` (caret) to
-`>=1.3.13` (tilde-equivalent open-ended), letting the build pass with
+`>=1.3.11` (tilde-equivalent open-ended), letting the build pass with
 the current nixpkgs bun while still rejecting wildly out-of-date bun
-versions.  Drop this patch once nixpkgs ships bun 1.3.14+.
+versions.  Bump the lower bound as nixpkgs catches up; drop this patch
+once nixpkgs ships bun 1.3.14+.
 
 diff --git a/packages/script/src/index.ts b/packages/script/src/index.ts
 --- a/packages/script/src/index.ts
@@ -22,7 +22,7 @@ diff --git a/packages/script/src/index.ts b/packages/script/src/index.ts
  
  // relax version requirement
 -const expectedBunVersionRange = `^${expectedBunVersion}`
-+const expectedBunVersionRange = `>=1.3.13`
++const expectedBunVersionRange = `>=1.3.11`
  
  if (!semver.satisfies(process.versions.bun, expectedBunVersionRange)) {
    throw new Error(`This script requires bun@${expectedBunVersionRange}, but you are using bun@${process.versions.bun}`)

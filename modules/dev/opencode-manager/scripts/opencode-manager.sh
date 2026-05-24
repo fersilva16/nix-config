@@ -7,7 +7,7 @@ set -eu
 
 NOTIFY_FILE="${TMUX_NOTIFY_FILE:-/tmp/tmux-notifications.json}"
 LOCK_FILE="${NOTIFY_FILE}.lock"
-OPENCODE_DB="${HOME}/.local/share/opencode/opencode-local.db"
+OPENCODE_DB="${HOME}/.local/share/opencode/opencode.db"
 TRIGGER_FILE="/tmp/tmux-opencode-refresh"
 
 _init_file() {
