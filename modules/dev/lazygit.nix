@@ -10,16 +10,16 @@ mkUserModule {
           {
             key = "<c-a>";
             context = "files";
-            command = ''opencode run -m "opencode/minimax-m2.5-free" "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
+            command = ''opencode run -m "anthropic/claude-haiku-4-5" "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
             output = "terminal";
             description = "Generate commit with OpenCode";
           }
           {
             key = "H";
             context = "global";
-            command = ''opencode run -m "opencode/minimax-m2.5-free" "{{.Form.Prompt}}"'';
+            command = ''opencode run -m "anthropic/claude-haiku-4-5" "{{.Form.Prompt}}"'';
             output = "terminal";
-            description = "AI help (minimax)";
+            description = "AI help (haiku)";
             prompts = [
               {
                 type = "input";
