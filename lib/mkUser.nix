@@ -72,13 +72,20 @@ in
             linux = "/home/${name}";
           };
 
-          home-manager.users.${name}.home = {
-            username = name;
-            homeDirectory = forPlatform {
-              darwin = "/Users/${name}";
-              linux = "/home/${name}";
+          home-manager.users.${name} = {
+            home = {
+              username = name;
+              homeDirectory = forPlatform {
+                darwin = "/Users/${name}";
+                linux = "/home/${name}";
+              };
+              inherit stateVersion;
             };
-            inherit stateVersion;
+
+            # On darwin with stateVersion >= 26.05, programs.man.package
+            # defaults to null (macOS provides its own man). Disable cache
+            # generation explicitly so HM doesn't warn about a no-op.
+            programs.man.generateCaches = false;
           };
         }
       )

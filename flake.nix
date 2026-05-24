@@ -87,7 +87,7 @@
           buildInputs = with pkgs; [
             nixd
             statix
-            nixfmt-rfc-style
+            nixfmt
 
             shellcheck
 
