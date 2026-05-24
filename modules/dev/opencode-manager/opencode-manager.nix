@@ -129,7 +129,7 @@ let
       fi
       [[ -z "$PANE_PATH" ]] && exit 1
 
-      OPENCODE_DB="$HOME/.local/share/opencode/opencode-local.db"
+      OPENCODE_DB="$HOME/.local/share/opencode/opencode.db"
       [[ ! -f "$OPENCODE_DB" ]] && exit 1
 
       GIT_ROOT=$(tmux-git-root-path "$PANE_PATH")

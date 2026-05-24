@@ -83,7 +83,7 @@ let
         _PANE="''${TMUX_PANE:-}"
 
         if [[ -n "$_PANE" ]]; then
-          _DB="$HOME/.local/share/opencode/opencode-local.db"
+          _DB="$HOME/.local/share/opencode/opencode.db"
 
           # Parse --session and --fork from args
           _oc_sid="" _oc_fork=0 _prev=""
