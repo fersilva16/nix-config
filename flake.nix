@@ -22,6 +22,16 @@
 
     nix-homebrew = {
       url = "github:zhaofengli/nix-homebrew";
+      inputs.brew-src.follows = "brew-src";
+    };
+
+    # Pin brew to a version that includes the cask OS-dependency regression fix
+    # (https://github.com/Homebrew/brew/pull/22261), required for casks like
+    # stremio and iina that combine `on_arm`/`on_intel` macOS deps with a
+    # top-level `depends_on :macos`.
+    brew-src = {
+      url = "github:Homebrew/brew/5.1.13";
+      flake = false;
     };
 
     homebrew-core = {
