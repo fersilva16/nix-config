@@ -20,7 +20,7 @@ mkUserModule {
   name = "nalum";
 
   home =
-    { lib, username, ... }:
+    { username, ... }:
     let
       nalumDir = "/Users/${username}/nalum";
     in
@@ -28,7 +28,7 @@ mkUserModule {
       home = {
         packages = [ inputs.hermes-agent.packages.${pkgs.system}.default ];
         sessionVariables.HERMES_HOME = nalumDir;
-        activation.nalumCheck = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        activation.nalumCheck = ''
           if [ ! -d "${nalumDir}" ]; then
             echo ""
             echo "  ⚠ nalum: ${nalumDir} does not exist."
