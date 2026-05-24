@@ -43,6 +43,7 @@ mkUser {
   opencode-manager.enable = true;
   # rtk.enable = true;
   ollama.enable = true;
+  nalum.enable = true;
   linear.enable = true;
 
   # Editors
