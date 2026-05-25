@@ -127,6 +127,22 @@
         "type": "github"
       }
     },
+    "hermes-claude-auth": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1778085628,
+        "narHash": "sha256-8WYUtBZacHsUToz78r2KTPzkV5m7uPguI6VVOoAFhBE=",
+        "owner": "kristianvast",
+        "repo": "hermes-claude-auth",
+        "rev": "b7999195bd538870c6876930c16357094f91af10",
+        "type": "github"
+      },
+      "original": {
+        "owner": "kristianvast",
+        "repo": "hermes-claude-auth",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -383,6 +399,7 @@
         "darwin": "darwin",
         "direnv-instant": "direnv-instant",
         "hermes-agent": "hermes-agent",
+        "hermes-claude-auth": "hermes-claude-auth",
         "home-manager": "home-manager",
         "homebrew-bundle": "homebrew-bundle",
         "homebrew-cask": "homebrew-cask",

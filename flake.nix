@@ -68,6 +68,15 @@
       url = "github:nousresearch/hermes-agent";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Runtime OAuth bypass patch for hermes-agent — lets Hermes use a
+    # Claude Code Max/Pro subscription instead of pay-per-token credits.
+    # Source-only (flake = false); wired into hermes via PYTHONPATH in
+    # modules/dev/nalum/nalum.nix.
+    hermes-claude-auth = {
+      url = "github:kristianvast/hermes-claude-auth";
+      flake = false;
+    };
   };
 
   outputs =
