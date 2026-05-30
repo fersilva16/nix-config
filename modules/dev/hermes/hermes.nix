@@ -1,9 +1,10 @@
-# nalum — personal Hermes Agent workspace.
+# hermes — Hermes Agent CLI + personal workspace pointer.
 #
-# Installs the Hermes Agent CLI and points HERMES_HOME at ~/nalum, where
-# every personal bit lives (SOUL.md, AGENTS.md, config.yaml, .env, skills/,
-# plugins/, dashboard-themes/, etc.) — version-controlled in its own
-# private repo, never in this public nix-config.
+# Installs the Hermes Agent CLI and points HERMES_HOME at ~/nalum, the
+# user's personal workspace dir, where every personal bit lives (SOUL.md,
+# AGENTS.md, config.yaml, .env, skills/, plugins/, dashboard-themes/,
+# etc.) — version-controlled in its own private repo, never in this
+# public nix-config.
 #
 # The directory-existence safety check runs at darwin-rebuild activation
 # time (not eval time): an absent ~/nalum surfaces as a loud warning during
@@ -104,7 +105,7 @@ let
   };
 in
 mkUserModule {
-  name = "nalum";
+  name = "hermes";
 
   parts = {
     gateway = import ./gateway.nix { inherit hermes; };
@@ -120,10 +121,10 @@ mkUserModule {
       home = {
         packages = [ hermes ];
         sessionVariables.HERMES_HOME = nalumDir;
-        activation.nalumCheck = ''
+        activation.hermesCheck = ''
           if [ ! -d "${nalumDir}" ]; then
             echo ""
-            echo "  ⚠ nalum: ${nalumDir} does not exist."
+            echo "  ⚠ hermes: ${nalumDir} (HERMES_HOME) does not exist."
             echo "    Hermes will auto-create it on first run, but for declarative"
             echo "    tracking initialize it as a private git repo first:"
             echo ""
@@ -141,7 +142,7 @@ mkUserModule {
           for legacy in "$legacy_dir"/ai.hermes.gateway.plist.disabled-*; do
             [ -e "$legacy" ] || continue
             rm -f "$legacy"
-            echo "  ✓ nalum: removed stale archived launchd plist $legacy"
+            echo "  ✓ hermes: removed stale archived launchd plist $legacy"
           done
 
           # Ensure the log dir exists so launchd can open
@@ -160,7 +161,7 @@ mkUserModule {
                 mkdir -p "$(dirname "${credPath}")"
                 printf '%s' "$cred" > "${credPath}"
                 chmod 600 "${credPath}"
-                echo "  ✓ nalum: mirrored Claude Code credentials from Keychain → ${credPath}"
+                echo "  ✓ hermes: mirrored Claude Code credentials from Keychain → ${credPath}"
               fi
               mirrored=1
             fi
@@ -172,7 +173,7 @@ mkUserModule {
           # contexts, so this is expected on most rebuilds.
           if [ "$mirrored" -eq 0 ] && [ ! -f "${credPath}" ]; then
             echo ""
-            echo "  ⚠ nalum: hermes-claude-auth needs ${credPath} but it's missing."
+            echo "  ⚠ hermes: hermes-claude-auth needs ${credPath} but it's missing."
             echo "    The activation hook can't read the login Keychain (no GUI handle)."
             echo "    Run this once in your interactive shell:"
             echo ""
