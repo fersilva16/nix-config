@@ -1,4 +1,4 @@
-# nalum gateway — declarative launchd agent for `hermes gateway run`.
+# hermes gateway — declarative launchd agent for `hermes gateway run`.
 #
 # Replaces the upstream `hermes gateway install` flow, which writes
 # ~/Library/LaunchAgents/ai.hermes.gateway.plist out-of-band and pins
@@ -31,7 +31,7 @@
         if builtins.length usernames == 1 then
           builtins.head usernames
         else
-          throw "nalum.gateway: exactly one user must enable the gateway (got: ${builtins.toJSON usernames})";
+          throw "hermes.gateway: exactly one user must enable the gateway (got: ${builtins.toJSON usernames})";
       nalumDir = "/Users/${username}/nalum";
     in
     {
