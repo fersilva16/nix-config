@@ -46,16 +46,24 @@
 # Anthropic's server-side validator routes OAuth requests to pay-per-
 # token credits instead of the Max/Pro plan.
 #
-# Hermes reads Claude subscription credentials from
-# ~/.claude/.credentials.json, but Claude Code on macOS stores them in
-# the Keychain only. The activation hook below tries to mirror the
-# Keychain entry into the file on every rebuild — but Keychain Services
-# typically refuses access from non-GUI contexts (activation scripts run
-# via `sudo -u` from darwin-rebuild, which lacks the loginwindow-unlocked
-# Keychain handle even when running as the user). So the auto-mirror
-# only succeeds when the daemon happens to have inherited a GUI Keychain
-# handle (rare). When it fails, the hook prints a loud warning with the
-# exact one-liner to run interactively.
+# Claude credentials — Hermes owns its own OAuth lifecycle:
+#
+# hermes-agent has a native credential pool that performs the Claude
+# OAuth (PKCE) login itself and stores the result in its pool file at
+# $HERMES_HOME/auth.json (so ~/nalum/auth.json here). It refreshes the
+# access token automatically via the stored refresh token and persists
+# the rotated tokens back to the pool. Hermes is therefore fully
+# self-sufficient: it does NOT depend on Claude Code being installed,
+# nor on mirroring Claude Code's Keychain credentials.
+#
+# Bootstrap is a one-time interactive step:
+#
+#   hermes auth add anthropic --type oauth   # PKCE login via the browser
+#
+# After that the gateway daemon (which shares HERMES_HOME=~/nalum) reads
+# and auto-refreshes the pooled credential indefinitely — no Keychain
+# mirror, no cron/launchd refresh job. The activation hook below only
+# warns when the pool has no Anthropic credential yet.
 #
 # Bumping the bypass when Anthropic rotates fingerprints upstream:
 #
@@ -115,7 +123,9 @@ mkUserModule {
     { username, ... }:
     let
       nalumDir = "/Users/${username}/nalum";
-      credPath = "/Users/${username}/.claude/.credentials.json";
+      # Hermes' credential pool (auth.json) lives under HERMES_HOME so the
+      # gateway daemon and the interactive shell share one token store.
+      poolPath = "${nalumDir}/auth.json";
     in
     {
       home = {
@@ -151,37 +161,18 @@ mkUserModule {
           # the file before Hermes touches it.
           mkdir -p "${nalumDir}/logs"
 
-          # Try to mirror Claude Code Keychain → ${credPath}. Almost
-          # always fails in activation context (no GUI Keychain handle),
-          # so the warning branch below is the common path.
-          mirrored=0
-          if command -v security >/dev/null 2>&1; then
-            if cred=$(security find-generic-password -s 'Claude Code-credentials' -w 2>/dev/null); then
-              if [ ! -f "${credPath}" ] || [ "$(cat "${credPath}" 2>/dev/null)" != "$cred" ]; then
-                mkdir -p "$(dirname "${credPath}")"
-                printf '%s' "$cred" > "${credPath}"
-                chmod 600 "${credPath}"
-                echo "  ✓ hermes: mirrored Claude Code credentials from Keychain → ${credPath}"
-              fi
-              mirrored=1
-            fi
-          fi
-
-          # If the file is missing after the mirror attempt, print a loud
-          # warning with the exact command to run interactively. Keychain
-          # Services typically refuses access from sudo-spawned activation
-          # contexts, so this is expected on most rebuilds.
-          if [ "$mirrored" -eq 0 ] && [ ! -f "${credPath}" ]; then
+          # Hermes manages its own Claude OAuth credential in the pool at
+          # ${poolPath} and auto-refreshes it via the stored refresh token.
+          # No Keychain mirror, no refresh job — we just warn once if the
+          # pool has no Anthropic credential yet. (auth.json is auto-created
+          # on any hermes run and may already hold other providers, so we
+          # grep for an anthropic entry specifically rather than the file.)
+          if ! grep -q '"anthropic"' "${poolPath}" 2>/dev/null; then
             echo ""
-            echo "  ⚠ hermes: hermes-claude-auth needs ${credPath} but it's missing."
-            echo "    The activation hook can't read the login Keychain (no GUI handle)."
-            echo "    Run this once in your interactive shell:"
+            echo "  ⚠ hermes: no Anthropic OAuth credential in ${poolPath}."
+            echo "    Authenticate once (tokens auto-refresh thereafter):"
             echo ""
-            echo "      security find-generic-password -s 'Claude Code-credentials' -w \\"
-            echo "        > ${credPath} && chmod 600 ${credPath}"
-            echo ""
-            echo "    Click 'Always Allow' on the Keychain prompt. If no Keychain entry"
-            echo "    exists, authenticate Claude Code first: claude auth login --claudeai"
+            echo "      hermes auth add anthropic --type oauth"
             echo ""
           fi
         '';
