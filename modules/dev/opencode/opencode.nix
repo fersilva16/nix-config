@@ -36,6 +36,7 @@ mkUserModule {
     agentation = import ./agentation.nix { inherit pkgs; };
     autoresearch = import ./autoresearch.nix { inherit pkgs; };
     cache = import ./cache.nix { };
+    omo-gitignore = import ./omo-gitignore.nix { };
   };
   home =
     { username, ... }:
