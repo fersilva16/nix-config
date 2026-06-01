@@ -9,6 +9,7 @@ let
     homebrew-cask
     homebrew-bundle
     homebrew-schpet-tap
+    homebrew-aprilnea-tap
     ;
 in
 mkSystemModule {
@@ -26,6 +27,7 @@ mkSystemModule {
           "homebrew/homebrew-cask" = homebrew-cask;
           "homebrew/homebrew-bundle" = homebrew-bundle;
           "schpet/homebrew-tap" = homebrew-schpet-tap;
+          "aprilnea/homebrew-tap" = homebrew-aprilnea-tap;
         };
 
         mutableTaps = false;
