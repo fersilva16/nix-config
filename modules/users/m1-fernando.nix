@@ -168,6 +168,7 @@ mkUser {
   hammerspoon.enable = true;
   keyboardcleantool.enable = true;
   raycast.enable = true;
+  openlogi.enable = true;
 
   # Finance
   paisa.enable = true;
