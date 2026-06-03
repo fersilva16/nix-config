@@ -164,22 +164,6 @@
         "type": "github"
       }
     },
-    "homebrew-aprilnea-tap": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1780246670,
-        "narHash": "sha256-7TZsw8Be0p9D8g5iyiF08Z+my8HotZOYESavuu/iH/o=",
-        "owner": "AprilNEA",
-        "repo": "homebrew-tap",
-        "rev": "e48dac7a3a7956e18e966ffd491ce91ee20d06e5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "AprilNEA",
-        "repo": "homebrew-tap",
-        "type": "github"
-      }
-    },
     "homebrew-bundle": {
       "flake": false,
       "locked": {
@@ -199,11 +183,11 @@
     "homebrew-cask": {
       "flake": false,
       "locked": {
-        "lastModified": 1779577307,
-        "narHash": "sha256-Yn5j6qChG5PadroydtyoFuvbNCAfuGqSxhZ1OtQ8Jiw=",
+        "lastModified": 1780499944,
+        "narHash": "sha256-3fqvwWzhCRh30fZvrRIzriWd391OCJdE8VIHEi0MH00=",
         "owner": "homebrew",
         "repo": "homebrew-cask",
-        "rev": "572971099e569a0d7269227cec50f53687b7e400",
+        "rev": "c1073d991828bf7e8d6472188fc250172112a89e",
         "type": "github"
       },
       "original": {
@@ -418,7 +402,6 @@
         "hermes-agent": "hermes-agent",
         "hermes-claude-auth": "hermes-claude-auth",
         "home-manager": "home-manager",
-        "homebrew-aprilnea-tap": "homebrew-aprilnea-tap",
         "homebrew-bundle": "homebrew-bundle",
         "homebrew-cask": "homebrew-cask",
         "homebrew-core": "homebrew-core",
