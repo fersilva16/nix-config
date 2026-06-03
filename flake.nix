@@ -54,11 +54,6 @@
       flake = false;
     };
 
-    homebrew-aprilnea-tap = {
-      url = "github:AprilNEA/homebrew-tap";
-      flake = false;
-    };
-
     direnv-instant = {
       url = "github:Mic92/direnv-instant";
       inputs.nixpkgs.follows = "nixpkgs";
