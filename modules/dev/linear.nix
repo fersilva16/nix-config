@@ -318,7 +318,7 @@ mkUserModule {
                                           or return 1
                                           linear-cli g checkout $argv[2] $argv[3..-1]
                                         else
-                                          set -l sel (linear-cli i list --assignee (_lin_me) --no-pager 2>/dev/null | gum filter --header "Start issue")
+                                          set -l sel (lin list | gum filter --header "Start issue")
                                           or return 1
                                           set -l id (string match -r '[A-Z]+-\d+' -- $sel)
                                           if test -z "$id"
