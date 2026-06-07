@@ -220,6 +220,36 @@ if spaceCode then
   end
 end
 
+-- Toggle an app: hide it when it's frontmost, otherwise launch/focus it.
+-- hide() on an already-running app is a fast AX call; launching goes through
+-- hs.task (async) to avoid blocking the main thread.
+local function toggleApp(bundleID, appName)
+  local front = hs.application.frontmostApplication()
+  if front and front:bundleID() == bundleID then
+    front:hide()
+  else
+    hs.task.new("/usr/bin/open", nil, { "-a", appName }):start()
+  end
+end
+
+-- Hyper + I → Toggle Linear (mnemonic: Issues)
+local iCode = hs.keycodes.map["i"]
+if iCode then
+  keyCodeNames[iCode] = "i"
+  hyperActionsByKeyCode[iCode] = function()
+    toggleApp("com.linear", "Linear")
+  end
+end
+
+-- Hyper + O → Toggle Obsidian
+local oCode = hs.keycodes.map["o"]
+if oCode then
+  keyCodeNames[oCode] = "o"
+  hyperActionsByKeyCode[oCode] = function()
+    toggleApp("md.obsidian", "Obsidian")
+  end
+end
+
 -- Hyper + N → Focus Ghostty and jump to last tmux notification (prefix + N)
 -- Keys are posted directly to Ghostty via :post(app) (CGEventPostToPSN) so
 -- they bypass our eventtap — otherwise Ctrl+Space triggers hyper+space.
