@@ -105,6 +105,96 @@ mkUserModule {
             end
           '';
 
+          wtmv = ''
+            set git_root (git rev-parse --show-toplevel 2>/dev/null)
+            or begin; echo "wtmv: not a git repo"; return 1; end
+
+            _git_clean_stale_lock
+
+            set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
+            set repo_name (basename $main_root)
+            set wt_base (dirname $main_root)
+            set wt_dir "$wt_base/$repo_name.worktrees"
+
+            set old $argv[1]
+            set new $argv[2]
+
+            # One arg in a worktree session: rename current worktree to that name
+            if test -z "$new"; and set -q TMUX
+              set -l current (command tmux display-message -p '#{session_name}')
+              if string match -q '*/*' -- "$current"
+                set new $old
+                set old (string split -m 1 '/' -- "$current")[2]
+              end
+            end
+
+            # No old name: fzf picker
+            if test -z "$old"
+              if not test -d "$wt_dir"; or test (count (command ls "$wt_dir" 2>/dev/null)) -eq 0
+                echo "wtmv: no worktrees found"
+                return 1
+              end
+              set old (command ls "$wt_dir" | fzf --prompt="rename> " --height=40%)
+              or return 1
+            end
+
+            # No new name: prompt for it
+            if test -z "$new"
+              read -P "wtmv: rename '$old' to: " new
+              or return 1
+            end
+
+            if test -z "$new"
+              echo "wtmv: new name required"
+              return 1
+            end
+
+            if test "$old" = "$new"
+              echo "wtmv: names are identical"
+              return 1
+            end
+
+            set old_path "$wt_dir/$old"
+            set new_path "$wt_dir/$new"
+
+            if not test -d "$old_path"
+              echo "wtmv: no worktree found for '$old'"
+              return 1
+            end
+            if test -e "$new_path"
+              echo "wtmv: '$new' already exists"
+              return 1
+            end
+
+            # Capture branch before moving (to optionally rename it)
+            set -l branch (git -C "$old_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+            # Move the worktree — git updates its metadata + gitdir links.
+            # Run from main_root so we're not inside the dir being moved.
+            git -C "$main_root" worktree move "$old_path" "$new_path"
+            or begin; echo "wtmv: failed to move worktree"; return 1; end
+
+            # Rename the branch only when it matches the old worktree name
+            # (the auto-named case from wt), fixing the typo everywhere.
+            if test "$branch" = "$old"
+              git -C "$main_root" branch -m "$old" "$new" 2>/dev/null
+              and set branch "$new"
+            end
+
+            direnv allow "$new_path" 2>/dev/null
+
+            # Rename the tmux session (parent/old -> parent/new)
+            if set -q TMUX
+              set -l old_session (command tmux list-sessions -F '#{session_name}' | grep "/$old\$" | head -1)
+              if test -n "$old_session"
+                set -l parent (string split -m 1 '/' -- "$old_session")[1]
+                command tmux rename-session -t "=$old_session" "$parent/$new"
+              end
+            end
+
+            echo "Renamed worktree '$old' → '$new'"
+          '';
+
           wtls = "git worktree list $argv";
 
           wtpr = ''
@@ -455,6 +545,14 @@ mkUserModule {
             test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
           )'
           complete -f -c wt -n "test (count (commandline -opc)) -eq 2" -a '(git branch -a --format="%(refname:short)" 2>/dev/null | string replace -r "^origin/" "" | sort -u | grep -v "^HEAD")'
+
+          # Completion for wtmv: 1st arg = existing worktree names
+          complete -f -c wtmv -n "test (count (commandline -opc)) -eq 1" -a '(
+            set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
+            set -l rn (basename $mr 2>/dev/null)
+            set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
+            test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
+          )'
 
           # Completion for wtrm: existing worktree names + --force flag
           complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"
