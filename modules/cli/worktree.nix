@@ -222,9 +222,13 @@ mkUserModule {
               return 1
             end
 
-            # Resolve PR head branch (used for default name + tracking)
-            set head_branch (gh pr view $pr_num --json headRefName --jq .headRefName 2>/dev/null)
+            # Resolve PR head branch + fork status in one call.
+            # head_branch → default worktree name + branch checkout/tracking;
+            # is_fork → branch-naming strategy in the creation block below.
+            set pr_info (gh pr view $pr_num --json headRefName,isCrossRepository --jq '.headRefName, (.isCrossRepository | tostring)' 2>/dev/null)
             or begin; echo "wtpr: PR #$pr_num not found"; return 1; end
+            set head_branch $pr_info[1]
+            set is_fork $pr_info[2]
 
             # Default worktree name = sanitized branch (slashes become dashes)
             if test -z "$name"
@@ -250,24 +254,33 @@ mkUserModule {
             # Create worktree if missing
             set -l is_new 0
             if not test -d "$wt_path"
-              # Fetch the PR's HEAD via GitHub's pull/N/head ref into a local
-              # branch. Works for same-repo and fork PRs uniformly without
-              # adding fork remotes. The + forces fast-forward to handle
-              # force-pushed PRs.
-              set local_branch "pr-$pr_num"
-              git fetch origin "+pull/$pr_num/head:refs/heads/$local_branch" 2>/dev/null
-              or begin; echo "wtpr: failed to fetch PR"; return 1; end
-
-              # Atomic worktree creation on the PR branch (mirrors wt's pattern)
-              git worktree add "$wt_path" "$local_branch"
-              or begin; echo "wtpr: failed to create worktree"; return 1; end
-
-              # For same-repo PRs, set tracking so git pull/push work naturally.
-              # Fork PRs stay untracked (no push access; pull/N/head stays fresh
-              # via re-running wtpr).
-              set is_fork (gh pr view $pr_num --json isCrossRepository --jq .isCrossRepository 2>/dev/null)
               if test "$is_fork" = "false"
-                git -C "$wt_path" branch --set-upstream-to="origin/$head_branch" "$local_branch" 2>/dev/null
+                # Same-repo PR: check out the PR's actual head branch tracking
+                # origin, so `git push`/`git pull` work naturally and the local
+                # branch name matches GitHub. Using pr-N here breaks push
+                # (local/upstream names differ) and confuses tooling/LLMs.
+                git fetch origin "+refs/heads/$head_branch:refs/remotes/origin/$head_branch" 2>/dev/null
+                or begin; echo "wtpr: failed to fetch PR branch"; return 1; end
+
+                if git show-ref --verify --quiet "refs/heads/$head_branch"
+                  # Local branch already exists: attach the worktree to it.
+                  git worktree add "$wt_path" "$head_branch"
+                else
+                  # Create local branch tracking origin (mirrors wt's pattern).
+                  git worktree add --track -b "$head_branch" "$wt_path" "origin/$head_branch"
+                end
+                or begin; echo "wtpr: failed to create worktree"; return 1; end
+              else
+                # Fork PR: no push access, and the fork's head branch name may
+                # collide locally (e.g. a fork's `main`). Fetch pull/N/head into
+                # a namespaced pr-N branch; re-running wtpr refreshes force-pushed
+                # PRs. The + forces fast-forward to handle force-pushes.
+                set -l local_branch "pr-$pr_num"
+                git fetch origin "+pull/$pr_num/head:refs/heads/$local_branch" 2>/dev/null
+                or begin; echo "wtpr: failed to fetch PR"; return 1; end
+
+                git worktree add "$wt_path" "$local_branch"
+                or begin; echo "wtpr: failed to create worktree"; return 1; end
               end
 
               echo "Created worktree at $wt_path (PR #$pr_num: $head_branch)"
