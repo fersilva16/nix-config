@@ -54,45 +54,32 @@ mkUser {
   "android-studio".enable = true;
 
   # Browsers
-  firefox = {
-    enable = true;
-    profileApps = {
-      enable = true;
-      profiles = {
-        personal = {
-          displayName = "Firefox Personal";
-          profileDir = "pmbNxl3q.Profile 1";
-          # Navy + hot pink. The profile's auto-detected light theme tints
-          # to monochrome, so override with a multi-hue palette.
-          themeBg = "#1B2540";
-          themeFg = "#FF6B9D";
-        };
-        telepatia = {
-          displayName = "Firefox Telepatia";
-          profileDir = "xpo8mNTY.Profile 2";
-          # Solarized-dark palette - calmer than the bright greens auto-
-          # detected from the profile's theme.
-          themeBg = "#002B36";
-          themeFg = "#B58900";
-        };
-      };
-    };
-  };
+  # Firefox stays installed as a secondary browser, but its per-profile .app
+  # bundles are gone — Chrome is now the primary browser and Finicky routes to
+  # Chrome profiles natively (see below).
+  firefox.enable = true;
   chrome.enable = true;
 
   # URL router — set Finicky as the default browser so links from Slack/email/etc
-  # route to the right Firefox profile instead of piling into one.
+  # route to the right Chrome profile instead of piling into one.
   #
-  # `defaultBrowser` points at Hammerspoon, which the finicky-firefox-router
-  # module configures (via an extras Lua snippet) to receive http/https URL
-  # events and dispatch them to whichever Firefox profile bundle is most
-  # recently active. In-memory routing in an already-running Lua VM, so the
-  # un-handled-URL fallback adds ~5ms of latency instead of the ~350ms an
-  # AppleScript wrapper bundle would.
+  # Finicky opens Google Chrome with a specific profile via its native
+  # `profile` support, which resolves the profile's display name against
+  # Chrome's Local State and launches with `--profile-directory`. Profile
+  # display names (not the on-disk "Profile N" dirs):
+  #   "Personal"  → fernandonsilva16@gmail.com   (Chrome dir "Profile 2")
+  #   "Telepatia" → fernando.silva@telepatia.ai  (Chrome dir "Profile 1")
   finicky = {
     enable = true;
     hideIcon = true;
-    defaultBrowser = "/Applications/Hammerspoon.app";
+    # Unmatched URLs open in Chrome's last-active profile. Launching Chrome
+    # without a `--profile-directory` (i.e. no `defaultBrowserProfile`) makes
+    # it route the URL to the most-recently-used Chrome window, so the
+    # fallback "follows" whichever profile you were last in — the same
+    # behavior the old Firefox active-profile router provided, but native to
+    # Chrome and with no Hammerspoon involved. (Caveat: an incognito window is
+    # skipped — Chrome opens a regular window of that profile instead.)
+    defaultBrowser = "Google Chrome";
     handlers = [
       # x.com always → Personal, even when clicked from Slack. Must come first
       # (handlers are first-match-wins) so it beats the Slack rule below.
@@ -101,25 +88,22 @@ mkUser {
           "x.com/*"
           "*.x.com/*"
         ];
-        browser = "/Applications/Firefox Personal.app";
+        browser = "Google Chrome";
+        profile = "Personal";
       }
       # Every link clicked inside the Slack app → Telepatia (work).
       {
         fromApp = "com.tinyspeck.slackmacgap";
-        browser = "/Applications/Firefox Telepatia.app";
+        browser = "Google Chrome";
+        profile = "Telepatia";
       }
       # Work GitHub org → Telepatia.
       {
         match = [ "github.com/telepatia-ai/*" ];
-        browser = "/Applications/Firefox Telepatia.app";
+        browser = "Google Chrome";
+        profile = "Telepatia";
       }
     ];
-  };
-  finicky-firefox-router = {
-    enable = true;
-    # Used when no Firefox profile bundle is currently running. Personal is
-    # the closest match to the previous fixed default.
-    fallbackBundle = "org.mozilla.firefox.personal";
   };
 
   # Terminal
