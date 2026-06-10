@@ -547,6 +547,210 @@ mkUserModule {
             # Create worktree with Linear's branch
             wt $name $branch_name
           '';
+        }
+        // lib.optionalAttrs userCfg.av.enable {
+          # Stacked worktrees via av (Aviator). A stack is a tree of branches,
+          # each living in its own sandboxed worktree. av tracks the parent of
+          # each branch (shared metadata in the common git dir), so PRs target
+          # their parent and a fix on an upstream branch can cascade-rebase the
+          # downstream worktrees. Cross-worktree restack is driven by path with
+          # `av -C <path>` so each sandbox is rebased in place.
+          wts = ''
+            set -l sub $argv[1]
+            set -e argv[1]
+
+            set -l main_root (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
+            if test -z "$main_root"
+              echo "wts: not a git repo" >&2
+              return 1
+            end
+            set -l repo_name (basename $main_root)
+            set -l wt_base (dirname $main_root)
+
+            switch "$sub"
+              case "" tree
+                av tree $argv
+
+              case fork
+                # wts fork <name> [branch] — child worktree stacked on current branch
+                set -l name $argv[1]
+                if test -z "$name"
+                  echo "wts fork: usage: wts fork <name> [branch]" >&2
+                  return 1
+                end
+                set -l parent (git rev-parse --abbrev-ref HEAD 2>/dev/null)
+                if test -z "$parent" -o "$parent" = HEAD
+                  echo "wts fork: detached HEAD — checkout the parent branch first" >&2
+                  return 1
+                end
+                set -l branch $argv[2]
+                test -z "$branch"; and set branch $name
+                set -l wt_path "$wt_base/$repo_name.worktrees/$name"
+
+                # Create the stacked worktree+branch off the current (parent) branch.
+                wt $name $branch
+                or return 1
+
+                # Register the stack edge so PRs target the parent. Adopt needs
+                # at least one commit; on an empty fork it's a no-op until the
+                # first commit, so don't treat failure as fatal.
+                if not av -C "$wt_path" adopt --parent "$parent" 2>/dev/null
+                  echo "wts: '$branch' forked from '$parent'. After your first commit, run 'wts adopt $parent' to register the stack." >&2
+                end
+
+              case adopt
+                # wts adopt [parent] — register current branch as a child of <parent>
+                set -l parent $argv[1]
+                if test -z "$parent"
+                  set -l cur (git rev-parse --abbrev-ref HEAD 2>/dev/null)
+                  set parent (git branch --format='%(refname:short)' | grep -v "^$cur\$" | fzf --prompt="parent> " --height=40%)
+                  or return 1
+                end
+                av adopt --parent "$parent"
+
+              case restack
+                # Rebase the current branch onto its parent, then cascade into
+                # descendant worktrees (ordered by ancestry) so each sandbox is
+                # restacked onto its freshly-updated upstream.
+                set -l cur (git rev-parse --abbrev-ref HEAD 2>/dev/null)
+                if test -z "$cur" -o "$cur" = HEAD
+                  echo "wts restack: detached HEAD" >&2
+                  return 1
+                end
+                set -l base_old (git rev-parse HEAD)
+
+                av restack --current
+                or begin
+                  echo "wts restack: conflict in '$cur' — resolve, then 'av restack --continue'" >&2
+                  return 1
+                end
+
+                # Collect descendant worktrees (branch had base_old as ancestor),
+                # captured against the OLD tip before they get rebased.
+                set -l paths
+                set -l branches
+                set -l p ""
+                for line in (git worktree list --porcelain)
+                  set -l kv (string split -m 1 " " -- $line)
+                  switch $kv[1]
+                    case worktree
+                      set p $kv[2]
+                    case branch
+                      set -l b (string replace "refs/heads/" "" -- $kv[2])
+                      if test "$b" != "$cur"; and git merge-base --is-ancestor $base_old "$b" 2>/dev/null
+                        set -a paths $p
+                        set -a branches $b
+                      end
+                  end
+                end
+
+                # Sort ancestors-first so each parent is restacked before its child.
+                set -l n (count $branches)
+                for i in (seq 1 $n)
+                  for j in (seq 1 (math $n - $i))
+                    set -l k (math $j + 1)
+                    if git merge-base --is-ancestor $branches[$k] $branches[$j] 2>/dev/null
+                      set -l tb $branches[$j]
+                      set branches[$j] $branches[$k]
+                      set branches[$k] $tb
+                      set -l tp $paths[$j]
+                      set paths[$j] $paths[$k]
+                      set paths[$k] $tp
+                    end
+                  end
+                end
+
+                for i in (seq (count $paths))
+                  set -l path $paths[$i]
+                  set -l br $branches[$i]
+                  if test -n "$(git -C "$path" status --porcelain 2>/dev/null)"
+                    echo "wts restack: '$br' has uncommitted changes — skipped (restack it manually)" >&2
+                    continue
+                  end
+                  echo "↻ restacking $br"
+                  av -C "$path" restack --current
+                  or begin
+                    echo "wts restack: conflict in '$br' ($path). Resolve there, then 'av -C $path restack --continue'." >&2
+                    return 1
+                  end
+                end
+                echo "✓ stack restacked"
+
+              case sync
+                # Restack the whole stack across worktrees, then push + retarget
+                # every PR to its correct base. `av pr --all` pushes and fixes
+                # bases without rebasing checked-out branches, so it's safe to
+                # run once from the current worktree after the cascade.
+                wts restack
+                or return 1
+                av pr --all $argv
+
+              case pr
+                # Create/update stacked PRs (each targeting its parent).
+                av pr --all $argv
+
+              case rm
+                # Untrack from av + remove the worktree. Refuses if the branch
+                # has stacked children, to avoid orphaning them — reparent first.
+                set -l name $argv[1]
+                set -l target_path (git rev-parse --show-toplevel 2>/dev/null)
+                set -l target_branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
+                if test -n "$name"
+                  set target_path "$wt_base/$repo_name.worktrees/$name"
+                  set target_branch (git -C "$target_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+                end
+                set -l target_tip (git -C "$target_path" rev-parse HEAD 2>/dev/null)
+
+                set -l kids
+                set -l p ""
+                for line in (git worktree list --porcelain)
+                  set -l kv (string split -m 1 " " -- $line)
+                  switch $kv[1]
+                    case branch
+                      set -l b (string replace "refs/heads/" "" -- $kv[2])
+                      if test "$b" != "$target_branch"; and git merge-base --is-ancestor $target_tip "$b" 2>/dev/null
+                        set -a kids $b
+                      end
+                  end
+                end
+                if test (count $kids) -gt 0
+                  echo "wts rm: '$target_branch' has stacked children: $kids" >&2
+                  echo "Reparent them first — in each child worktree: av reparent --parent=<new>" >&2
+                  echo "Then re-run: wts rm $name" >&2
+                  return 1
+                end
+
+                av -C "$target_path" orphan 2>/dev/null
+                wtrm $argv
+
+              case init
+                # One-time per repo: initialise av metadata (needs a GitHub PAT).
+                av init $argv
+
+              case help -h --help
+                echo "wts — stacked worktrees (av)" >&2
+                echo "" >&2
+                echo "worktree-aware commands:" >&2
+                echo "  wts fork <name> [branch]  fork a child worktree stacked on current branch" >&2
+                echo "  wts adopt [parent]        register current branch as a child of <parent>" >&2
+                echo "  wts tree                  show the stack tree (default)" >&2
+                echo "  wts restack               rebase downstream worktrees onto fixed upstreams" >&2
+                echo "  wts sync                  restack + push + retarget PRs" >&2
+                echo "  wts pr                    create/update stacked PRs" >&2
+                echo "  wts rm [name]             untrack + remove a worktree (refuses if it has children)" >&2
+                echo "  wts init                  initialise av metadata for this repo (one-time)" >&2
+                echo "" >&2
+                echo "anything else is passed straight through to av in the current worktree," >&2
+                echo "e.g. 'wts next', 'wts prev', 'wts switch', 'wts log', 'wts reparent'." >&2
+                echo "See 'av --help' for the full list." >&2
+
+              case '*'
+                # Passthrough: any unrecognised subcommand goes straight to av,
+                # operating on the current worktree. Keeps everything under one
+                # entrypoint without reimplementing av's command surface.
+                av $sub $argv
+            end
+          '';
         };
 
         shellInit = ''
@@ -570,6 +774,16 @@ mkUserModule {
           # Completion for wtrm: existing worktree names + --force flag
           complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"
           complete -f -c wtrm -a '(
+            set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
+            set -l rn (basename $mr 2>/dev/null)
+            set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
+            test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
+          )'
+
+          # Completion for wts: wts-native subcommands + common av passthroughs
+          complete -f -c wts -n "__fish_use_subcommand" -a "fork adopt tree restack sync pr rm init help"
+          complete -f -c wts -n "__fish_use_subcommand" -a "next prev switch log reparent branch commit squash reorder tidy diff fetch validate-db orphan"
+          complete -f -c wts -n "__fish_seen_subcommand_from rm" -a '(
             set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
             set -l rn (basename $mr 2>/dev/null)
             set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
