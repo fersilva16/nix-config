@@ -21,6 +21,7 @@ mkUser {
   # Dev tools
   git.enable = true;
   lazygit.enable = true;
+  av.enable = true;
   awscli.enable = true;
   flyctl.enable = true;
   mongosh.enable = true;
