@@ -122,23 +122,23 @@ mkUserModule {
             "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/dist/oh-my-opencode.schema.json";
           agents = {
             sisyphus = {
-              model = "anthropic/claude-opus-4-8";
+              model = "anthropic/claude-fable-5";
               variant = "max";
             };
             prometheus = {
-              model = "anthropic/claude-opus-4-8";
+              model = "anthropic/claude-fable-5";
               variant = "max";
             };
             oracle = {
-              model = "anthropic/claude-opus-4-8";
+              model = "anthropic/claude-fable-5";
               variant = "max";
             };
             metis = {
-              model = "anthropic/claude-opus-4-8";
+              model = "anthropic/claude-fable-5";
               variant = "max";
             };
             momus = {
-              model = "anthropic/claude-opus-4-8";
+              model = "anthropic/claude-fable-5";
               variant = "max";
             };
           };
