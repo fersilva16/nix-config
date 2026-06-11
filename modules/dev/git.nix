@@ -14,7 +14,11 @@ mkUserModule {
       programs = {
         git = {
           enable = true;
-          lfs.enable = true;
+          lfs = {
+            enable = true;
+            # Don't auto-download LFS objects on checkout/clone/worktree-add.
+            skipSmudge = true;
+          };
 
           package = pkgs.git;
 
