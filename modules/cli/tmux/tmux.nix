@@ -26,6 +26,13 @@ let
       exec tmux attach-session -t "$SESSION"
     '';
   };
+
+  # Session picker rules, shared by the choose-tree binds here and in
+  # stackmenu.nix: sessions only, zoomed, sorted by name (worktree sessions
+  # stay grouped with parent), and the `pocket` session filtered out (see
+  # pocket.nix — pocket is popup-only, never selected via a picker; the
+  # filter is a no-op when pocket is disabled).
+  choose-tree-picker = "choose-tree -sZO name -f '#{!=:#{session_name},pocket}'";
 in
 mkUserModule {
   name = "tmux";
@@ -36,9 +43,10 @@ mkUserModule {
     remote = import ./remote.nix { inherit pkgs; };
     group = import ./group.nix { inherit pkgs; };
     pocket = import ./pocket.nix { inherit pkgs; };
+    stackmenu = import ./stackmenu.nix { inherit pkgs choose-tree-picker; };
   };
   home =
-    { userCfg, ... }:
+    { cfg, userCfg, ... }:
     {
       home.packages = [
         tmux-git-root-path
@@ -90,12 +98,11 @@ mkUserModule {
           bind-key '"' split-window -c "#{pane_current_path}"
           bind-key % split-window -h -c "#{pane_current_path}"
 
-          # Session picker sorted by name (worktree sessions stay grouped with parent).
-          # Filters out the `pocket` session (see pocket.nix part) — pocket is
-          # popup-only, never selected via the picker. No-op when pocket is
-          # disabled. Defined here rather than in pocket.nix to avoid relying
-          # on part/parent extraConfig merge order.
-          bind-key s choose-tree -sZO name -f '#{!=:#{session_name},pocket}'
+          # Session picker. When the stackmenu part is enabled it owns
+          # prefix+s (stack-aware menu) and keeps choose-tree on prefix+S;
+          # otherwise choose-tree stays on prefix+s. Conditional rather than
+          # rebinding to avoid relying on part/parent extraConfig merge order.
+          ${lib.optionalString (!cfg.stackmenu.enable) "bind-key s ${choose-tree-picker}"}
         '';
 
         plugins = with pkgs; [
