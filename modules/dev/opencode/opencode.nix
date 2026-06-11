@@ -123,23 +123,23 @@ mkUserModule {
           agents = {
             sisyphus = {
               model = "anthropic/claude-fable-5";
-              variant = "max";
+              # variant = "max";
             };
             prometheus = {
               model = "anthropic/claude-fable-5";
-              variant = "max";
+              # variant = "max";
             };
             oracle = {
               model = "anthropic/claude-fable-5";
-              variant = "max";
+              # variant = "max";
             };
             metis = {
               model = "anthropic/claude-fable-5";
-              variant = "max";
+              # variant = "max";
             };
             momus = {
               model = "anthropic/claude-fable-5";
-              variant = "max";
+              # variant = "max";
             };
           };
         };
