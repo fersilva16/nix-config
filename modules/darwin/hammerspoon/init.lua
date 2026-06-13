@@ -184,26 +184,31 @@ end
 --   client's session's active pane path. If no client is attached, the
 --   command produces empty output and the existing fallback opens Cursor
 --   without a path.
+local function openCursorAtCurrentSession()
+  hs.task.new("/bin/sh", function(_code, stdout)
+    local dir = stdout and stdout:gsub("%s+$", "") or ""
+    if dir == "" then
+      hs.task.new("/usr/bin/open", nil, { "-a", "Cursor" }):start()
+      return
+    end
+    hs.task.new("/bin/sh", function(_code2, stdout2)
+      local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
+      local target = gitRoot ~= "" and gitRoot or dir
+      hs.task.new("/usr/bin/open", nil, { "-a", "Cursor", target }):start()
+    end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
+  end, { "-l", "-c", "S=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2); [ -n \"$S\" ] && tmux display-message -p -t \"$S\" '#{pane_current_path}' 2>/dev/null" }):start()
+end
+
 local cCode = hs.keycodes.map["c"]
 if cCode then
   keyCodeNames[cCode] = "c"
-  hyperActionsByKeyCode[cCode] = function()
-    hs.task.new("/bin/sh", function(_code, stdout)
-      local dir = stdout and stdout:gsub("%s+$", "") or ""
-      if dir == "" then
-        hs.task.new("/usr/bin/open", nil, { "-a", "Cursor" }):start()
-        return
-      end
-      hs.task.new("/bin/sh", function(_code2, stdout2)
-        local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
-        local target = gitRoot ~= "" and gitRoot or dir
-        hs.task.new("/usr/bin/open", nil, { "-a", "Cursor", target }):start()
-      end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
-    end, { "-l", "-c", "S=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2); [ -n \"$S\" ] && tmux display-message -p -t \"$S\" '#{pane_current_path}' 2>/dev/null" }):start()
-  end
+  hyperActionsByKeyCode[cCode] = openCursorAtCurrentSession
 end
 
 -- Hyper + Space → Toggle between Ghostty and Cursor; default to Ghostty.
+-- Toggling to Cursor opens it at the current tmux session's git root (same
+-- resolution as Hyper+C). `open -a Cursor <dir>` is idempotent: it focuses
+-- the existing window when that folder is already open, so no duplicates.
 -- Uses hs.task (async) — hs.application.open() blocks the main thread and
 -- freezes all timers when an app is slow to respond to Launch Services.
 local spaceCode = hs.keycodes.map["space"]
@@ -213,7 +218,7 @@ if spaceCode then
     local front = hs.application.frontmostApplication()
     local bid = front and front:bundleID() or ""
     if bid == "com.mitchellh.ghostty" then
-      hs.task.new("/usr/bin/open", nil, { "-a", "Cursor" }):start()
+      openCursorAtCurrentSession()
     else
       hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
     end
