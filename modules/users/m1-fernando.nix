@@ -50,7 +50,7 @@ mkUser {
   # Editors
   nvim.enable = true;
   vscode.enable = true;
-  cursor.enable = true;
+  cursor.enable = false;
   intellij.enable = true;
   "android-studio".enable = true;
 

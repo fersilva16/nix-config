@@ -59,6 +59,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
+    # ships a few hundred extensions; this exposes the full marketplace so the
+    # vscode module can declare extensions like oxc, supermaven, etc.
+    nix-vscode-extensions = {
+      url = "github:nix-community/nix-vscode-extensions";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     opencode = {
       url = "github:anomalyco/opencode?rev=ddc30cd1516febc3a7d9d038ce65a51ab454c6e7";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -108,6 +108,9 @@ darwin.lib.darwinSystem {
 
       nixpkgs = {
         config.allowUnfree = true;
+        # Exposes pkgs.vscode-marketplace / pkgs.open-vsx, evaluated against
+        # this nixpkgs (so allowUnfree applies to unfree extensions).
+        overlays = [ inputs.nix-vscode-extensions.overlays.default ];
       };
 
       home-manager = {
