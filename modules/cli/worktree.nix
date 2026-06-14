@@ -234,9 +234,16 @@ mkUserModule {
             set head_branch $pr_info[1]
             set is_fork $pr_info[2]
 
-            # Default worktree name = sanitized branch (slashes become dashes)
+            # No explicit name: prompt for a short worktree name to avoid the
+            # huge tmux session labels that long branch names produce. The
+            # branch itself is unchanged — checkout/tracking below uses
+            # $head_branch; only the worktree dir + session label differ.
+            # Sanitized branch (slashes → dashes) is offered as the default.
             if test -z "$name"
-              set name (string replace -a '/' '-' -- $head_branch)
+              set -l default_name (string replace -a '/' '-' -- $head_branch)
+              read -P "wtpr: worktree name [$default_name]: " name
+              or return 1
+              test -z "$name"; and set name $default_name
             end
 
             set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
