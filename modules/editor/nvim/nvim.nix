@@ -24,6 +24,7 @@ mkUserModule {
     git = import ./git.nix { inherit pkgs; };
     explorer = import ./explorer.nix { inherit pkgs; };
     ai = import ./ai.nix { inherit pkgs; };
+    cursortab = import ./cursortab.nix { inherit pkgs; };
   };
 
   home = {
@@ -226,10 +227,11 @@ mkUserModule {
             '  gcc                toggle comment',
             '  sa" / sd" / sr"    surround add/del/replace',
             s,
-            '  AI',
-            '  Ctrl+y             accept supermaven suggestion',
-            '  Ctrl+]             clear suggestion',
-            '  Ctrl+j             accept word',
+            '  AI (minuet · Codestral FIM)',
+            '  Ctrl+y             accept suggestion',
+            '  Ctrl+j             accept line',
+            '  Alt+] / Alt+[      next / prev suggestion',
+            '  Ctrl+]             dismiss suggestion',
             '  Ctrl+.             toggle opencode',
             '  Ctrl+a             ask opencode',
             '  Ctrl+x             opencode actions',
@@ -311,9 +313,7 @@ mkUserModule {
         {
           plugin = flexoki-neovim;
           config = ''
-            lua << EOF
-              vim.cmd.colorscheme "flexoki-light"
-            EOF
+            vim.cmd.colorscheme "flexoki-light"
           '';
         }
 
@@ -322,31 +322,29 @@ mkUserModule {
         {
           plugin = vimPlugins.telescope-nvim;
           config = ''
-            lua << EOF
-              local telescope = require('telescope')
-              local actions = require('telescope.actions')
+            local telescope = require('telescope')
+            local actions = require('telescope.actions')
 
-              telescope.setup {
-                defaults = {
-                  mappings = {
-                    i = {
-                      ['<C-u>'] = false,
-                      ['<C-d>'] = false,
-                      ['<C-j>'] = actions.move_selection_next,
-                      ['<C-k>'] = actions.move_selection_previous,
-                    }
-                  },
-                  file_ignore_patterns = { 'node_modules', '.git/', 'target/' },
+            telescope.setup {
+              defaults = {
+                mappings = {
+                  i = {
+                    ['<C-u>'] = false,
+                    ['<C-d>'] = false,
+                    ['<C-j>'] = actions.move_selection_next,
+                    ['<C-k>'] = actions.move_selection_previous,
+                  }
                 },
-                pickers = {
-                  find_files = {
-                    hidden = true,
-                  },
+                file_ignore_patterns = { 'node_modules', '.git/', 'target/' },
+              },
+              pickers = {
+                find_files = {
+                  hidden = true,
                 },
-              }
+              },
+            }
 
-              telescope.load_extension('fzf')
-            EOF
+            telescope.load_extension('fzf')
           '';
         }
 
@@ -354,73 +352,71 @@ mkUserModule {
         {
           plugin = vimPlugins.which-key-nvim;
           config = ''
-            lua << EOF
-              local wk = require('which-key')
-              wk.setup({
-                plugins = {
-                  spelling = { enabled = true },
-                },
-              })
+            local wk = require('which-key')
+            wk.setup({
+              plugins = {
+                spelling = { enabled = true },
+              },
+            })
 
-              wk.add({
-                -- Top-level leader bindings
-                { "<leader><space>", "<cmd>Telescope buffers<cr>", desc = "Switch buffer" },
-                { "<leader>/", function()
-                    require('telescope.builtin').current_buffer_fuzzy_find(
-                      require('telescope.themes').get_dropdown { winblend = 10, previewer = false }
-                    )
-                  end, desc = "Search in buffer" },
-                { "<leader>g", function() require('telescope.builtin').live_grep() end, desc = "Live grep" },
+            wk.add({
+              -- Top-level leader bindings
+              { "<leader><space>", "<cmd>Telescope buffers<cr>", desc = "Switch buffer" },
+              { "<leader>/", function()
+                  require('telescope.builtin').current_buffer_fuzzy_find(
+                    require('telescope.themes').get_dropdown { winblend = 10, previewer = false }
+                  )
+                end, desc = "Search in buffer" },
+              { "<leader>g", function() require('telescope.builtin').live_grep() end, desc = "Live grep" },
 
-                -- File
-                { "<leader>f", group = "file" },
-                { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find file" },
-                { "<leader>fr", "<cmd>Telescope oldfiles<cr>", desc = "Recent files" },
-                { "<leader>fn", "<cmd>enew<cr>", desc = "New file" },
-                { "<leader>fs", "<cmd>w<cr>", desc = "Save file" },
+              -- File
+              { "<leader>f", group = "file" },
+              { "<leader>ff", "<cmd>Telescope find_files<cr>", desc = "Find file" },
+              { "<leader>fr", "<cmd>Telescope oldfiles<cr>", desc = "Recent files" },
+              { "<leader>fn", "<cmd>enew<cr>", desc = "New file" },
+              { "<leader>fs", "<cmd>w<cr>", desc = "Save file" },
 
-                -- Tabs
-                { "<leader>T", group = "tabs" },
-                { "<leader>Tt", "<cmd>tabnew<cr>", desc = "New tab" },
-                { "<leader>Tc", "<cmd>tabclose<cr>", desc = "Close tab" },
-                { "<leader>To", "<cmd>tabonly<cr>", desc = "Only this tab" },
-                { "<leader>Tp", "<cmd>tabprevious<cr>", desc = "Previous tab" },
-                { "<leader>Tn", "<cmd>tabnext<cr>", desc = "Next tab" },
+              -- Tabs
+              { "<leader>T", group = "tabs" },
+              { "<leader>Tt", "<cmd>tabnew<cr>", desc = "New tab" },
+              { "<leader>Tc", "<cmd>tabclose<cr>", desc = "Close tab" },
+              { "<leader>To", "<cmd>tabonly<cr>", desc = "Only this tab" },
+              { "<leader>Tp", "<cmd>tabprevious<cr>", desc = "Previous tab" },
+              { "<leader>Tn", "<cmd>tabnext<cr>", desc = "Next tab" },
 
-                -- Splits (VS Code-like)
-                { "<leader>sv", "<cmd>vsplit<cr>", desc = "Vertical split" },
-                { "<leader>sh", "<cmd>split<cr>", desc = "Horizontal split" },
-                { "<leader>se", "<C-w>=", desc = "Equal size splits" },
-                { "<leader>sc", "<cmd>close<cr>", desc = "Close split" },
+              -- Splits (VS Code-like)
+              { "<leader>sv", "<cmd>vsplit<cr>", desc = "Vertical split" },
+              { "<leader>sh", "<cmd>split<cr>", desc = "Horizontal split" },
+              { "<leader>se", "<C-w>=", desc = "Equal size splits" },
+              { "<leader>sc", "<cmd>close<cr>", desc = "Close split" },
 
-                -- Quit
-                { "<leader>q", group = "quit" },
-                { "<leader>qq", "<cmd>qa!<CR>", desc = "Force quit all" },
-                { "<leader>qa", "<cmd>qa<CR>", desc = "Quit all" },
+              -- Quit
+              { "<leader>q", group = "quit" },
+              { "<leader>qq", "<cmd>qa!<CR>", desc = "Force quit all" },
+              { "<leader>qa", "<cmd>qa<CR>", desc = "Quit all" },
 
-                -- Help
-                { "<leader>h", group = "help" },
-                { "<leader>hk", "<cmd>Telescope keymaps<CR>", desc = "Keymaps" },
-                { "<leader>hh", "<cmd>Telescope help_tags<CR>", desc = "Help tags" },
-                { "<leader>hm", "<cmd>Telescope man_pages<CR>", desc = "Man pages" },
+              -- Help
+              { "<leader>h", group = "help" },
+              { "<leader>hk", "<cmd>Telescope keymaps<CR>", desc = "Keymaps" },
+              { "<leader>hh", "<cmd>Telescope help_tags<CR>", desc = "Help tags" },
+              { "<leader>hm", "<cmd>Telescope man_pages<CR>", desc = "Man pages" },
 
-                -- Open
-                { "<leader>o", group = "open" },
-                { "<leader>ot", "<cmd>Telescope<CR>", desc = "Telescope" },
+              -- Open
+              { "<leader>o", group = "open" },
+              { "<leader>ot", "<cmd>Telescope<CR>", desc = "Telescope" },
 
-                -- Buffers
-                { "<leader>b", group = "buffer" },
-                { "<leader>bd", "<cmd>bdelete<CR>", desc = "Delete buffer" },
-                { "<leader>bn", "<cmd>bnext<CR>", desc = "Next buffer" },
-                { "<leader>bp", "<cmd>bprevious<CR>", desc = "Previous buffer" },
+              -- Buffers
+              { "<leader>b", group = "buffer" },
+              { "<leader>bd", "<cmd>bdelete<CR>", desc = "Delete buffer" },
+              { "<leader>bn", "<cmd>bnext<CR>", desc = "Next buffer" },
+              { "<leader>bp", "<cmd>bprevious<CR>", desc = "Previous buffer" },
 
-                -- Window management
-                { "<leader>w", proxy = "<C-w>", group = "window" },
+              -- Window management
+              { "<leader>w", proxy = "<C-w>", group = "window" },
 
-                -- Splits
-                { "<leader>s", group = "splits" },
-              })
-            EOF
+              -- Splits
+              { "<leader>s", group = "splits" },
+            })
           '';
         }
 
@@ -429,72 +425,66 @@ mkUserModule {
         {
           plugin = vimPlugins.lualine-nvim;
           config = ''
-            lua << EOF
-              require('lualine').setup({
-                options = {
-                  theme = 'auto',
-                  component_separators = { left = '│', right = '│' },
-                  section_separators = { left = "", right = "" },
-                },
-                sections = {
-                  lualine_a = { 'mode' },
-                  lualine_b = { 'branch', 'diff', 'diagnostics' },
-                  lualine_c = { { 'filename', path = 1 } },
-                  lualine_x = { 'encoding', 'fileformat', 'filetype' },
-                  lualine_y = { 'progress' },
-                  lualine_z = {
-                    'location',
-                    {
-                      function()
-                        local ok, oc = pcall(require, "opencode")
-                        if ok and oc.statusline then return oc.statusline() end
-                        return ""
-                      end,
-                    },
+            require('lualine').setup({
+              options = {
+                theme = 'auto',
+                component_separators = { left = '│', right = '│' },
+                section_separators = { left = "", right = "" },
+              },
+              sections = {
+                lualine_a = { 'mode' },
+                lualine_b = { 'branch', 'diff', 'diagnostics' },
+                lualine_c = { { 'filename', path = 1 } },
+                lualine_x = { 'encoding', 'fileformat', 'filetype' },
+                lualine_y = { 'progress' },
+                lualine_z = {
+                  'location',
+                  {
+                    function()
+                      local ok, oc = pcall(require, "opencode")
+                      if ok and oc.statusline then return oc.statusline() end
+                      return ""
+                    end,
                   },
                 },
-              })
-            EOF
+              },
+            })
           '';
         }
         {
           plugin = vimPlugins.bufferline-nvim;
           config = ''
-            lua << EOF
-              require('bufferline').setup({
-                options = {
-                  diagnostics = 'nvim_lsp',
-                  show_buffer_close_icons = true,
-                  show_close_icon = false,
-                  separator_style = 'thin',
-                  offsets = {
-                    {
-                      filetype = 'oil',
-                      text = 'File Explorer',
-                      text_align = 'center',
-                    },
-                    {
-                      filetype = 'neo-tree',
-                      text = 'Explorer',
-                      text_align = 'center',
-                      highlight = 'Directory',
-                      separator = true,
-                    },
+            require('bufferline').setup({
+              options = {
+                diagnostics = 'nvim_lsp',
+                show_buffer_close_icons = true,
+                show_close_icon = false,
+                separator_style = 'thin',
+                offsets = {
+                  {
+                    filetype = 'oil',
+                    text = 'File Explorer',
+                    text_align = 'center',
+                  },
+                  {
+                    filetype = 'neo-tree',
+                    text = 'Explorer',
+                    text_align = 'center',
+                    highlight = 'Directory',
+                    separator = true,
                   },
                 },
-              })
-            EOF
+              },
+            })
           '';
         }
         {
           plugin = vimPlugins.indent-blankline-nvim;
           config = ''
-            lua << EOF
-              require('ibl').setup({
-                indent = { char = '│' },
-                scope = { enabled = true },
-              })
-            EOF
+            require('ibl').setup({
+              indent = { char = '│' },
+              scope = { enabled = true },
+            })
           '';
         }
 
@@ -503,22 +493,18 @@ mkUserModule {
         {
           plugin = vimPlugins.nvim-autopairs;
           config = ''
-            lua << EOF
-              require('nvim-autopairs').setup({})
-            EOF
+            require('nvim-autopairs').setup({})
           '';
         }
         {
           plugin = vimPlugins.mini-nvim;
           config = ''
-            lua << EOF
-              -- Surround: add/change/delete surrounding brackets, quotes, etc.
-              -- sa" to add quotes, sd" to delete, sr"' to replace " with '
-              require('mini.surround').setup({})
+            -- Surround: add/change/delete surrounding brackets, quotes, etc.
+            -- sa" to add quotes, sd" to delete, sr"' to replace " with '
+            require('mini.surround').setup({})
 
-              -- Highlight word under cursor
-              require('mini.cursorword').setup({})
-            EOF
+            -- Highlight word under cursor
+            require('mini.cursorword').setup({})
           '';
         }
 
@@ -526,30 +512,28 @@ mkUserModule {
         {
           plugin = vimPlugins.alpha-nvim;
           config = ''
-            lua << EOF
-              local alpha = require('alpha')
-              local dashboard = require('alpha.themes.dashboard')
+            local alpha = require('alpha')
+            local dashboard = require('alpha.themes.dashboard')
 
-              dashboard.section.header.val = {
-                [[                                                 ]],
-                [[   ▄▄▄                                           ]],
-                [[   ███      ▀▀           ▀▀       ▀▀             ]],
-                [[   ███      ██  ███▄███▄ ██ ██ ██ ██  ███▄███▄   ]],
-                [[   ███      ██  ██ ██ ██ ██ ██▄██ ██  ██ ██ ██   ]],
-                [[   ████████ ██▄ ██ ██ ██ ██▄ ▀█▀  ██▄ ██ ██ ██   ]],
-                [[                                                 ]],
-              }
+            dashboard.section.header.val = {
+              [[                                                 ]],
+              [[   ▄▄▄                                           ]],
+              [[   ███      ▀▀           ▀▀       ▀▀             ]],
+              [[   ███      ██  ███▄███▄ ██ ██ ██ ██  ███▄███▄   ]],
+              [[   ███      ██  ██ ██ ██ ██ ██▄██ ██  ██ ██ ██   ]],
+              [[   ████████ ██▄ ██ ██ ██ ██▄ ▀█▀  ██▄ ██ ██ ██   ]],
+              [[                                                 ]],
+            }
 
-              dashboard.section.buttons.val = {
-                dashboard.button("f", "  Find file", "<cmd>Telescope find_files<CR>"),
-                dashboard.button("r", "  Recent files", "<cmd>Telescope oldfiles<CR>"),
-                dashboard.button("g", "  Live grep", "<cmd>Telescope live_grep<CR>"),
-                dashboard.button("e", "  New file", "<cmd>enew<CR>"),
-                dashboard.button("q", "  Quit", "<cmd>qa<CR>"),
-              }
+            dashboard.section.buttons.val = {
+              dashboard.button("f", "  Find file", "<cmd>Telescope find_files<CR>"),
+              dashboard.button("r", "  Recent files", "<cmd>Telescope oldfiles<CR>"),
+              dashboard.button("g", "  Live grep", "<cmd>Telescope live_grep<CR>"),
+              dashboard.button("e", "  New file", "<cmd>enew<CR>"),
+              dashboard.button("q", "  Quit", "<cmd>qa<CR>"),
+            }
 
-              alpha.setup(dashboard.opts)
-            EOF
+            alpha.setup(dashboard.opts)
           '';
         }
       ];

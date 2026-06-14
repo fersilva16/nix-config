@@ -199,12 +199,10 @@ in
         {
           plugin = vimPlugins.cmp-nvim-lsp;
           config = ''
-            lua << EOF
-              -- Enhance default LSP capabilities with cmp completions
-              vim.lsp.config('*', {
-                capabilities = require('cmp_nvim_lsp').default_capabilities(),
-              })
-            EOF
+            -- Enhance default LSP capabilities with cmp completions
+            vim.lsp.config('*', {
+              capabilities = require('cmp_nvim_lsp').default_capabilities(),
+            })
           '';
         }
         vimPlugins.cmp-buffer
@@ -213,9 +211,7 @@ in
         {
           plugin = vimPlugins.luasnip;
           config = ''
-            lua << EOF
-              require('luasnip.loaders.from_vscode').lazy_load()
-            EOF
+            require('luasnip.loaders.from_vscode').lazy_load()
           '';
         }
         vimPlugins.friendly-snippets
@@ -224,17 +220,13 @@ in
         {
           plugin = vimPlugins.fidget-nvim;
           config = ''
-            lua << EOF
-              require('fidget').setup({})
-            EOF
+            require('fidget').setup({})
           '';
         }
         {
           plugin = vimPlugins.lazydev-nvim;
           config = ''
-            lua << EOF
-              require('lazydev').setup({})
-            EOF
+            require('lazydev').setup({})
           '';
         }
 
@@ -242,15 +234,13 @@ in
         {
           plugin = nvim-treesitter;
           config = ''
-            lua << EOF
-              -- Neovim 0.11+: treesitter highlight/indent are built-in
-              -- Enable for all buffers that have a parser available
-              vim.api.nvim_create_autocmd('FileType', {
-                callback = function(args)
-                  pcall(vim.treesitter.start, args.buf)
-                end,
-              })
-            EOF
+            -- Neovim 0.11+: treesitter highlight/indent are built-in
+            -- Enable for all buffers that have a parser available
+            vim.api.nvim_create_autocmd('FileType', {
+              callback = function(args)
+                pcall(vim.treesitter.start, args.buf)
+              end,
+            })
           '';
         }
 
@@ -261,62 +251,60 @@ in
         {
           plugin = vimPlugins.nvim-cmp;
           config = ''
-            lua << EOF
-              local cmp = require('cmp')
-              local luasnip = require('luasnip')
+            local cmp = require('cmp')
+            local luasnip = require('luasnip')
 
-              cmp.setup {
-                snippet = {
-                  expand = function(args)
-                    luasnip.lsp_expand(args.body)
-                  end,
+            cmp.setup {
+              snippet = {
+                expand = function(args)
+                  luasnip.lsp_expand(args.body)
+                end,
+              },
+              mapping = cmp.mapping.preset.insert {
+                ['<C-n>'] = cmp.mapping.select_next_item(),
+                ['<C-p>'] = cmp.mapping.select_prev_item(),
+                ['<C-d>'] = cmp.mapping.scroll_docs(-4),
+                ['<C-f>'] = cmp.mapping.scroll_docs(4),
+                ['<C-Space>'] = cmp.mapping.complete {},
+                ['<CR>'] = cmp.mapping.confirm {
+                  behavior = cmp.ConfirmBehavior.Replace,
+                  select = true,
                 },
-                mapping = cmp.mapping.preset.insert {
-                  ['<C-n>'] = cmp.mapping.select_next_item(),
-                  ['<C-p>'] = cmp.mapping.select_prev_item(),
-                  ['<C-d>'] = cmp.mapping.scroll_docs(-4),
-                  ['<C-f>'] = cmp.mapping.scroll_docs(4),
-                  ['<C-Space>'] = cmp.mapping.complete {},
-                  ['<CR>'] = cmp.mapping.confirm {
-                    behavior = cmp.ConfirmBehavior.Replace,
-                    select = true,
-                  },
-                  ['<Tab>'] = cmp.mapping(function(fallback)
-                    if cmp.visible() then
-                      cmp.select_next_item()
-                    elseif luasnip.expand_or_locally_jumpable() then
-                      luasnip.expand_or_jump()
-                    else
-                      fallback()
-                    end
-                  end, { 'i', 's' }),
-                  ['<S-Tab>'] = cmp.mapping(function(fallback)
-                    if cmp.visible() then
-                      cmp.select_prev_item()
-                    elseif luasnip.locally_jumpable(-1) then
-                      luasnip.jump(-1)
-                    else
-                      fallback()
-                    end
-                  end, { 'i', 's' }),
-                },
-                sources = cmp.config.sources({
-                  { name = 'nvim_lsp' },
-                  { name = 'luasnip' },
-                  { name = 'path' },
-                }, {
-                  { name = 'buffer' },
-                }),
-                window = {
-                  completion = cmp.config.window.bordered(),
-                  documentation = cmp.config.window.bordered(),
-                },
-              }
+                ['<Tab>'] = cmp.mapping(function(fallback)
+                  if cmp.visible() then
+                    cmp.select_next_item()
+                  elseif luasnip.expand_or_locally_jumpable() then
+                    luasnip.expand_or_jump()
+                  else
+                    fallback()
+                  end
+                end, { 'i', 's' }),
+                ['<S-Tab>'] = cmp.mapping(function(fallback)
+                  if cmp.visible() then
+                    cmp.select_prev_item()
+                  elseif luasnip.locally_jumpable(-1) then
+                    luasnip.jump(-1)
+                  else
+                    fallback()
+                  end
+                end, { 'i', 's' }),
+              },
+              sources = cmp.config.sources({
+                { name = 'nvim_lsp' },
+                { name = 'luasnip' },
+                { name = 'path' },
+              }, {
+                { name = 'buffer' },
+              }),
+              window = {
+                completion = cmp.config.window.bordered(),
+                documentation = cmp.config.window.bordered(),
+              },
+            }
 
-              -- Integrate autopairs with cmp
-              local cmp_autopairs = require('nvim-autopairs.completion.cmp')
-              cmp.event:on('confirm_done', cmp_autopairs.on_confirm_done())
-            EOF
+            -- Integrate autopairs with cmp
+            local cmp_autopairs = require('nvim-autopairs.completion.cmp')
+            cmp.event:on('confirm_done', cmp_autopairs.on_confirm_done())
           '';
         }
       ];
