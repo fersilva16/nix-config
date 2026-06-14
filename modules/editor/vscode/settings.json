@@ -1,17 +1,25 @@
 {
   "$schema": "vscode://schemas/settings/user",
 
+  "editor.accessibilitySupport": "off",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.fixAll.oxc": "always"
+  },
   "editor.cursorSmoothCaretAnimation": "on",
   "editor.cursorWidth": 2,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.fontFamily": "CaskaydiaCove Nerd Font",
   "editor.fontLigatures": true,
-  "editor.fontSize": 14,
+  "editor.fontSize": 11,
   "editor.formatOnSave": true,
+  "editor.inlayHints.enabled": "off",
   "editor.minimap.enabled": false,
   "editor.smoothScrolling": true,
   "editor.stickyScroll.enabled": true,
   "editor.tabSize": 2,
+
+  "diffEditor.ignoreTrimWhitespace": false,
 
   "explorer.compactFolders": false,
 
@@ -22,7 +30,9 @@
     ".direnv/**": true
   },
 
+  "git.blame.editorDecoration.enabled": true,
   "git.openRepositoryInParentFolders": "never",
+  "gitlens.currentLine.enabled": false,
 
   "scm.defaultViewMode": "tree",
 
@@ -34,15 +44,18 @@
   "terminal.integrated.cursorStyle": "line",
   "terminal.integrated.cursorStyleInactive": "none",
   "terminal.integrated.cursorWidth": 2,
+  "terminal.integrated.enableMultiLinePasteWarning": "never",
   "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font",
-  "terminal.integrated.fontSize": 14,
+  "terminal.integrated.fontSize": 13,
   "terminal.integrated.smoothScrolling": true,
   "terminal.integrated.fontLigatures": true,
+  "terminal.integrated.stickyScroll.enabled": false,
 
   "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
   "workbench.activityBar.orientation": "vertical",
+  "window.autoDetectColorScheme": false,
 
   "python.terminal.activateEnvironment": false,
   "jupyter.askForKernelRestart": false,
@@ -64,6 +77,8 @@
 
   "github.copilot.editor.enableAutoCompletions": false,
 
+  "haskell.manageHLS": "PATH",
+
   "[python]": {
     "editor.tabSize": 4
   },
@@ -75,5 +90,30 @@
 
   "[go]": {
     "editor.defaultFormatter": "golang.go"
-  }
+  },
+
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+
+  "[xml]": {
+    "editor.defaultFormatter": "redhat.vscode-xml"
+  },
+
+  "[dockercompose]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced",
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "workbench.secondarySideBar.defaultVisibility": "hidden",
+  "chat.agent.enabled": false
 }
