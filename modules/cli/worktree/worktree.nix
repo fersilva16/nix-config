@@ -1,0 +1,376 @@
+{
+  mkUserModule,
+  pkgs,
+  ...
+}:
+mkUserModule {
+  name = "worktree";
+  requires = [
+    "git"
+    "fish"
+  ];
+  parts = {
+    pr = import ./pr.nix;
+    linear = import ./linear.nix;
+    stacked = import ./stacked.nix { inherit pkgs; };
+    linear-stacked = import ./linear-stacked.nix;
+  };
+  home = {
+    programs.fish = {
+      functions = {
+        wt = ''
+          set git_root (git rev-parse --show-toplevel 2>/dev/null)
+          or begin; echo "wt: not a git repo"; return 1; end
+
+          _git_clean_stale_lock
+
+          set name $argv[1]
+          set branch $argv[2]
+
+          set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
+          set repo_name (basename $main_root)
+          set wt_base (dirname $main_root)
+
+          # No args: fzf to switch to existing worktree
+          if test -z "$name"
+            if not set -q TMUX
+              echo "wt: not in tmux"
+              return 1
+            end
+
+            set wt_dir "$wt_base/$repo_name.worktrees"
+            if not test -d "$wt_dir"; or test (count (command ls "$wt_dir" 2>/dev/null)) -eq 0
+              echo "wt: no worktrees found"
+              return 1
+            end
+
+            set name (command ls "$wt_dir" | fzf --prompt="worktree> " --height=40%)
+            or return 1
+          end
+
+          set wt_path "$wt_base/$repo_name.worktrees/$name"
+
+          if set -q TMUX
+            # Use root session name (strip /suffix if called from a worktree session)
+            set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
+            set session_name "$parent_session/$name"
+
+            # Session already exists: just switch
+            if command tmux has-session -t "=$session_name" 2>/dev/null
+              command tmux switch-client -t "=$session_name"
+              return 0
+            end
+          end
+
+          # Create worktree if dir doesn't exist
+          set -l is_new 0
+          if not test -d "$wt_path"
+            git fetch origin 2>/dev/null
+            set base_branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
+            if test -z "$base_branch" -o "$base_branch" = "HEAD"
+              echo "wt: detached HEAD — checkout a branch first"
+              return 1
+            end
+
+            if test -n "$branch"
+              # Use existing branch, or create new branch from current
+              if git show-ref --verify --quiet "refs/heads/$branch"
+                git worktree add "$wt_path" "$branch"
+              else if git show-ref --verify --quiet "refs/remotes/origin/$branch"
+                git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
+              else
+                git worktree add -b "$branch" "$wt_path" "$base_branch"
+              end
+            else
+              # New branch (named after worktree) from current branch
+              git worktree add -b "$name" "$wt_path" "$base_branch"
+            end
+            or begin; echo "wt: failed to create worktree"; return 1; end
+            echo "Created worktree at $wt_path (from $base_branch)"
+            direnv allow "$wt_path" 2>/dev/null
+            set is_new 1
+          end
+
+          # Create tmux session and switch
+          if set -q TMUX
+            command tmux new-session -d -s "$session_name" -c "$wt_path"
+
+            # Run setup script for new worktrees
+            if test $is_new -eq 1
+              set -l setup_file "$wt_base/$repo_name.worktrees/.setup"
+              if test -f "$setup_file"
+                command tmux send-keys -t "=$session_name" "sh '$setup_file'" Enter
+              end
+            end
+
+            command tmux switch-client -t "=$session_name"
+          else
+            echo "Not in tmux — run: cd $wt_path && opencode"
+          end
+        '';
+
+        wtmv = ''
+          set git_root (git rev-parse --show-toplevel 2>/dev/null)
+          or begin; echo "wtmv: not a git repo"; return 1; end
+
+          _git_clean_stale_lock
+
+          set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
+          set repo_name (basename $main_root)
+          set wt_base (dirname $main_root)
+          set wt_dir "$wt_base/$repo_name.worktrees"
+
+          set old $argv[1]
+          set new $argv[2]
+
+          # One arg in a worktree session: rename current worktree to that name
+          if test -z "$new"; and set -q TMUX
+            set -l current (command tmux display-message -p '#{session_name}')
+            if string match -q '*/*' -- "$current"
+              set new $old
+              set old (string split -m 1 '/' -- "$current")[2]
+            end
+          end
+
+          # No old name: fzf picker
+          if test -z "$old"
+            if not test -d "$wt_dir"; or test (count (command ls "$wt_dir" 2>/dev/null)) -eq 0
+              echo "wtmv: no worktrees found"
+              return 1
+            end
+            set old (command ls "$wt_dir" | fzf --prompt="rename> " --height=40%)
+            or return 1
+          end
+
+          # No new name: prompt for it
+          if test -z "$new"
+            read -P "wtmv: rename '$old' to: " new
+            or return 1
+          end
+
+          if test -z "$new"
+            echo "wtmv: new name required"
+            return 1
+          end
+
+          if test "$old" = "$new"
+            echo "wtmv: names are identical"
+            return 1
+          end
+
+          set old_path "$wt_dir/$old"
+          set new_path "$wt_dir/$new"
+
+          if not test -d "$old_path"
+            echo "wtmv: no worktree found for '$old'"
+            return 1
+          end
+          if test -e "$new_path"
+            echo "wtmv: '$new' already exists"
+            return 1
+          end
+
+          # Capture branch before moving (to optionally rename it)
+          set -l branch (git -C "$old_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+          # Move the worktree — git updates its metadata + gitdir links.
+          # Run from main_root so we're not inside the dir being moved.
+          git -C "$main_root" worktree move "$old_path" "$new_path"
+          or begin; echo "wtmv: failed to move worktree"; return 1; end
+
+          # Rename the branch only when it matches the old worktree name
+          # (the auto-named case from wt), fixing the typo everywhere.
+          if test "$branch" = "$old"
+            git -C "$main_root" branch -m "$old" "$new" 2>/dev/null
+            and set branch "$new"
+          end
+
+          direnv allow "$new_path" 2>/dev/null
+
+          # Rename the tmux session (parent/old -> parent/new)
+          if set -q TMUX
+            set -l old_session (command tmux list-sessions -F '#{session_name}' | grep "/$old\$" | head -1)
+            if test -n "$old_session"
+              set -l parent (string split -m 1 '/' -- "$old_session")[1]
+              command tmux rename-session -t "=$old_session" "$parent/$new"
+            end
+          end
+
+          echo "Renamed worktree '$old' → '$new'"
+        '';
+
+        wtls = "git worktree list $argv";
+
+        wtrm = ''
+          set git_root (git rev-parse --show-toplevel 2>/dev/null)
+          or begin; echo "wtrm: not a git repo"; return 1; end
+
+          set -l force 0
+          set -l args
+          for arg in $argv
+            if test "$arg" = "--force" -o "$arg" = "-f"
+              set force 1
+            else
+              set -a args $arg
+            end
+          end
+
+          set name $args[1]
+
+          set main_root (git worktree list --porcelain | head -1 | string replace "worktree " "")
+          set repo_name (basename $main_root)
+          set wt_base (dirname $main_root)
+
+          # No arg: self-remove if in a worktree session, otherwise fzf picker
+          set -l auto_name 0
+          if test -z "$name"
+            if set -q TMUX
+              set -l current (command tmux display-message -p '#{session_name}')
+              if string match -q '*/*' -- "$current"
+                set name (string split -m 1 '/' -- "$current")[2]
+                set auto_name 1
+              end
+            end
+          end
+
+          if test -z "$name"
+            set wt_dir "$wt_base/$repo_name.worktrees"
+            if not test -d "$wt_dir"; or test (count (command ls "$wt_dir" 2>/dev/null)) -eq 0
+              echo "wtrm: no worktrees found"
+              return 1
+            end
+
+            set name (command ls "$wt_dir" | fzf --prompt="remove> " --height=40%)
+            or return 1
+          end
+
+          set wt_path "$wt_base/$repo_name.worktrees/$name"
+
+          if not test -d "$wt_path"
+            echo "wtrm: no worktree found for '$name'"
+            return 1
+          end
+
+          # Confirm when name was auto-detected from session
+          if test $auto_name -eq 1
+            read -P "wtrm: remove worktree '$name'? [y/N] " confirm
+            if not string match -qi 'y' -- "$confirm"
+              return 0
+            end
+          end
+
+          # Detect if we're removing our own session (self-remove)
+          set -l self_rm 0
+          set -l current_session ""
+          set -l parent_session ""
+          if set -q TMUX
+            set current_session (command tmux display-message -p '#{session_name}')
+            set -l target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
+            if test -n "$target_session" -a "$current_session" = "$target_session"
+              set self_rm 1
+              set parent_session (string split -m 1 '/' -- "$current_session")[1]
+            end
+          end
+
+          if test $self_rm -eq 1
+            # Self-remove: need a session to return to
+            if not command tmux has-session -t "=$parent_session" 2>/dev/null
+              # Fall back to any other session
+              set parent_session (command tmux list-sessions -F '#{session_name}' | grep -v "^$current_session\$" | head -1)
+              if test -z "$parent_session"
+                echo "wtrm: no other session to switch to"
+                return 1
+              end
+            end
+
+            set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+            # Pre-check for uncommitted changes (can't report errors after switching away)
+            if test $force -eq 0
+              if test -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)"
+                echo "wtrm: worktree has uncommitted changes — use 'wtrm --force' to force"
+                return 1
+              end
+            end
+
+            # Build cleanup command (POSIX shell, runs server-side via tmux run-shell -b)
+            set -l cleanup "tmux kill-session -t '=$current_session'"
+            if test $force -eq 1
+              set cleanup "$cleanup; git -C '$main_root' worktree remove --force '$wt_path'"
+            else
+              set cleanup "$cleanup; git -C '$main_root' worktree remove '$wt_path'"
+            end
+            if test -n "$branch" -a "$branch" != "HEAD"
+              if test $force -eq 1
+                set cleanup "$cleanup; git -C '$main_root' branch -D '$branch' 2>/dev/null"
+              else
+                set cleanup "$cleanup; git -C '$main_root' branch -d '$branch' 2>/dev/null"
+              end
+            end
+
+            # Switch to parent, then schedule cleanup in background
+            command tmux switch-client -t "=$parent_session"
+            command tmux run-shell -b "$cleanup"
+          else
+            # Regular remove (from a different session)
+            if set -q TMUX
+              set -l target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
+              if test -n "$target_session"
+                command tmux kill-session -t "=$target_session"
+              end
+            end
+
+            set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+            if test $force -eq 1
+              git worktree remove --force "$wt_path"
+            else
+              git worktree remove "$wt_path"
+            end
+            or begin; echo "wtrm: worktree has changes — use 'wtrm --force $name' to force"; return 1; end
+
+            if test -n "$branch" -a "$branch" != "HEAD"
+              if test $force -eq 1
+                git branch -D "$branch" 2>/dev/null
+              else
+                git branch -d "$branch" 2>/dev/null
+              end
+              and echo "Removed worktree '$name' and branch '$branch'"
+              or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'wtrm --force $name' to force)"
+            else
+              echo "Removed worktree '$name'"
+            end
+          end
+        '';
+      };
+
+      shellInit = ''
+        # Completion for wt: 1st arg = existing worktree names, 2nd arg = branches
+        complete -f -c wt -n "test (count (commandline -opc)) -eq 1" -a '(
+          set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
+          set -l rn (basename $mr 2>/dev/null)
+          set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
+          test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
+        )'
+        complete -f -c wt -n "test (count (commandline -opc)) -eq 2" -a '(git branch -a --format="%(refname:short)" 2>/dev/null | string replace -r "^origin/" "" | sort -u | grep -v "^HEAD")'
+
+        # Completion for wtmv: 1st arg = existing worktree names
+        complete -f -c wtmv -n "test (count (commandline -opc)) -eq 1" -a '(
+          set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
+          set -l rn (basename $mr 2>/dev/null)
+          set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
+          test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
+        )'
+
+        # Completion for wtrm: existing worktree names + --force flag
+        complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"
+        complete -f -c wtrm -a '(
+          set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
+          set -l rn (basename $mr 2>/dev/null)
+          set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
+          test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
+        )'
+      '';
+    };
+  };
+}
