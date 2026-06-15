@@ -3,6 +3,7 @@ mkUser {
   name = "fernando";
 
   # Shell & CLI
+  atuin.enable = true;
   bat.enable = true;
   ssh.enable = true;
   fish.enable = true;
