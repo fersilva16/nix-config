@@ -35,6 +35,7 @@ mkUserModule {
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
     autoresearch = import ./autoresearch.nix { inherit pkgs; };
+    ponytail = import ./ponytail.nix { inherit pkgs lib; };
     cache = import ./cache.nix { };
     omo-gitignore = import ./omo-gitignore.nix { };
   };
