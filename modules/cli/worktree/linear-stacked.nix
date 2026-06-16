@@ -1,46 +1,23 @@
-# worktree linear-stacked part — Linear-driven stacked fork: `wtl` issue
-# selection + `wts fork`'s stacked child worktree. Picks (or AI-creates) a
-# Linear issue, marks it In Progress, then forks a child worktree off the
-# CURRENT branch using Linear's branch name and registers the stack edge with
-# av so the PR targets the parent.
+# worktree linear-stacked part — Linear-driven stacked slice (git-stack-cli).
+# Picks (or AI-creates) a Linear issue, marks it In Progress, then starts a NEW
+# slice on the current stack as an empty commit titled with Linear's branch
+# name. No worktree fork — the whole stack lives in one branch, so a slice is
+# just a starter commit you build on, then carve into its own PR with `wts push`.
+# Naming the commit after Linear's branch (which carries the issue id) makes the
+# eventual PR auto-link back to the issue.
 #
-#   wtsl [<issue-id>] [<name>]   pick/accept an issue, fork a stack child
-#   wtsl ai [<task>...]          AI-create an issue, then fork
+#   wtsl [<issue-id>]   pick/accept an issue, start a stacked slice
+#   wtsl ai [<task>...]  AI-create an issue, then start a slice
 {
   home =
     { lib, userCfg, ... }:
-    lib.mkIf (userCfg.linear.enable && userCfg.av.enable) {
+    lib.mkIf userCfg.linear.enable {
       programs.fish = {
         functions.wtsl = ''
-          _git_clean_stale_lock
-
-          if not set -q TMUX
-            echo "wtsl: requires tmux"
-            return 1
-          end
-
-          set -l main_root (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
-          if test -z "$main_root"
-            echo "wtsl: not a git repo" >&2
-            return 1
-          end
-          set -l repo_name (basename $main_root)
-          set -l wt_base (dirname $main_root)
-
-          # Capture the parent branch BEFORE creating the child worktree —
-          # the stacked fork stacks the new branch on whatever is checked out
-          # here. Refuse detached HEAD so the stack has a concrete parent.
-          set -l parent (git rev-parse --abbrev-ref HEAD 2>/dev/null)
-          if test -z "$parent" -o "$parent" = HEAD
-            echo "wtsl: detached HEAD — checkout the parent branch first" >&2
-            return 1
-          end
-
           # Resolve the Linear issue. `wtsl ai ...` creates a fresh issue
           # (delegating flags like --todo/--attach to `lin ai`); otherwise
-          # accept an issue ID arg or fall back to the gum picker.
+          # accept an issue-id arg or fall back to the gum picker.
           set -l issue_id
-          set -l name
           if test "$argv[1]" = ai
             set -e argv[1]
             lin ai $argv
@@ -57,50 +34,31 @@
               or return 1
               set issue_id (string match -r '[A-Z]+-\d+' -- $selection)
             end
-            set name $argv[2]
+          end
+          if test -z "$issue_id"
+            echo "wtsl: no issue selected" >&2
+            return 1
           end
 
-          # Worktree name (custom) — prompt when not supplied.
-          if test -z "$name"
-            set name (gum input --placeholder "worktree name" --header "Worktree")
-            or return 1
-            if test -z "$name"
-              echo "wtsl: name required"
-              return 1
-            end
-          end
-
-          set -l session_parent (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
-          set -l session_name "$session_parent/$name"
-
-          # Session already exists: just switch.
-          if command tmux has-session -t "=$session_name" 2>/dev/null
-            command tmux switch-client -t "=$session_name"
-            return 0
-          end
-
-          # Start the issue — marks In Progress and yields Linear's branch name.
+          # Mark In Progress and resolve Linear's branch name (= the PR bookmark).
           linear-cli i update $issue_id --state "In Progress" --assignee me
           or return 1
           set -l branch_name (lin branch $issue_id)
-
-          set -l wt_path "$wt_base/$repo_name.worktrees/$name"
-
-          # Create the stacked worktree+branch off the current (parent) branch,
-          # named after the worktree but using Linear's branch (mirrors `wts fork`).
-          wt $name $branch_name
-          or return 1
-
-          # Register the stack edge so PRs target the parent. Adopt needs at
-          # least one commit; on an empty fork it's a no-op until the first
-          # commit, so don't treat failure as fatal.
-          if not av -C "$wt_path" adopt --parent "$parent" 2>/dev/null
-            echo "wts: '$branch_name' forked from '$parent'. After your first commit, run 'wts adopt $parent' to register the stack." >&2
+          if test -z "$branch_name"
+            echo "wtsl: could not resolve Linear branch name for $issue_id" >&2
+            return 1
           end
+
+          # Start a new slice: an empty starter commit titled with Linear's
+          # branch name. Build your work on top, then `wts push` carves it into
+          # its own PR (which auto-links to the issue via the branch name).
+          git commit --allow-empty -m "$branch_name"
+          or return 1
+          echo "✓ started slice '$branch_name' on the stack — edit, commit, then 'wts push'"
         '';
 
         shellInit = ''
-          # Completion for wtsl: ai subcommand (linear-driven stacked fork)
+          # Completion for wtsl: ai subcommand (Linear-driven stacked slice)
           complete -f -c wtsl -n "__fish_use_subcommand" -a "ai"
         '';
       };

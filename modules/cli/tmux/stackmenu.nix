@@ -2,49 +2,34 @@
 # choose-tree session picker. Native menus render in-process (no popup shell,
 # no fzf), so opening is as fast as choose-tree, while we fully control item
 # order: roots alphabetical (same as choose-tree -O name), worktree sessions
-# grouped under their root, stacked (av) worktrees in topological PR order.
+# grouped under their root, and (once a stack source is wired up) stacked
+# worktrees in topological PR order.
 # j/k navigate (tmux's menu.c maps them to up/down), 1-9 jump, Enter switches,
 # q/Esc cancels, x opens kill mode (choose a session, y/n confirm, repeat).
 # The original choose-tree picker moves to prefix+S.
 { pkgs, choose-tree-picker }:
 let
-  # Computes per-session git/stack metadata into tmux session options:
-  #   @wt-label  status label (see below; empty for non-git sessions)
-  #   @wt-sort   topological chain "bottom<US>...<US>branch" from av.db
-  #              (empty if unstacked). US (0x1f) delimited — branch names can
-  #              contain "/" (e.g. Linear's fernando/mo-123-...).
-  # Labels rely on session names for identity: worktree sessions (name
-  # contains "/") omit the branch and show only the PR number; root sessions
-  # show their branch only when it differs from the repo's default (av.trunk
-  # if pinned by wts init, else origin/HEAD).
-  # Reads av's on-disk metadata directly — zero network. Runs async
-  # (run-shell -b on picker open + session-created hook), never on the
-  # picker's critical path: the menu reads only cached options, so each open
+  # Computes per-session git metadata into tmux session options:
+  #   @wt-label  status label (empty for non-git sessions)
+  #   @wt-sort   topological stack chain (US-delimited) — currently always
+  #              empty. The av stack source was removed, so the menu renders a
+  #              flat per-root session list until a new stack source repopulates
+  #              this option. tmux-wt-menu still understands @wt-sort, so wiring
+  #              a future stack source back in needs no menu changes.
+  # Labels rely on session names for identity: worktree sessions (name contains
+  # "/") show no label; root sessions show their branch only when it differs
+  # from the repo's default (origin/HEAD).
+  # Runs async (run-shell -b on picker open + session-created hook), never on
+  # the picker's critical path: the menu reads only cached options, so each open
   # shows the previous refresh's data and triggers the next one.
   tmux-wt-refresh = pkgs.writeShellApplication {
     name = "tmux-wt-refresh";
     runtimeInputs = with pkgs; [
       tmux
       git
-      jq
     ];
     text = ''
-      declare -A AV_PARENT AV_TRUNK AV_PR AV_LOADED
-
-      load_avdb() {
-        local db="$1" name parent trunk pr
-        [[ -n "''${AV_LOADED[$db]:-}" ]] && return 0
-        AV_LOADED[$db]=1
-        while IFS=$'\t' read -r name parent trunk pr; do
-          [[ -z "$name" ]] && continue
-          AV_PARENT["$db|$name"]="$parent"
-          AV_TRUNK["$db|$name"]="$trunk"
-          AV_PR["$db|$name"]="$pr"
-        done < <(jq -r '.branches[] | [.name, (.parent.name // ""), (.parent.trunk // false | tostring), (.pullRequest.number // "" | tostring)] | @tsv' "$db" 2>/dev/null || true)
-      }
-
       TAB=$'\t'
-      US=$'\x1f'
       tmux list-sessions -F "#{session_name}''${TAB}#{session_path}" 2>/dev/null |
         while IFS=$'\t' read -r name path; do
           [[ "$name" == "pocket" ]] && continue
@@ -58,41 +43,15 @@ let
             continue
           fi
 
-          pr=""
-          chain=""
-          gitdir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-          avdb="$gitdir/av/av.db"
-          if [[ -n "$gitdir" && -f "$avdb" ]]; then
-            load_avdb "$avdb"
-            if [[ -n "''${AV_PARENT[$avdb|$branch]+x}" ]]; then
-              pr="''${AV_PR[$avdb|$branch]}"
-              chain="$branch"
-              cur="$branch"
-              hops=0
-              while ((hops < 12)); do
-                if [[ "''${AV_TRUNK[$avdb|$cur]:-false}" == "true" ]]; then break; fi
-                parent="''${AV_PARENT[$avdb|$cur]:-}"
-                if [[ -z "$parent" ]]; then break; fi
-                chain="$parent$US$chain"
-                cur="$parent"
-                hops=$((hops + 1))
-              done
-            fi
-          fi
-
           label=""
           if [[ "$name" != */* ]]; then
             # Hide the default branch — only deviations are interesting.
-            default=$(git -C "$path" config av.trunk 2>/dev/null || true)
-            if [[ -z "$default" ]]; then
-              default=$(git -C "$path" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
-              default="''${default#origin/}"
-            fi
+            default=$(git -C "$path" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
+            default="''${default#origin/}"
             if [[ "$branch" != "$default" ]]; then label="$branch"; fi
           fi
-          if [[ -n "$pr" ]]; then label="''${label:+$label }#$pr"; fi
           tmux set-option -t "$name" @wt-label "$label" 2>/dev/null || true
-          tmux set-option -t "$name" @wt-sort "$chain" 2>/dev/null || true
+          tmux set-option -t "$name" @wt-sort "" 2>/dev/null || true
         done
     '';
   };
