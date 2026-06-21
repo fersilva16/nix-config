@@ -1,0 +1,34 @@
+diff --git a/src/auth.ts b/src/auth.ts
+index 1234567..abcdefg 100644
+--- a/src/auth.ts
++++ b/src/auth.ts
+@@ -109,7 +109,15 @@ export async function exchange(
+   redirectUri: string,
+   expectedState?: string,
+ ): Promise<ExchangeResult> {
+-  const callback = parseCallbackInput(input)
++  let callback = parseCallbackInput(input)
++  if (!callback) {
++    // Handle bare code (no state fragment) — use expectedState as
++    // fallback, matching the value sent in the authorize URL.
++    const trimmed = input.trim()
++    if (trimmed && expectedState) {
++      callback = { code: trimmed.split('#')[0], state: expectedState }
++    }
++  }
+   if (!callback) {
+     return {
+       type: 'failed',
+diff --git a/src/constants.ts b/src/constants.ts
+index 1234567..abcdefg 100644
+--- a/src/constants.ts
++++ b/src/constants.ts
+@@ -8,7 +8,7 @@ export const AUTHORIZE_URLS = {
+ export const CODE_CALLBACK_URL =
+   'https://platform.claude.com/oauth/code/callback'
+
+-export const TOKEN_URL = 'https://platform.claude.com/v1/oauth/token'
++export const TOKEN_URL = 'https://api.anthropic.com/v1/oauth/token'
+
+ export const OAUTH_SCOPES = [
+   'org:create_api_key',

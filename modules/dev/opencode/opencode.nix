@@ -35,6 +35,7 @@ mkUserModule {
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
     autoresearch = import ./autoresearch.nix { inherit pkgs; };
+    anthropic-auth = import ./anthropic-auth.nix { inherit pkgs; };
     ponytail = import ./ponytail.nix { inherit pkgs lib; };
     cache = import ./cache.nix { };
     omo-gitignore = import ./omo-gitignore.nix { };
@@ -48,7 +49,6 @@ mkUserModule {
         settings = {
           theme = "flexoki";
           plugin = [
-            "@ex-machina/opencode-anthropic-auth@1.8.1"
             "oh-my-openagent@4.4.0"
             "@rama_nigg/open-cursor@2.4.5"
           ];
