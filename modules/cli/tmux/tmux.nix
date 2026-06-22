@@ -28,7 +28,7 @@ let
   };
 
   # Session picker rules, shared by the choose-tree binds here and in
-  # stackmenu.nix: sessions only, zoomed, sorted by name (worktree sessions
+  # session-picker.nix: sessions only, zoomed, sorted by name (worktree sessions
   # stay grouped with parent), and the `pocket` session filtered out (see
   # pocket.nix — pocket is popup-only, never selected via a picker; the
   # filter is a no-op when pocket is disabled).
@@ -43,7 +43,7 @@ mkUserModule {
     remote = import ./remote.nix { inherit pkgs; };
     group = import ./group.nix { inherit pkgs; };
     pocket = import ./pocket.nix { inherit pkgs; };
-    stackmenu = import ./stackmenu.nix { inherit pkgs choose-tree-picker; };
+    session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker; };
   };
   home =
     { cfg, userCfg, ... }:
@@ -58,7 +58,14 @@ mkUserModule {
 
       programs.tmux = {
         enable = true;
-        shell = "${pkgs.fish}/bin/fish";
+        # default-shell is the wrapper tmux uses to run jobs — display-popup
+        # -E, run-shell, if-shell all exec `default-shell -c cmd`
+        # (JOB_DEFAULTSHELL in tmux's job.c). With fish here, every popup
+        # sourced fish's config (~30ms measured) before running its command,
+        # making popups feel laggy next to the in-process display-menu. Use a
+        # bare POSIX sh (~5ms) for the job wrapper; interactive panes still get
+        # login fish via default-command below.
+        shell = "/bin/sh";
         prefix = "C-space";
         terminal = "screen-256color";
         keyMode = "vi";
@@ -67,6 +74,11 @@ mkUserModule {
         historyLimit = 50000;
         sensibleOnTop = false;
         extraConfig = ''
+          # New interactive panes launch login fish (default-shell is /bin/sh
+          # for fast popup/run-shell jobs — see the shell option above). Pane
+          # creation is rare, so the extra sh -c wrapper is irrelevant.
+          set -g default-command "${pkgs.fish}/bin/fish -l"
+
           set -g renumber-windows on
           set -g  escape-time 1
           set -g display-time 4000
@@ -98,11 +110,11 @@ mkUserModule {
           bind-key '"' split-window -c "#{pane_current_path}"
           bind-key % split-window -h -c "#{pane_current_path}"
 
-          # Session picker. When the stackmenu part is enabled it owns
-          # prefix+s (stack-aware menu) and keeps choose-tree on prefix+S;
-          # otherwise choose-tree stays on prefix+s. Conditional rather than
-          # rebinding to avoid relying on part/parent extraConfig merge order.
-          ${lib.optionalString (!cfg.stackmenu.enable) "bind-key s ${choose-tree-picker}"}
+          # Session picker. When the session-picker part is enabled it owns
+          # prefix+s (fzf popup) and keeps choose-tree on prefix+S; otherwise
+          # choose-tree stays on prefix+s. Conditional rather than rebinding to
+          # avoid relying on part/parent extraConfig merge order.
+          ${lib.optionalString (!cfg.session-picker.enable) "bind-key s ${choose-tree-picker}"}
         '';
 
         plugins = with pkgs; [
