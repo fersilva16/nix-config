@@ -7,6 +7,8 @@ in
   home =
     { username, ... }:
     {
+      # Figma token scopes required: File content (file_content:read)
+      # and Dev resources (file_dev_resources:read).
       programs.opencode.settings.mcp.framelink = {
         enabled = false;
         type = "local";
