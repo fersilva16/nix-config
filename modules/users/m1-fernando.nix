@@ -153,6 +153,7 @@ mkUser {
   # Darwin utilities
   hammerspoon.enable = true;
   keyboardcleantool.enable = true;
+  "scroll-reverser".enable = true;
   raycast.enable = true;
   openlogi.enable = true;
 
