@@ -2,8 +2,75 @@
 # The only core command that shells out to `gh`. Same-repo PRs check out the
 # PR's real head branch (so push/pull work naturally); fork PRs are fetched
 # into a namespaced `pr-N` branch (no push access, avoids local name clashes).
+#
+# `wtprr` is a throwaway PR review sandbox: a detached git worktree in a temp
+# dir holding the PR's code, with the PR context (branch, metadata, commits,
+# changed files) appended to its AGENTS.md so opencode loads it into the system
+# prompt automatically — no seed prompt, you just type your questions. When
+# opencode exits the worktree + temp dir are removed. Run with a PR number,
+# inside a worktree (no arg → the branch's PR), or no arg for an fzf picker.
 {
   home = {
+    programs.fish.functions.wtprr = ''
+      git rev-parse --show-toplevel >/dev/null 2>&1
+      or begin; echo "wtprr: not a git repo"; return 1; end
+
+      set -l pr (string replace -r '^#' "" -- $argv[1])
+
+      # No arg: prefer the current branch's PR, else fzf over open PRs (wtpr's picker).
+      if test -z "$pr"
+        set pr (gh pr view --json number --jq .number 2>/dev/null)
+      end
+      if test -z "$pr"
+        set -l selection (gh pr list --limit 50 --json number,title,headRefName,author,isDraft --template '{{range .}}#{{.number}}  {{if .isDraft}}[DRAFT] {{end}}{{.title}}  ({{.headRefName}})  @{{.author.login}}{{"\n"}}{{end}}' 2>/dev/null | fzf --prompt="review PR> " --height=40%)
+        or return 1
+        set pr (string match -r '^#(\d+)' -- $selection)[2]
+      end
+
+      if test -z "$pr"; or string match -qr '[^0-9]' -- "$pr"
+        echo "wtprr: invalid PR number"
+        return 1
+      end
+
+      # Throwaway detached worktree at the PR head. refs/pull/N/head covers both
+      # same-repo and fork PRs; it shares the repo's object db — no clone. The
+      # worktree lives in a fresh, not-yet-existing subdir (worktree add needs
+      # the path absent).
+      set -l tmpbase (mktemp -d)
+      set -l tmp "$tmpbase/pr-$pr"
+      git fetch origin "pull/$pr/head" 2>/dev/null
+      or begin; echo "wtprr: failed to fetch PR #$pr"; rm -rf "$tmpbase"; return 1; end
+      git worktree add --detach "$tmp" FETCH_HEAD 2>/dev/null
+      or begin; echo "wtprr: failed to create worktree"; rm -rf "$tmpbase"; return 1; end
+
+      # Append the PR context to AGENTS.md so opencode loads it into the system
+      # prompt on startup (append, not overwrite — keeps any existing AGENTS.md).
+      begin
+        echo
+        echo "# PR review context (sandbox)"
+        echo
+        echo "This is a throwaway detached worktree checked out at the head of GitHub PR #$pr. The working tree holds the PR's code. Below are the PR's metadata, commits, and changed files. Help review it — answer questions about the implementation and how the code correlates with the changes. Don't push or open PRs."
+        echo
+        echo "## Metadata"
+        gh pr view "$pr" 2>/dev/null
+        echo
+        echo "## Commits"
+        gh pr view "$pr" --json commits --jq '.commits[] | "- \(.oid[0:9]) \(.messageHeadline)"' 2>/dev/null
+        echo
+        echo "## Changed files"
+        gh pr diff "$pr" --name-only 2>/dev/null
+      end >>"$tmp/AGENTS.md"
+
+      # Open opencode on the sandbox — no seed prompt; you ask the questions.
+      opencode "$tmp"
+
+      # ponytail: cleanup is sequential (opencode runs in the foreground); no
+      # trap, so a hard kill leaves the worktree — `git worktree prune` reaps it.
+      git worktree remove --force "$tmp" 2>/dev/null
+      rm -rf "$tmpbase"
+      echo "wtprr: cleaned up review sandbox for PR #$pr"
+    '';
+
     programs.fish.functions.wtpr = ''
       set git_root (git rev-parse --show-toplevel 2>/dev/null)
       or begin; echo "wtpr: not a git repo"; return 1; end
