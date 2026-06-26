@@ -80,6 +80,14 @@ mkUserModule {
           };
           permission = {
             external_directory = "allow";
+            bash = {
+              "*" = "allow";
+              "gh pr comment*" = "deny";
+              "gh issue comment*" = "deny";
+              "gh pr review*" = "deny";
+              "gh api*comments*" = "deny";
+              "gh pr create*" = "ask";
+            };
             read = {
               "*" = "allow";
               "*.env" = "deny";
