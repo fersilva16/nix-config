@@ -60,6 +60,7 @@ mkUser {
   # Chrome profiles natively (see below).
   firefox.enable = true;
   chrome.enable = true;
+  aside.enable = true;
 
   # URL router — set Finicky as the default browser so links from Slack/email/etc
   # route to the right Chrome profile instead of piling into one.
