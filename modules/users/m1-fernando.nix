@@ -151,6 +151,7 @@ mkUser {
   yubikey.enable = true;
 
   # Darwin utilities
+  "alt-tab".enable = true;
   hammerspoon.enable = true;
   keyboardcleantool.enable = true;
   "scroll-reverser".enable = true;
