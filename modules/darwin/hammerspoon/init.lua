@@ -287,6 +287,50 @@ if nCode then
 end
 
 -- ---------------------------------------------------------------------------
+-- Window management (screens)
+-- ---------------------------------------------------------------------------
+-- Instant window ops — no slide animation.
+hs.window.animationDuration = 0
+
+-- Hyper + F → Maximize the focused window on its current screen.
+local fCode = hs.keycodes.map["f"]
+if fCode then
+  keyCodeNames[fCode] = "f"
+  hyperActionsByKeyCode[fCode] = function()
+    local win = hs.window.focusedWindow()
+    if win then win:maximize() end
+  end
+end
+
+-- Hyper + \ → Throw the focused window to the next screen (keeps its size).
+local backslashCode = hs.keycodes.map["\\"]
+if backslashCode then
+  keyCodeNames[backslashCode] = "\\"
+  hyperActionsByKeyCode[backslashCode] = function()
+    local win = hs.window.focusedWindow()
+    if win then win:moveToScreen(win:screen():next()) end
+  end
+end
+
+-- Hyper + ' → Focus the next screen: focus the frontmost window there, or, if
+-- that screen has no window, park the cursor on it so it becomes active.
+local quoteCode = hs.keycodes.map["'"]
+if quoteCode then
+  keyCodeNames[quoteCode] = "'"
+  hyperActionsByKeyCode[quoteCode] = function()
+    local cur = hs.window.focusedWindow()
+    local target = (cur and cur:screen() or hs.screen.mainScreen()):next()
+    for _, w in ipairs(hs.window.orderedWindows()) do
+      if w:screen() == target and w:isStandard() then
+        w:focus()
+        return
+      end
+    end
+    hs.mouse.absolutePosition(hs.geometry.rectMidPoint(target:fullFrame()))
+  end
+end
+
+-- ---------------------------------------------------------------------------
 -- Eventtap callback
 -- ---------------------------------------------------------------------------
 local function f18Callback(event)
