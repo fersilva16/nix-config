@@ -168,6 +168,30 @@ if tCode then
   keyCodeNames[tCode] = "t"
   hyperActionsByKeyCode[tCode] = function()
     hs.task.new("/usr/bin/open", nil, { "-na", "Ghostty" }):start()
+    warpToApp("com.mitchellh.ghostty")
+  end
+end
+
+-- Warp the cursor to a point, but only when its screen differs from the one
+-- the cursor is already on — never yank the mouse within the same monitor.
+local function warpTo(screen, point)
+  if screen and screen ~= hs.mouse.getCurrentScreen() then
+    hs.mouse.absolutePosition(point)
+  end
+end
+
+-- Warp onto an app's focused window once it appears. Launching via `open` is
+-- async, so poll every 50ms (the window may not exist yet on a cold launch),
+-- giving up after ~1s.
+-- ponytail: 1s poll budget; bump tries if a cold VSCode launch outruns it.
+local function warpToApp(bundleID, tries)
+  tries = tries or 0
+  local app = hs.application.get(bundleID)
+  local win = app and app:focusedWindow()
+  if win then
+    warpTo(win:screen(), hs.geometry.rectMidPoint(win:frame()))
+  elseif tries < 20 then
+    hs.timer.doAfter(0.05, function() warpToApp(bundleID, tries + 1) end)
   end
 end
 
@@ -189,12 +213,14 @@ local function openVSCodeAtCurrentSession()
     local dir = stdout and stdout:gsub("%s+$", "") or ""
     if dir == "" then
       hs.task.new("/usr/bin/open", nil, { "-a", "Visual Studio Code" }):start()
+      warpToApp("com.microsoft.VSCode")
       return
     end
     hs.task.new("/bin/sh", function(_code2, stdout2)
       local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
       local target = gitRoot ~= "" and gitRoot or dir
       hs.task.new("/usr/bin/open", nil, { "-a", "Visual Studio Code", target }):start()
+      warpToApp("com.microsoft.VSCode")
     end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
   end, { "-l", "-c", "S=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2); [ -n \"$S\" ] && tmux display-message -p -t \"$S\" '#{pane_current_path}' 2>/dev/null" }):start()
 end
@@ -222,6 +248,7 @@ if spaceCode then
       openVSCodeAtCurrentSession()
     else
       hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
+      warpToApp("com.mitchellh.ghostty")
     end
   end
 end
@@ -235,6 +262,7 @@ local function toggleApp(bundleID, appName)
     front:hide()
   else
     hs.task.new("/usr/bin/open", nil, { "-a", appName }):start()
+    warpToApp(bundleID)
   end
 end
 
@@ -310,7 +338,7 @@ if backslashCode then
     local win = hs.window.focusedWindow()
     if win then
       win:moveToScreen(win:screen():next())
-      hs.mouse.absolutePosition(hs.geometry.rectMidPoint(win:frame()))
+      warpTo(win:screen(), hs.geometry.rectMidPoint(win:frame()))
     end
   end
 end
@@ -324,7 +352,7 @@ if quoteCode then
     local cur = hs.window.focusedWindow()
     local target = (cur and cur:screen() or hs.screen.mainScreen()):next()
     -- Warp the cursor to the target screen so the mouse follows the focus.
-    hs.mouse.absolutePosition(hs.geometry.rectMidPoint(target:fullFrame()))
+    warpTo(target, hs.geometry.rectMidPoint(target:fullFrame()))
     for _, w in ipairs(hs.window.orderedWindows()) do
       if w:screen() == target and w:isStandard() then
         w:focus()
