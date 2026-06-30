@@ -73,7 +73,7 @@
 	<key>shortcutStyle</key>
 	<string>0</string>
 	<key>showOnScreen</key>
-	<string>0</string>
+	<string>1</string>
 	<key>updatePolicy</key>
 	<string>1</string>
 </dict>
