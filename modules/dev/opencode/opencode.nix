@@ -82,11 +82,16 @@ mkUserModule {
             external_directory = "allow";
             bash = {
               "*" = "allow";
-              "gh pr comment*" = "deny";
-              "gh issue comment*" = "deny";
-              "gh pr review*" = "deny";
-              "gh api*comments*" = "deny";
-              "gh pr create*" = "ask";
+              # opencode matches the FULL command string, anchored start-to-end,
+              # last-matching-rule-wins. A leading "*" is required so prefixes
+              # like `cd /path && gh ...` still match (without it, `^gh ...`
+              # never matches a command that starts with `cd`).
+              "*gh pr comment*" = "deny";
+              "*gh issue comment*" = "deny";
+              "*gh pr review*" = "deny";
+              "*gh api*comments*" = "deny";
+              "*gh api*replies*" = "deny";
+              "*gh pr create*" = "ask";
             };
             read = {
               "*" = "allow";
@@ -113,6 +118,18 @@ mkUserModule {
           cursor_style = "line";
           cursor_blink = true;
         };
+
+        # Global instructions opencode injects into every session's system prompt.
+        "opencode/AGENTS.md".text = ''
+          # Global instructions
+
+          ## Never speak as me on GitHub
+          Never post or reply to comments on GitHub on my behalf. This includes
+          PR/issue comments, review comments and their replies, and reviews —
+          whether via `gh`, the GitHub REST/GraphQL API, or any MCP/tool. PR and
+          issue bodies are fine. Reading GitHub is fine. If a comment/reply
+          genuinely seems needed, draft the text and let me post it myself.
+        '';
 
         # oh-my-openagent plugin config. The plugin reads agent overrides from
         # this file (NOT from opencode's `settings.agent.*`), so model bumps for
