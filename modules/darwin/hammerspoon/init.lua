@@ -308,7 +308,10 @@ if backslashCode then
   keyCodeNames[backslashCode] = "\\"
   hyperActionsByKeyCode[backslashCode] = function()
     local win = hs.window.focusedWindow()
-    if win then win:moveToScreen(win:screen():next()) end
+    if win then
+      win:moveToScreen(win:screen():next())
+      hs.mouse.absolutePosition(hs.geometry.rectMidPoint(win:frame()))
+    end
   end
 end
 
@@ -320,13 +323,14 @@ if quoteCode then
   hyperActionsByKeyCode[quoteCode] = function()
     local cur = hs.window.focusedWindow()
     local target = (cur and cur:screen() or hs.screen.mainScreen()):next()
+    -- Warp the cursor to the target screen so the mouse follows the focus.
+    hs.mouse.absolutePosition(hs.geometry.rectMidPoint(target:fullFrame()))
     for _, w in ipairs(hs.window.orderedWindows()) do
       if w:screen() == target and w:isStandard() then
         w:focus()
         return
       end
     end
-    hs.mouse.absolutePosition(hs.geometry.rectMidPoint(target:fullFrame()))
   end
 end
 
