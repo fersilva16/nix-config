@@ -343,12 +343,14 @@ if backslashCode then
   end
 end
 
--- Hyper + ' → Focus the next screen: focus the frontmost window there, or, if
+-- Hyper + Tab → Focus the next screen: focus the frontmost window there, or, if
 -- that screen has no window, park the cursor on it so it becomes active.
-local quoteCode = hs.keycodes.map["'"]
-if quoteCode then
-  keyCodeNames[quoteCode] = "'"
-  hyperActionsByKeyCode[quoteCode] = function()
+-- Pairs with Cmd+Tab (AltTab, screen-bound): Cmd = switch on this screen,
+-- Hyper = jump to the other screen.
+local tabCode = hs.keycodes.map["tab"]
+if tabCode then
+  keyCodeNames[tabCode] = "tab"
+  hyperActionsByKeyCode[tabCode] = function()
     local cur = hs.window.focusedWindow()
     local target = (cur and cur:screen() or hs.screen.mainScreen()):next()
     -- Warp the cursor to the target screen so the mouse follows the focus.
