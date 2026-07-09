@@ -44,7 +44,7 @@ mkUser {
   opencode-manager.enable = true;
   # rtk.enable = true;
   ollama.enable = true;
-  hermes.enable = true;
+  # hermes.enable = true;
   linear.enable = true;
 
   # Editors
