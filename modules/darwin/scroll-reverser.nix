@@ -9,7 +9,7 @@ mkUserModule {
     system.defaults.CustomUserPreferences."com.pilotmoon.scroll-reverser" = {
       InvertScrollingOn = true; # master enable
       ReverseY = true; # vertical
-      ReverseX = false;
+      ReverseX = true; # horizontal (shift+scroll)
       ReverseMouse = true; # mouse → normal
       ReverseTrackpad = false; # trackpad → leave natural
     };
