@@ -6,7 +6,9 @@
 # `wtprr` is a throwaway PR review sandbox: a detached git worktree in a temp
 # dir holding the PR's code, with the PR context (branch, metadata, commits,
 # changed files) appended to its AGENTS.md so opencode loads it into the system
-# prompt automatically — no seed prompt, you just type your questions. When
+# prompt automatically. By default the session opens with a seeded, advisory
+# review brief — a summary plus a per-file pseudo-code skim of the changes in
+# dependency order; pass --raw to skip it and just type your own questions. When
 # opencode exits the worktree + temp dir are removed. Run with a PR number,
 # inside a worktree (no arg → the branch's PR), or no arg for an fzf picker.
 {
@@ -14,6 +16,14 @@
     programs.fish.functions.wtprr = ''
       git rev-parse --show-toplevel >/dev/null 2>&1
       or begin; echo "wtprr: not a git repo"; return 1; end
+
+      # --raw (anywhere): skip the seeded review brief, open a silent session.
+      # Strip it out so the positional PR arg parsing below is unaffected.
+      set -l raw 0
+      if contains -- --raw $argv
+        set raw 1
+        set -e argv[(contains -i -- --raw $argv)]
+      end
 
       set -l pr (string replace -r '^#' "" -- $argv[1])
 
@@ -61,8 +71,16 @@
         gh pr diff "$pr" --name-only 2>/dev/null
       end >>"$tmp/AGENTS.md"
 
-      # Open opencode on the sandbox — no seed prompt; you ask the questions.
-      opencode "$tmp"
+      # Open opencode on the sandbox. Default: seed an advisory review brief so
+      # the session opens with a reading guide (tests + asserts, duplication,
+      # where to look) instead of silence; it ends with a "verify these
+      # yourself" list so it stays a guide, not a verdict. --raw skips it.
+      if test $raw -eq 1
+        opencode "$tmp"
+      else
+        set -l review_brief "Explain PR #$pr so I can skim it without reading the real code. Start with a one- or two-sentence summary of what it does and why. Then walk the changed files in dependency order (entry point first, then what it calls), and for each file give a short pseudo-code sketch of what its change does — plain, structural terms (new branches, calls, return changes, error handling, side effects), skipping cosmetic churn — so I can grasp the change without reading it line by line. Flag anywhere the ordering or a sketch is a guess. Call out anything notable or worth reading for real. Keep it concise and scannable; this is to help me decide what to read, not a substitute for reviewing — expand to the real code (\`gh pr diff $pr\` or the checked-out files) when a sketch looks off or matters."
+        opencode --prompt "$review_brief" "$tmp"
+      end
 
       # ponytail: cleanup is sequential (opencode runs in the foreground); no
       # trap, so a hard kill leaves the worktree — `git worktree prune` reaps it.
