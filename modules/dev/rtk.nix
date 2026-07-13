@@ -1,7 +1,9 @@
-{ mkUserModule, ... }:
+{ mkUserModule, forPlatform, ... }:
 mkUserModule {
   name = "rtk";
-  system.homebrew.brews = [ "rtk" ];
+  system = forPlatform {
+    darwin.homebrew.brews = [ "rtk" ];
+  };
   home = {
     home.file = {
       # Claude Code hook: rewrites bash commands to use rtk for token savings.

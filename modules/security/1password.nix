@@ -6,7 +6,7 @@
 mkUserModule {
   name = "1password";
   requires = [ "git" ];
-  system.homebrew.casks = [
+  casks = [
     "1password"
     "1password-cli"
   ];

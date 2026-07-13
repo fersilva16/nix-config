@@ -11,7 +11,12 @@
 #   name:         Module name. Creates `modules.users.<user>.<name>.enable` option.
 #
 #   system:       (optional) System-level config applied once when any user enables
-#                 the module. Always a static attrset.
+#                 the module. Always a static attrset. Must be cross-platform —
+#                 darwin-only options need a forPlatform { darwin = ...; } wrap.
+#
+#   casks:        (optional) Homebrew casks to install on darwin when any user
+#                 enables the module. Sugar for the common GUI-app case; on
+#                 linux this is structurally absent (no homebrew options there).
 #
 #   home:         (optional) Per-user home-manager config. Can be an attrset (static)
 #                 or a function ({ cfg, lib, username, userCfg } -> attrset) when
@@ -57,6 +62,7 @@
 {
   name,
   system ? { },
+  casks ? [ ],
   home ? { },
   user ? { },
   extraOptions ? { },
@@ -72,7 +78,12 @@ in
 {
   imports = [
     (
-      { config, lib, ... }:
+      {
+        config,
+        lib,
+        forPlatform,
+        ...
+      }:
       let
         enabledUsers = lib.filterAttrs (_: u: u.${name}.enable) config.modules.users;
         hasEnabled = enabledUsers != { };
@@ -118,6 +129,15 @@ in
         config = lib.mkIf hasEnabled (
           lib.mkMerge (
             [ system ]
+
+            # casks: darwin-only sugar. On linux the homebrew option tree
+            # doesn't exist, so the key must be structurally absent — which
+            # forPlatform guarantees ({} on linux).
+            ++ lib.optional (casks != [ ]) (forPlatform {
+              darwin = {
+                homebrew.casks = casks;
+              };
+            })
 
             # Part system configs: applied once when any enabled user has the part enabled
             ++ lib.optionals hasParts (

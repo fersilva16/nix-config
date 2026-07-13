@@ -1,5 +1,5 @@
 { mkUserModule, ... }:
 mkUserModule {
   name = "claude";
-  system.homebrew.casks = [ "claude" ];
+  casks = [ "claude" ];
 }
