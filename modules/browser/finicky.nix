@@ -139,7 +139,7 @@ mkUserModule {
     };
   };
 
-  system.homebrew.casks = [ "finicky" ];
+  casks = [ "finicky" ];
 
   home =
     { cfg, lib, ... }:

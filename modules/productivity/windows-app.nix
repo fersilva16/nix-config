@@ -1,5 +1,5 @@
 { mkUserModule, ... }:
 mkUserModule {
   name = "windows-app";
-  system.homebrew.casks = [ "windows-app" ];
+  casks = [ "windows-app" ];
 }

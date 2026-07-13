@@ -1,7 +1,14 @@
-{ mkUserModule, lib, ... }:
+{
+  mkUserModule,
+  forPlatform,
+  lib,
+  ...
+}:
 mkUserModule {
   name = "chrome-cli";
-  system.homebrew.brews = [ "chrome-cli" ];
+  system = forPlatform {
+    darwin.homebrew.brews = [ "chrome-cli" ];
+  };
   home =
     { userCfg, ... }:
     {
