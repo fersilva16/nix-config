@@ -11,7 +11,9 @@
 #   name:         Module name. Creates `modules.users.<user>.<name>.enable` option.
 #
 #   system:       (optional) System-level config applied once when any user enables
-#                 the module. Always a static attrset. Must be cross-platform —
+#                 the module. Static attrset, or a function ({ enabledUsers } ->
+#                 attrset) when the enabling users are needed (e.g. per-user
+#                 system options like polkitPolicyOwners). Must be cross-platform —
 #                 darwin-only options need a forPlatform { darwin = ...; } wrap.
 #
 #   casks:        (optional) Homebrew casks to install on darwin when any user
@@ -128,7 +130,7 @@ in
 
         config = lib.mkIf hasEnabled (
           lib.mkMerge (
-            [ system ]
+            [ (if builtins.isFunction system then system { inherit enabledUsers; } else system) ]
 
             # casks: darwin-only sugar. On linux the homebrew option tree
             # doesn't exist, so the key must be structurally absent — which
