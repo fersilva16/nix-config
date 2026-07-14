@@ -1,7 +1,7 @@
 {
   mkUserModule,
+  forPlatform,
   pkgs,
-  lib,
   ...
 }:
 mkUserModule {
@@ -22,17 +22,21 @@ mkUserModule {
       enable = true;
 
       interactiveShellInit = ''
-        ssh-add --apple-load-keychain 2> /dev/null
+        ${forPlatform { darwin = "ssh-add --apple-load-keychain 2> /dev/null"; }}
 
         set fish_cursor_default block
         set fish_cursor_insert line
         set -U fish_greeting
 
         fish_add_path -amP /usr/bin
-        fish_add_path -amP /opt/homebrew/bin
-        fish_add_path -amP /opt/local/bin
+        ${forPlatform {
+          darwin = ''
+            fish_add_path -amP /opt/homebrew/bin
+            fish_add_path -amP /opt/local/bin
+          '';
+        }}
         fish_add_path -m /run/current-system/sw/bin
-        fish_add_path -m /Users/fernando/.nix-profile/bin
+        fish_add_path -m ~/.nix-profile/bin
       '';
 
       functions = {
