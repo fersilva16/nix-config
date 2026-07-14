@@ -1,11 +1,20 @@
-{ mkUserModule, pkgs, ... }:
+{
+  mkUserModule,
+  forPlatform,
+  pkgs,
+  ...
+}:
 mkUserModule {
   name = "ghostty";
   home = {
     programs.ghostty = {
       enable = true;
       enableFishIntegration = true;
-      package = pkgs.ghostty-bin;
+      # ghostty-bin is darwin-only in nixpkgs; linux builds from source.
+      package = forPlatform {
+        darwin = pkgs.ghostty-bin;
+        linux = pkgs.ghostty;
+      };
 
       settings = {
         theme = "Flexoki Light";
