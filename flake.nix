@@ -6,6 +6,15 @@
       url = "github:nixos/nixpkgs/nixpkgs-unstable";
     };
 
+    # NixOS hosts track nixos-unstable instead: it's gated on NixOS
+    # integration tests and fully Hydra-cached for NixOS closures, which
+    # nixpkgs-unstable (the darwin-friendly branch above) is not. Inputs are
+    # fetched lazily per evaluated output, so each machine only ever
+    # downloads its own branch.
+    nixpkgs-nixos = {
+      url = "github:nixos/nixpkgs/nixos-unstable";
+    };
+
     utils = {
       url = "github:numtide/flake-utils";
     };
@@ -59,6 +68,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Declarative disk partitioning for the NixOS host (polaris). The disko
+    # config lives in the host module; the device is chosen at install time
+    # via `disko-install --disk`.
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
     # ships a few hundred extensions; this exposes the full marketplace so the
     # vscode module can declare extensions like oxc, supermaven, etc.
@@ -91,10 +108,15 @@
     { nixpkgs, utils, ... }@inputs:
     let
       mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs; };
+      mkNixOSHost = import ./lib/mkNixOSHost.nix { inherit inputs; };
     in
     {
       darwinConfigurations = {
         m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
+      };
+
+      nixosConfigurations = {
+        polaris = import ./modules/hosts/polaris.nix { inherit mkNixOSHost; };
       };
     }
     // utils.lib.eachDefaultSystem (

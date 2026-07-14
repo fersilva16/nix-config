@@ -67,9 +67,22 @@ in
         {
           modules.users.${name} = moduleEnables;
 
-          users.users.${name}.home = forPlatform {
-            darwin = "/Users/${name}";
-            linux = "/home/${name}";
+          users.users.${name} = {
+            home = forPlatform {
+              darwin = "/Users/${name}";
+              linux = "/home/${name}";
+            };
+          }
+          # NixOS requires an explicit account class (darwin does not) and
+          # won't create the account without it.
+          // forPlatform {
+            linux = {
+              isNormalUser = true;
+              extraGroups = [
+                "wheel"
+                "networkmanager"
+              ];
+            };
           };
 
           home-manager.users.${name} = {
