@@ -1,10 +1,34 @@
 {
   mkUserModule,
+  forPlatform,
   pkgs,
   lib,
   ...
 }:
 let
+  # Copy-mode clipboard: pbcopy on darwin. On linux one machine hosts both
+  # Wayland (hyprland) and X11 (i3) sessions, so a static choice is wrong —
+  # a wrapper picks wl-copy/xclip at runtime.
+  tmux-clipboard = forPlatform {
+    darwin = "pbcopy";
+    linux = lib.getExe (
+      pkgs.writeShellApplication {
+        name = "tmux-clipboard";
+        runtimeInputs = [
+          pkgs.wl-clipboard
+          pkgs.xclip
+        ];
+        text = ''
+          if [ -n "''${WAYLAND_DISPLAY:-}" ]; then
+            exec wl-copy
+          else
+            exec xclip -selection clipboard
+          fi
+        '';
+      }
+    );
+  };
+
   tmux-git-root-path = pkgs.writeShellApplication {
     name = "tmux-git-root-path";
     runtimeInputs = [ pkgs.git ];
@@ -41,7 +65,7 @@ mkUserModule {
     cheatsheet = import ./cheatsheet.nix { inherit pkgs; };
     statusbar = import ./statusbar.nix { inherit pkgs; };
     remote = import ./remote.nix { inherit pkgs; };
-    group = import ./group.nix { inherit pkgs; };
+    group = import ./group.nix { inherit pkgs forPlatform; };
     pocket = import ./pocket.nix { inherit pkgs; };
     session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker; };
   };
@@ -93,8 +117,8 @@ mkUserModule {
           set -g allow-passthrough on
 
           # Copy to system clipboard from vi copy mode
-          bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
-          bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "pbcopy"
+          bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
+          bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
 
           # Reload config with prefix + R
           bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
