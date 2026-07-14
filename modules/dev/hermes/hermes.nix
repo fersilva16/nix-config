@@ -73,6 +73,7 @@
   mkUserModule,
   pkgs,
   inputs,
+  forPlatform,
   ...
 }:
 let
@@ -116,7 +117,7 @@ mkUserModule {
   name = "hermes";
 
   parts = {
-    gateway = import ./gateway.nix { inherit hermes; };
+    gateway = import ./gateway.nix { inherit hermes forPlatform; };
   };
 
   home =

@@ -1,8 +1,14 @@
-{ mkUserModule, pkgs, ... }:
+{
+  mkUserModule,
+  pkgs,
+  forPlatform,
+  ...
+}:
 mkUserModule {
   name = "ledger";
-  system = {
-    launchd.user.agents.ledger-sync = {
+  # launchd is darwin-only; systemd timer port deferred until wanted on linux.
+  system = forPlatform {
+    darwin.launchd.user.agents.ledger-sync = {
       command = ./ledger-sync.sh;
 
       serviceConfig = {

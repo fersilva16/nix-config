@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  forPlatform,
   opencode-unwrapped,
   serverPort,
 }:
@@ -243,20 +244,24 @@ in
     };
   };
 
-  system =
-    { partUsers }:
-    lib.mkIf (lib.any (u: u.opencode.server.autoAttach) (lib.attrValues partUsers)) {
-      launchd.user.agents.opencode-server = {
-        serviceConfig = {
-          Label = "com.opencode.server";
-          ProgramArguments = [ "${serverLauncher}" ];
-          RunAtLoad = true;
-          KeepAlive = true;
-          StandardOutPath = "/tmp/opencode-server.log";
-          StandardErrorPath = "/tmp/opencode-server.log";
+  # launchd is darwin-only; systemd port deferred until wanted on linux.
+  system = forPlatform {
+    linux = _: { };
+    darwin =
+      { partUsers }:
+      lib.mkIf (lib.any (u: u.opencode.server.autoAttach) (lib.attrValues partUsers)) {
+        launchd.user.agents.opencode-server = {
+          serviceConfig = {
+            Label = "com.opencode.server";
+            ProgramArguments = [ "${serverLauncher}" ];
+            RunAtLoad = true;
+            KeepAlive = true;
+            StandardOutPath = "/tmp/opencode-server.log";
+            StandardErrorPath = "/tmp/opencode-server.log";
+          };
         };
       };
-    };
+  };
 
   home =
     { cfg, ... }:

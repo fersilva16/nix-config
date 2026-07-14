@@ -17,46 +17,51 @@
 # atomically rewritten by nix-darwin's setupLaunchAgents step.
 {
   hermes,
+  forPlatform,
   ...
 }:
 {
-  system =
-    { partUsers }:
-    let
-      # mkUserModule passes partUsers as { username = userCfg; ... }.
-      # The gateway is inherently host-scoped (one HERMES_HOME per machine),
-      # so only one user may enable it.  Loud fail beats a silent last-wins.
-      usernames = builtins.attrNames partUsers;
-      username =
-        if builtins.length usernames == 1 then
-          builtins.head usernames
-        else
-          throw "hermes.gateway: exactly one user must enable the gateway (got: ${builtins.toJSON usernames})";
-      nalumDir = "/Users/${username}/nalum";
-    in
-    {
-      launchd.user.agents.hermes-gateway = {
-        serviceConfig = {
-          Label = "ai.hermes.gateway";
-          ProgramArguments = [
-            "${hermes}/bin/hermes"
-            "gateway"
-            "run"
-            "--replace"
-          ];
-          EnvironmentVariables = {
-            HERMES_HOME = nalumDir;
+  # launchd is darwin-only; systemd port deferred until wanted on linux.
+  system = forPlatform {
+    linux = _: { };
+    darwin =
+      { partUsers }:
+      let
+        # mkUserModule passes partUsers as { username = userCfg; ... }.
+        # The gateway is inherently host-scoped (one HERMES_HOME per machine),
+        # so only one user may enable it.  Loud fail beats a silent last-wins.
+        usernames = builtins.attrNames partUsers;
+        username =
+          if builtins.length usernames == 1 then
+            builtins.head usernames
+          else
+            throw "hermes.gateway: exactly one user must enable the gateway (got: ${builtins.toJSON usernames})";
+        nalumDir = "/Users/${username}/nalum";
+      in
+      {
+        launchd.user.agents.hermes-gateway = {
+          serviceConfig = {
+            Label = "ai.hermes.gateway";
+            ProgramArguments = [
+              "${hermes}/bin/hermes"
+              "gateway"
+              "run"
+              "--replace"
+            ];
+            EnvironmentVariables = {
+              HERMES_HOME = nalumDir;
+            };
+            WorkingDirectory = nalumDir;
+            RunAtLoad = true;
+            # Restart only on abnormal exit — clean shutdowns (e.g. `hermes
+            # gateway stop`) should stay stopped.
+            KeepAlive = {
+              SuccessfulExit = false;
+            };
+            StandardOutPath = "${nalumDir}/logs/gateway.log";
+            StandardErrorPath = "${nalumDir}/logs/gateway.error.log";
           };
-          WorkingDirectory = nalumDir;
-          RunAtLoad = true;
-          # Restart only on abnormal exit — clean shutdowns (e.g. `hermes
-          # gateway stop`) should stay stopped.
-          KeepAlive = {
-            SuccessfulExit = false;
-          };
-          StandardOutPath = "${nalumDir}/logs/gateway.log";
-          StandardErrorPath = "${nalumDir}/logs/gateway.error.log";
         };
       };
-    };
+  };
 }
