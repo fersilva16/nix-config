@@ -3,5 +3,8 @@
 mkUser {
   name = "fernando";
   bat.enable = true;
+  feh.enable = true;
+  flameshot.enable = true;
   hyprland.enable = true;
+  i3.enable = true;
 }
