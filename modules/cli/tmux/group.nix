@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, forPlatform }:
 let
   tmux-group = pkgs.writeShellApplication {
     name = "tmux-group";
@@ -21,8 +21,14 @@ let
 
       # Open a new Ghostty window that creates the grouped session.
       # destroy-unattached ensures cleanup when the window closes.
-      open -na Ghostty --args -e tmux new-session -t "$SESSION" -s "$GROUP_SESSION" \; \
-        set-option destroy-unattached on
+      ${forPlatform {
+        darwin = ''
+          open -na Ghostty --args -e tmux new-session -t "$SESSION" -s "$GROUP_SESSION" \; \
+            set-option destroy-unattached on'';
+        linux = ''
+          ghostty -e tmux new-session -t "$SESSION" -s "$GROUP_SESSION" \; \
+            set-option destroy-unattached on &'';
+      }}
     '';
   };
 
