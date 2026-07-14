@@ -10,11 +10,12 @@ mkNixOSHost {
   extraModules = [
     ./polaris-disk.nix
 
-    # Boot loader; hardware config generated at install time will join this
-    # list as polaris-hardware.nix (nixos-generate-config --show-hardware-config).
+    # Host specifics; hardware config generated at install time will join
+    # this list as polaris-hardware.nix (nixos-generate-config).
     {
-      boot.loader.systemd-boot.enable = true;
-      boot.loader.efi.canTouchEfiVariables = true;
+      # Windows (separate disk) keeps the RTC in localtime; adjusting here
+      # avoids registry surgery on the Windows side.
+      time.hardwareClockInLocalTime = true;
     }
   ];
 }
