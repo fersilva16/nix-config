@@ -8,14 +8,11 @@ mkNixOSHost {
   users = [ fernando ];
 
   extraModules = [
-    # Placeholder hardware/disk config so the toplevel evaluates before the
-    # machine exists. Replaced in Phase 1 (disko layout) and at install time
-    # (nixos-generate-config → polaris-hardware.nix).
+    ./polaris-disk.nix
+
+    # Boot loader; hardware config generated at install time will join this
+    # list as polaris-hardware.nix (nixos-generate-config --show-hardware-config).
     {
-      fileSystems."/" = {
-        device = "/dev/disk/by-label/nixos";
-        fsType = "btrfs";
-      };
       boot.loader.systemd-boot.enable = true;
       boot.loader.efi.canTouchEfiVariables = true;
     }
