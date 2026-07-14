@@ -4,6 +4,7 @@
   lib,
   inputs,
   system,
+  forPlatform,
   ...
 }:
 let
@@ -27,6 +28,7 @@ mkUserModule {
       inherit
         pkgs
         lib
+        forPlatform
         opencode-unwrapped
         serverPort
         ;
