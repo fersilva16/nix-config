@@ -1,5 +1,7 @@
-_: {
-  services.flameshot = {
-    enable = true;
+{ mkUserModule, ... }:
+mkUserModule {
+  name = "flameshot";
+  home = {
+    services.flameshot.enable = true;
   };
 }
