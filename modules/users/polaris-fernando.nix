@@ -3,4 +3,5 @@
 mkUser {
   name = "fernando";
   bat.enable = true;
+  hyprland.enable = true;
 }
