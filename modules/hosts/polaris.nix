@@ -20,6 +20,11 @@ mkNixOSHost {
       # Windows (separate disk) keeps the RTC in localtime; adjusting here
       # avoids registry surgery on the Windows side.
       time.hardwareClockInLocalTime = true;
+
+      # Windows ESP lives on the other disk, so systemd-boot cannot
+      # auto-detect it. Device handle discovered via the edk2 UEFI shell
+      # (`map -c`, the FS whose \EFI contains Microsoft).
+      boot.loader.systemd-boot.windows."11".efiDeviceHandle = "HD0b";
     }
   ];
 }
