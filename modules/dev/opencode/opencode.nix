@@ -16,7 +16,6 @@ let
     patches = (old.patches or [ ]) ++ [
       ./patches/cursor-style-and-blink.patch
       ./patches/generate-remove-prettier.patch
-      ./patches/preserve-thinking-blocks.patch
       ./patches/relax-bun-version-check.patch
     ];
   });
