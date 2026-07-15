@@ -8,7 +8,6 @@
   ...
 }:
 let
-  jsonFormat = pkgs.formats.json { };
   serverPort = 4096;
 
   # Real opencode binary with patches applied
@@ -16,7 +15,6 @@ let
     patches = (old.patches or [ ]) ++ [
       ./patches/cursor-style-and-blink.patch
       ./patches/generate-remove-prettier.patch
-      ./patches/preserve-thinking-blocks.patch
       ./patches/relax-bun-version-check.patch
     ];
   });
@@ -41,6 +39,7 @@ mkUserModule {
     ponytail = import ./ponytail.nix { inherit pkgs lib; };
     cache = import ./cache.nix { };
     omo-gitignore = import ./omo-gitignore.nix { };
+    omo = import ./omo.nix { inherit pkgs; };
   };
   home =
     { username, ... }:
@@ -48,12 +47,13 @@ mkUserModule {
       programs.opencode = {
         enable = true;
         package = lib.mkDefault opencode-unwrapped;
-        settings = {
+        tui = {
           theme = "flexoki";
-          plugin = [
-            "oh-my-openagent@4.4.0"
-            "@rama_nigg/open-cursor@2.4.5"
-          ];
+          cursor_style = "line";
+          cursor_blink = true;
+        };
+        settings = {
+          plugin = [ "@rama_nigg/open-cursor@2.4.5" ];
           provider = {
             cursor-acp = {
               name = "Cursor ACP";
@@ -116,11 +116,6 @@ mkUserModule {
       };
 
       xdg.configFile = {
-        "opencode/tui.json".source = jsonFormat.generate "tui.json" {
-          cursor_style = "line";
-          cursor_blink = true;
-        };
-
         # Global instructions opencode injects into every session's system prompt.
         "opencode/AGENTS.md".text = ''
           # Global instructions
@@ -132,45 +127,6 @@ mkUserModule {
           issue bodies are fine. Reading GitHub is fine. If a comment/reply
           genuinely seems needed, draft the text and let me post it myself.
         '';
-
-        # oh-my-openagent plugin config. The plugin reads agent overrides from
-        # this file (NOT from opencode's `settings.agent.*`), so model bumps for
-        # plugin-registered agents (sisyphus, prometheus, oracle, metis, momus)
-        # must live here. Only model + variant are overridden; prompts, tools,
-        # and fallback chains are inherited from the plugin defaults.
-        #
-        # `variant = "max"` matches the plugin's own built-in fallback-chain
-        # defaults for these agents (see AGENT_MODEL_REQUIREMENTS in the plugin
-        # source). When we specify `model` alone, the plugin's resolver returns
-        # `{ model, provenance: "override" }` with NO variant attached — the
-        # variant only rides along with fallback-chain entries. So overriding
-        # just `model` silently drops `max`. We re-attach it explicitly.
-        "opencode/oh-my-openagent.json".source = jsonFormat.generate "oh-my-openagent.json" {
-          "$schema" =
-            "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/dist/oh-my-opencode.schema.json";
-          agents = {
-            sisyphus = {
-              model = "anthropic/claude-opus-4-8";
-              variant = "max";
-            };
-            prometheus = {
-              model = "anthropic/claude-opus-4-8";
-              variant = "max";
-            };
-            oracle = {
-              model = "anthropic/claude-opus-4-8";
-              variant = "max";
-            };
-            metis = {
-              model = "anthropic/claude-opus-4-8";
-              variant = "max";
-            };
-            momus = {
-              model = "anthropic/claude-opus-4-8";
-              variant = "max";
-            };
-          };
-        };
       };
     };
 }
