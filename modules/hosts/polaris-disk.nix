@@ -36,7 +36,15 @@
           content = {
             type = "luks";
             name = "cryptroot";
-            settings.allowDiscards = true;
+            settings = {
+              allowDiscards = true;
+              # TPM2 auto-unlock (all input is bluetooth — unusable at the
+              # LUKS prompt). Key enrolled once via:
+              #   sudo systemd-cryptenroll --tpm2-device=auto <luks-part>
+              # Passphrase stays enrolled as fallback. Disk remains
+              # encrypted at rest (threat model: resale/RMA protection).
+              crypttabExtraOpts = [ "tpm2-device=auto" ];
+            };
             content = {
               type = "btrfs";
               extraArgs = [ "-f" ];

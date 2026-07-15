@@ -7,15 +7,21 @@
 { mkSystemModule, ... }:
 mkSystemModule {
   name = "boot";
-  config.boot.loader = {
-    systemd-boot = {
-      enable = true;
-      consoleMode = "max";
-      editor = false;
-      configurationLimit = 20;
-      edk2-uefi-shell.enable = true;
+  config.boot = {
+    loader = {
+      systemd-boot = {
+        enable = true;
+        consoleMode = "max";
+        editor = false;
+        configurationLimit = 20;
+        edk2-uefi-shell.enable = true;
+      };
+      efi.canTouchEfiVariables = true;
+      timeout = 5;
     };
-    efi.canTouchEfiVariables = true;
-    timeout = 5;
+
+    # systemd stage-1: required for TPM2 LUKS auto-unlock
+    # (systemd-cryptenroll), and the modern initrd generally.
+    initrd.systemd.enable = true;
   };
 }
