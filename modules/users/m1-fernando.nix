@@ -119,6 +119,7 @@ mkUser {
 
   # Media
   iina.enable = true;
+  obs.enable = true;
   spotify.enable = true;
   stremio.enable = true;
   affinity.enable = true;
