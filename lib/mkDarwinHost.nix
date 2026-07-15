@@ -33,19 +33,19 @@
 #
 # Usage:
 #
-#   # modules/hosts/m1.nix
+#   # modules/hosts/vega.nix
 #   { mkDarwinHost }:
 #   let
-#     fernando = import ../users/m1-fernando.nix;
+#     fernando = import ../users/vega-fernando.nix;
 #   in
 #   mkDarwinHost {
-#     hostName = "m1";
+#     hostName = "vega";
 #     primaryUser = fernando;
 #     users = [ fernando ];
 #   }
 #
 #   # flake.nix
-#   m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
+#   vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
 #
 { inputs }:
 let

@@ -1,9 +1,9 @@
 { mkDarwinHost }:
 let
-  fernando = import ../users/m1-fernando.nix;
+  fernando = import ../users/vega-fernando.nix;
 in
 mkDarwinHost {
-  hostName = "m1";
+  hostName = "vega";
   primaryUser = fernando;
   users = [ fernando ];
 }

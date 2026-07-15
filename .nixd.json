@@ -4,10 +4,10 @@
   },
   "options": {
     "darwin": {
-      "expr": "(builtins.getFlake \"/Users/fernando/nix-config\").darwinConfigurations.m1.options"
+      "expr": "(builtins.getFlake \"/Users/fernando/nix-config\").darwinConfigurations.vega.options"
     },
     "home-manager": {
-      "expr": "(builtins.getFlake \"/Users/fernando/nix-config\").darwinConfigurations.m1.options.home-manager.users.type.getSubOptions []"
+      "expr": "(builtins.getFlake \"/Users/fernando/nix-config\").darwinConfigurations.vega.options.home-manager.users.type.getSubOptions []"
     }
   },
   "formatting": {
