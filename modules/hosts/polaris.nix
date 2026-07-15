@@ -10,8 +10,12 @@ mkNixOSHost {
   extraModules = [
     ./polaris-disk.nix
 
-    # Host specifics; hardware config generated at install time will join
-    # this list as polaris-hardware.nix (nixos-generate-config).
+    # Host specifics; hardware config is generated at install time
+    # (nixos-generate-config) and picked up when present — pathExists is
+    # false while the file is missing/untracked, so eval works either way.
+  ]
+  ++ (if builtins.pathExists ./polaris-hardware.nix then [ ./polaris-hardware.nix ] else [ ])
+  ++ [
     {
       # Windows (separate disk) keeps the RTC in localtime; adjusting here
       # avoids registry surgery on the Windows side.
