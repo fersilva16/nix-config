@@ -1,8 +1,9 @@
 # polaris disk layout — disko-managed, LUKS full-disk encryption → btrfs.
 #
-# The device is a placeholder: install day overrides it with
-#   disko-install --disk main /dev/disk/by-id/<real-disk>
-# so this file never needs editing for hardware changes.
+# The device is the real by-id path (stable across reboots/slots): every
+# rebuild derives the initrd LUKS device from it, so a placeholder here
+# would produce unbootable generations. NixOS lives on the Samsung 980
+# Pro; the Windows disk (Kingston) is never referenced.
 #
 # No swap partition by design: zram covers daily memory pressure, and
 # future hibernation uses a resizable btrfs swapfile (see plan) — sized
@@ -16,7 +17,7 @@
 
   disko.devices.disk.main = {
     type = "disk";
-    device = "/dev/disk/by-id/PLACEHOLDER";
+    device = "/dev/disk/by-id/nvme-Samsung_SSD_980_PRO_1TB_S5P2NL0W513531M";
     content = {
       type = "gpt";
       partitions = {
