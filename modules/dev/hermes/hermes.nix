@@ -9,7 +9,7 @@
 # The directory-existence safety check runs at darwin-rebuild activation
 # time (not eval time): an absent ~/nalum surfaces as a loud warning during
 # the switch, but doesn't block the rebuild. Eval-time gating would require
-# `--impure`, which we avoid so plain `darwin-rebuild switch --flake .#m1`
+# `--impure`, which we avoid so plain `darwin-rebuild switch --flake .#vega`
 # keeps working.
 #
 # Hermes optional extras: upstream's default build excludes optional
@@ -68,7 +68,7 @@
 # Bumping the bypass when Anthropic rotates fingerprints upstream:
 #
 #   nix flake lock --update-input hermes-claude-auth
-#   sudo darwin-rebuild switch --flake .#m1
+#   sudo darwin-rebuild switch --flake .#vega
 {
   mkUserModule,
   pkgs,

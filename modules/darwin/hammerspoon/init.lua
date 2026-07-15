@@ -535,7 +535,7 @@ local function recreateWatcher(reason)
 
   if not hidutilOk then
     log("ERROR", "hidutil Caps Lock → F18 mapping is MISSING — hyper key will not work")
-    hs.alert.show("⚠️ Caps Lock → F18 mapping lost!\nRun: sudo darwin-rebuild switch --flake .#m1", 8)
+    hs.alert.show("⚠️ Caps Lock → F18 mapping lost!\nRun: sudo darwin-rebuild switch --flake .#vega", 8)
   end
 end
 

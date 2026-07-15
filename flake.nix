@@ -112,7 +112,7 @@
     in
     {
       darwinConfigurations = {
-        m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
+        vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
       };
 
       nixosConfigurations = {

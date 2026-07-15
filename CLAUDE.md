@@ -2,11 +2,11 @@
 
 ## What is this repo?
 
-A nix-darwin flake configuration for a single macOS Apple Silicon host (`m1`), managing system settings, packages, and dotfiles for user `fernando`. It uses nix-darwin for system-level config and home-manager for user-level config, with declarative Homebrew for GUI apps not in nixpkgs.
+A nix-darwin flake configuration for a single macOS Apple Silicon host (`vega`), managing system settings, packages, and dotfiles for user `fernando`. It uses nix-darwin for system-level config and home-manager for user-level config, with declarative Homebrew for GUI apps not in nixpkgs.
 
 ## Commands
 
-- **Rebuild:** `sudo darwin-rebuild switch --flake .#m1`
+- **Rebuild:** `sudo darwin-rebuild switch --flake .#vega`
 - **Format:** `nixfmt <file.nix>` (RFC style, enforced by pre-commit)
 - **Lint:** `statix check .` — **run after every edit to .nix files, before rebuild**
 - **Shell lint:** `shellcheck <file.sh>`
@@ -20,8 +20,8 @@ lib/mkDarwinHost.nix         # Factory: creates a nix-darwin system from structu
 lib/mkUserModule.nix         # Factory: creates a capability module with enable option
 lib/mkUser.nix               # Factory: creates { name, module } for user bootstrapping + enable flags
 lib/forPlatform.nix          # Utility: platform-aware value selector (darwin/linux)
-modules/hosts/m1.nix         # Host definition: mkDarwinHost call with host-specific config
-modules/users/m1-fernando.nix # User composition: mkUser with enable flags
+modules/hosts/vega.nix         # Host definition: mkDarwinHost call with host-specific config
+modules/users/vega-fernando.nix # User composition: mkUser with enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
 modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
 ```
@@ -30,10 +30,10 @@ modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
 
 #### `mkUserModule` (preferred — new modules should use this)
 
-`mkUserModule` creates a self-contained capability module. It declares an option under `modules.users.<user>.<name>`, applies system config once when any user enables it, and applies home config per-user. Modules using this pattern are imported at the **host level** (`modules/hosts/m1.nix`) and users opt in via enable flags.
+`mkUserModule` creates a self-contained capability module. It declares an option under `modules.users.<user>.<name>`, applies system config once when any user enables it, and applies home config per-user. Modules using this pattern are imported at the **host level** (`modules/hosts/vega.nix`) and users opt in via enable flags.
 
 ```nix
-# Simple — HM-only (modules/cli/bat.nix, imported in m1.nix):
+# Simple — HM-only (modules/cli/bat.nix, imported in vega.nix):
 { mkUserModule, ... }:
 mkUserModule {
   name = "bat";
@@ -143,19 +143,19 @@ home.packages = [ sharedPkg ] ++ forPlatform { darwin = [ pkgs.iterm2 ]; };
 `mkDarwinHost` creates a nix-darwin system from a structured declaration. It absorbs all system plumbing (module discovery, `specialArgs`, home-manager/nix-homebrew wiring, nixpkgs config) so host files stay declarative. Field names are platform-agnostic to support a future `mkNixOSHost`.
 
 ```nix
-# modules/hosts/m1.nix
+# modules/hosts/vega.nix
 { mkDarwinHost }:
 let
-  fernando = import ../users/m1-fernando.nix;
+  fernando = import ../users/vega-fernando.nix;
 in
 mkDarwinHost {
-  hostName = "m1";
+  hostName = "vega";
   primaryUser = fernando;
   users = [ fernando ];
 }
 
 # flake.nix
-m1 = import ./modules/hosts/m1.nix { inherit mkDarwinHost; };
+vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
 ```
 
 Fields:
@@ -181,7 +181,7 @@ What it handles automatically:
 Returns `{ name, module }` so host factories (`mkDarwinHost`, future `mkNixOSHost`) can extract the username without duplication.
 
 ```nix
-# modules/users/m1-fernando.nix
+# modules/users/vega-fernando.nix
 { mkUser, ... }:
 mkUser {
   name = "fernando";
@@ -279,4 +279,4 @@ mkUserModule {
 
 ## Commit conventions
 
-Conventional commits with scope: `feat(<scope>): description`, `fix(<scope>): description`, `chore(<scope>): description`. Scope is typically the module category or app name (e.g., `tmux`, `nvim`, `m1`, `hammerspoon`, `git`).
+Conventional commits with scope: `feat(<scope>): description`, `fix(<scope>): description`, `chore(<scope>): description`. Scope is typically the module category or app name (e.g., `tmux`, `nvim`, `vega`, `hammerspoon`, `git`).

@@ -18,7 +18,7 @@
 #
 # Usage:
 #
-#   # modules/users/m1-fernando.nix — user file (unchanged):
+#   # modules/users/vega-fernando.nix — user file (unchanged):
 #   { mkUser, ... }:
 #   mkUser {
 #     name = "fernando";
@@ -26,13 +26,13 @@
 #     git.enable = true;
 #   }
 #
-#   # modules/hosts/m1.nix — host file uses the { name, module } shape:
+#   # modules/hosts/vega.nix — host file uses the { name, module } shape:
 #   { mkDarwinHost }:
 #   let
-#     fernando = import ../users/m1-fernando.nix;
+#     fernando = import ../users/vega-fernando.nix;
 #   in
 #   mkDarwinHost {
-#     hostName = "m1";
+#     hostName = "vega";
 #     primaryUser = fernando;
 #     users = [ fernando ];
 #   }

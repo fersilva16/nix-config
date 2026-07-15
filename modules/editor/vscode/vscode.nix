@@ -77,7 +77,7 @@ let
     mv "$tmp" "$out"
 
     echo "vscode-sync-extensions: wrote $out"
-    echo "Next: sudo darwin-rebuild switch --flake $repo#m1"
+    echo "Next: sudo darwin-rebuild switch --flake $repo#vega"
   '';
 in
 mkUserModule {
