@@ -3,23 +3,37 @@
 # programs.hyprland auto-wires xdg-desktop-portal-hyprland, polkit and
 # xwayland; nothing to duplicate here. Config is deliberately minimal —
 # keybindings and aesthetics iterate on real hardware.
+#
+# Hyprland 0.55 replaced hyprlang with Lua config; HM renders `settings`
+# to hyprland.lua (each key → hl.<key>(...) call, `_args` → multi-arg
+# call, mkLuaInline → raw expression). The old "$mod"/"combo, dispatcher"
+# string idioms are invalid there — binds are hl.bind("MOD + KEY",
+# hl.dsp.<dispatcher>) calls, and the mod "variable" is a Nix let.
 { mkUserModule, pkgs, ... }:
 mkUserModule {
   name = "hyprland";
   system.programs.hyprland.enable = true;
   home =
     { lib, ... }:
+    let
+      mod = "SUPER";
+      mkBind = combo: dispatcher: {
+        _args = [
+          combo
+          (lib.generators.mkLuaInline dispatcher)
+        ];
+      };
+    in
     {
       wayland.windowManager.hyprland = {
         enable = true;
         settings = {
-          "$mod" = "SUPER";
           bind = [
-            "$mod, Return, exec, ghostty"
-            "$mod, Space, exec, fuzzel"
-            "$mod, Q, killactive"
-            "$mod SHIFT, L, exec, hyprlock"
-            "$mod SHIFT, S, exec, grim -g \"$(slurp)\" - | wl-copy"
+            (mkBind "${mod} + Return" ''hl.dsp.exec_cmd("ghostty")'')
+            (mkBind "${mod} + Space" ''hl.dsp.exec_cmd("fuzzel")'')
+            (mkBind "${mod} + Q" "hl.dsp.window.close()")
+            (mkBind "${mod} + SHIFT + L" ''hl.dsp.exec_cmd("hyprlock")'')
+            (mkBind "${mod} + SHIFT + S" ''hl.dsp.exec_cmd('grim -g "$(slurp)" - | wl-copy')'')
           ]
           ++ lib.concatLists (
             lib.genList (
@@ -28,8 +42,8 @@ mkUserModule {
                 ws = toString (i + 1);
               in
               [
-                "$mod, ${ws}, workspace, ${ws}"
-                "$mod SHIFT, ${ws}, movetoworkspace, ${ws}"
+                (mkBind "${mod} + ${ws}" "hl.dsp.focus({ workspace = ${ws} })")
+                (mkBind "${mod} + SHIFT + ${ws}" "hl.dsp.window.move({ workspace = ${ws} })")
               ]
             ) 9
           );
