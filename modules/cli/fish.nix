@@ -21,6 +21,13 @@ mkUserModule {
     programs.fish = {
       enable = true;
 
+      # HM generates completions by parsing every package's man pages; the
+      # parser chokes on some of them (bat 0.26.1 on nixos-unstable broke the
+      # polaris install build). Packages ship real completions via
+      # vendor_completions.d anyway — the scraped ones aren't worth the
+      # build fragility.
+      generateCompletions = false;
+
       interactiveShellInit = ''
         ${forPlatform { darwin = "ssh-add --apple-load-keychain 2> /dev/null"; }}
 
