@@ -16,15 +16,24 @@ mkNixOSHost {
   ]
   ++ (if builtins.pathExists ./polaris-hardware.nix then [ ./polaris-hardware.nix ] else [ ])
   ++ [
-    {
-      # Windows (separate disk) keeps the RTC in localtime; adjusting here
-      # avoids registry surgery on the Windows side.
-      time.hardwareClockInLocalTime = true;
+    (
+      { pkgs, ... }:
+      {
+        # RTL8922AE WiFi does not probe on the default 6.18 kernel (no wifi
+        # device at all; the 7.1.x install ISO worked). Track latest until
+        # the default catches up. Known tension: Blackwell suspend-to-idle
+        # hangs on the newest kernels — if that hits, weigh WiFi vs suspend.
+        boot.kernelPackages = pkgs.linuxPackages_latest;
 
-      # Windows ESP lives on the other disk, so systemd-boot cannot
-      # auto-detect it. Device handle discovered via the edk2 UEFI shell
-      # (`map -c`, the FS whose \EFI contains Microsoft).
-      boot.loader.systemd-boot.windows."11".efiDeviceHandle = "HD0b";
-    }
+        # Windows (separate disk) keeps the RTC in localtime; adjusting here
+        # avoids registry surgery on the Windows side.
+        time.hardwareClockInLocalTime = true;
+
+        # Windows ESP lives on the other disk, so systemd-boot cannot
+        # auto-detect it. Device handle discovered via the edk2 UEFI shell
+        # (`map -c`, the FS whose \EFI contains Microsoft).
+        boot.loader.systemd-boot.windows."11".efiDeviceHandle = "HD0b";
+      }
+    )
   ];
 }
