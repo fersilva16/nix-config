@@ -35,15 +35,19 @@ mkUserModule {
         set fish_cursor_insert line
         set -U fish_greeting
 
-        fish_add_path -amP /usr/bin
         ${forPlatform {
+          # PATH juggling is darwin-only: nix paths must beat /usr/bin and
+          # homebrew there. NixOS orders PATH correctly natively — and moving
+          # /run/current-system/sw/bin forward on linux shadows the setuid
+          # sudo in /run/wrappers/bin ("sudo: must be owned by uid 0").
           darwin = ''
+            fish_add_path -amP /usr/bin
             fish_add_path -amP /opt/homebrew/bin
             fish_add_path -amP /opt/local/bin
+            fish_add_path -m /run/current-system/sw/bin
+            fish_add_path -m ~/.nix-profile/bin
           '';
         }}
-        fish_add_path -m /run/current-system/sw/bin
-        fish_add_path -m ~/.nix-profile/bin
       '';
 
       functions = {
