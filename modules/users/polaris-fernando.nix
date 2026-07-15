@@ -21,8 +21,10 @@ mkUser {
   # Dev tools
   git.enable = true;
   lazygit.enable = true;
+  # TODO(post-boot): re-enable — the custom patches force a full local
+  # source rebuild, too heavy for install day.
   opencode = {
-    enable = true;
+    enable = false;
     server.enable = false;
   };
 
