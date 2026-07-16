@@ -6,27 +6,11 @@
   ...
 }:
 let
-  # Copy-mode clipboard: pbcopy on darwin. On linux one machine hosts both
-  # Wayland (hyprland) and X11 (i3) sessions, so a static choice is wrong —
-  # a wrapper picks wl-copy/xclip at runtime.
+  # Copy-mode clipboard: pbcopy on darwin, wl-copy on linux (niri is the
+  # only session — Wayland everywhere).
   tmux-clipboard = forPlatform {
     darwin = "pbcopy";
-    linux = lib.getExe (
-      pkgs.writeShellApplication {
-        name = "tmux-clipboard";
-        runtimeInputs = [
-          pkgs.wl-clipboard
-          pkgs.xclip
-        ];
-        text = ''
-          if [ -n "''${WAYLAND_DISPLAY:-}" ]; then
-            exec wl-copy
-          else
-            exec xclip -selection clipboard
-          fi
-        '';
-      }
-    );
+    linux = "${pkgs.wl-clipboard}/bin/wl-copy";
   };
 
   tmux-git-root-path = pkgs.writeShellApplication {

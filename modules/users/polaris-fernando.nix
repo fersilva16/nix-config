@@ -42,6 +42,5 @@ mkUser {
   # Desktop sessions
   feh.enable = true;
   flameshot.enable = true;
-  hyprland.enable = true;
-  i3.enable = true;
+  niri.enable = true;
 }

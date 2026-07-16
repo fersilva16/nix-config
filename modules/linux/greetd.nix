@@ -1,5 +1,6 @@
 # greetd + tuigreet login manager — lists both Wayland and X sessions
-# (hyprland primary, i3 fallback; pick at login).
+# (niri is the only session today; the xsessions dir is kept for whenever
+# an X session returns).
 { mkSystemModule, pkgs, ... }:
 mkSystemModule {
   name = "greetd";
