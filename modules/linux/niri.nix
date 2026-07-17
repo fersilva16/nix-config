@@ -60,6 +60,13 @@ mkUserModule {
           Print       { screenshot; }
           Mod+Shift+S { screenshot; }
 
+          // Hyper-key chords emitted by keyd (see modules/linux/keyd.nix);
+          // mirrors the Hammerspoon hyper bindings on darwin.
+          Mod+Ctrl+Alt+T         { spawn "ghostty"; }
+          Mod+Ctrl+Alt+F         { maximize-column; }
+          Mod+Ctrl+Alt+Tab       { focus-monitor-next; }
+          Mod+Ctrl+Alt+backslash { move-column-to-monitor-next; }
+
           Mod+Shift+E { quit; }
       }
     '';
