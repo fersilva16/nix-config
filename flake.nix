@@ -68,6 +68,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Noctalia desktop shell for niri (polaris). Pinned to the stable v4
+    # line (quickshell-based); main is the v5 native-rewrite beta. nixpkgs
+    # deliberately not followed — keeping their lock maximizes hits on
+    # noctalia.cachix.org (quickshell fork is expensive to build).
+    noctalia = {
+      url = "github:noctalia-dev/noctalia/legacy-v4";
+    };
+
     # Declarative disk partitioning for the NixOS host (polaris). The disko
     # config lives in the host module; the device is chosen at install time
     # via `disko-install --disk`.

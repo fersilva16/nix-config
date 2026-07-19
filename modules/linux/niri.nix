@@ -6,15 +6,22 @@
 #
 # Home-manager has no niri module, so config.kdl is written directly —
 # niri's defaults are good; this config is deliberately minimal and only
-# covers what the defaults can't know: terminal/launcher/lock choices, the
+# covers what the defaults can't know: terminal/shell choices, the
 # keyd hyper chords, and the macOS-style screen-bound Alt-Tab.
+#
+# The desktop shell (bar/launcher/lock/notifications) is noctalia
+# (modules/linux/noctalia.nix); this file wires its niri glue —
+# spawn-at-startup, IPC keybinds, layer rules.
 {
   mkUserModule,
   pkgs,
   lib,
+  inputs,
+  system,
   ...
 }:
 let
+  noctalia = "${inputs.noctalia.packages.${system}.default}/bin/noctalia-shell";
   # Hyper+Space — toggle between Ghostty and VSCode, mirroring the
   # Hammerspoon binding on darwin (modules/darwin/hammerspoon). Focuses an
   # existing window via niri IPC, launches the app when none exists.
@@ -59,6 +66,26 @@ mkUserModule {
           skip-at-startup
       }
 
+      spawn-at-startup "${noctalia}"
+
+      // Noctalia integration (docs.noctalia.dev/v4 niri page):
+      // rounded corners to match the shell's look, xdg-activation quirk
+      // for notification actions, overview wallpaper on the backdrop
+      // (inert until "Enable overview wallpaper" is on in settings).
+      window-rule {
+          geometry-corner-radius 20
+          clip-to-geometry true
+      }
+
+      debug {
+          honor-xdg-activation-with-invalid-serial
+      }
+
+      layer-rule {
+          match namespace="^noctalia-overview*"
+          place-within-backdrop true
+      }
+
       // Alt-Tab bound to the current monitor — mirrors AltTab on macOS
       // (modules/darwin/alt-tab). Alt+grave cycles the focused app's windows.
       recent-windows {
@@ -74,9 +101,10 @@ mkUserModule {
           Mod+Shift+Slash { show-hotkey-overlay; }
 
           Mod+Return  { spawn "ghostty"; }
-          Mod+Space   { spawn "fuzzel"; }
+          Mod+Space   { spawn "${noctalia}" "ipc" "call" "launcher" "toggle"; }
+          Mod+S       { spawn "${noctalia}" "ipc" "call" "controlCenter" "toggle"; }
           Mod+Q       { close-window; }
-          Mod+Shift+L { spawn "swaylock" "-f"; }
+          Mod+Shift+L { spawn "${noctalia}" "ipc" "call" "lockScreen" "lock"; }
           Mod+O       { toggle-overview; }
 
           Mod+Left        { focus-column-left; }
@@ -105,15 +133,9 @@ mkUserModule {
       }
     '';
 
-    programs = {
-      waybar = {
-        enable = true;
-        systemd.enable = true;
-      };
-      fuzzel.enable = true;
-      swaylock.enable = true;
-    };
-    services.swaync.enable = true;
+    # ponytail: swayidle stays for idle timeouts because noctalia's own
+    # idle service defaults to off (GUI setting); drop swayidle if that
+    # ever gets enabled in noctalia's settings.
     services.swayidle = {
       enable = true;
       timeouts = [
@@ -133,7 +155,7 @@ mkUserModule {
         }
         {
           event = "lock";
-          command = "pidof swaylock || ${lib.getExe pkgs.swaylock} -f";
+          command = "${noctalia} ipc call lockScreen lock";
         }
       ];
     };

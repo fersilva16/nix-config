@@ -45,4 +45,5 @@ mkUser {
   feh.enable = true;
   flameshot.enable = true;
   niri.enable = true;
+  noctalia.enable = true;
 }
