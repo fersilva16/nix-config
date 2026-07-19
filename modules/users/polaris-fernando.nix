@@ -28,6 +28,7 @@ mkUser {
 
   # Editors
   nvim.enable = true;
+  vscode.enable = true;
 
   # Browsers
   firefox.enable = true;

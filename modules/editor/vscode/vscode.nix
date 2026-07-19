@@ -1,11 +1,15 @@
 {
   mkUserModule,
+  forPlatform,
   pkgs,
   lib,
   ...
 }:
 let
-  configDir = "Library/Application Support/Code/User";
+  configDir = forPlatform {
+    darwin = "Library/Application Support/Code/User";
+    linux = ".config/Code/User";
+  };
 
   # Full VS Code Marketplace exposed as Nix packages via the
   # nix-vscode-extensions overlay (wired in lib/mkDarwinHost.nix).
@@ -30,7 +34,16 @@ let
     in
     if attempt.success then attempt.value else null;
 
-  declaredIds = import ./extensions.nix;
+  # Extensions whose marketplace package fails to *build* on this platform —
+  # tryEval below only catches eval-time failures. They keep working as
+  # manual installs via mutableExtensionsDir.
+  # ponytail: hardcoded skip list; generalize only if it grows.
+  brokenOnThisPlatform = forPlatform {
+    # oxc resolves to an ancient 0.0.2 vsix on linux whose package.json
+    # trips the extension builder ("cannot use null as iterable").
+    linux = [ "oxc.oxc-vscode" ];
+  };
+  declaredIds = lib.subtractLists brokenOnThisPlatform (import ./extensions.nix);
   resolvedExtensions = builtins.filter (pkg: pkg != null) (map resolve declaredIds);
   unavailableIds = builtins.filter (id: resolve id == null) declaredIds;
   extensions =
