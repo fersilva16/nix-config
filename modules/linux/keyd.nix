@@ -35,6 +35,7 @@ mkUserModule {
             # WM actions — chords caught by niri binds.
             t = "M-C-A-t"; # new terminal
             f = "M-C-A-f"; # maximize
+            space = "M-C-A-space"; # toggle ghostty/vscode
             tab = "M-C-A-tab"; # focus next monitor
             "\\" = "M-C-A-\\"; # window to next monitor
           };
