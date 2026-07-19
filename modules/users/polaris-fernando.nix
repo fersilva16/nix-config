@@ -37,6 +37,9 @@ mkUser {
   # Terminal
   ghostty.enable = true;
 
+  # Chat
+  discord.enable = true;
+
   # Security
   "1password".enable = true;
 
