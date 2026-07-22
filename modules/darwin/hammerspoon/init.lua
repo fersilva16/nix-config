@@ -275,6 +275,15 @@ if iCode then
   end
 end
 
+-- Hyper + S → Toggle Slack
+local sCode = hs.keycodes.map["s"]
+if sCode then
+  keyCodeNames[sCode] = "s"
+  hyperActionsByKeyCode[sCode] = function()
+    toggleApp("com.tinyspeck.slackmacgap", "Slack")
+  end
+end
+
 -- Hyper + O → Toggle Obsidian
 local oCode = hs.keycodes.map["o"]
 if oCode then
