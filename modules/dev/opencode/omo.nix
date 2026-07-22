@@ -20,15 +20,12 @@ in
       agents = {
         sisyphus = {
           model = "anthropic/claude-fable-5";
-          variant = "max";
         };
         prometheus = {
           model = "anthropic/claude-fable-5";
-          variant = "max";
         };
         metis = {
           model = "anthropic/claude-fable-5";
-          variant = "max";
         };
         hephaestus = {
           model = "openai/gpt-5.6-sol";

@@ -53,6 +53,10 @@ mkUserModule {
           cursor_blink = true;
         };
         settings = {
+          # Disable worktree snapshot/diff tracking: on large monorepos it
+          # re-reads every file + the full git index in a loop, pinning CPU
+          # (anomalyco/opencode#30086). Costs the file-revert/undo feature.
+          snapshot = false;
           plugin = [ "@rama_nigg/open-cursor@2.4.5" ];
           provider = {
             cursor-acp = {
