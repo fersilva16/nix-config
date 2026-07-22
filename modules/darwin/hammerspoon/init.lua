@@ -161,17 +161,6 @@ for char, _ in pairs(bindingDefs) do
   if code then keyCodeNames[code] = char end
 end
 
--- Hyper + T → Open a new Ghostty window
--- Uses hs.task (async) to avoid blocking the main thread.
-local tCode = hs.keycodes.map["t"]
-if tCode then
-  keyCodeNames[tCode] = "t"
-  hyperActionsByKeyCode[tCode] = function()
-    hs.task.new("/usr/bin/open", nil, { "-na", "Ghostty" }):start()
-    warpToApp("com.mitchellh.ghostty")
-  end
-end
-
 -- Warp the cursor to a point, but only when its screen differs from the one
 -- the cursor is already on — never yank the mouse within the same monitor.
 local function warpTo(screen, point)
@@ -182,16 +171,32 @@ end
 
 -- Warp onto an app's focused window once it appears. Launching via `open` is
 -- async, so poll every 50ms (the window may not exist yet on a cold launch),
--- giving up after ~1s.
+-- giving up after ~1s. When `screen` is given, the window is moved there
+-- first so the app lands on a specific monitor regardless of where macOS
+-- placed it.
 -- ponytail: 1s poll budget; bump tries if a cold VSCode launch outruns it.
-local function warpToApp(bundleID, tries)
+local function warpToApp(bundleID, screen, tries)
   tries = tries or 0
   local app = hs.application.get(bundleID)
   local win = app and app:focusedWindow()
   if win then
+    if screen and win:screen() ~= screen then
+      win:moveToScreen(screen)
+    end
     warpTo(win:screen(), hs.geometry.rectMidPoint(win:frame()))
   elseif tries < 20 then
-    hs.timer.doAfter(0.05, function() warpToApp(bundleID, tries + 1) end)
+    hs.timer.doAfter(0.05, function() warpToApp(bundleID, screen, tries + 1) end)
+  end
+end
+
+-- Hyper + T → Open a new Ghostty window
+-- Uses hs.task (async) to avoid blocking the main thread.
+local tCode = hs.keycodes.map["t"]
+if tCode then
+  keyCodeNames[tCode] = "t"
+  hyperActionsByKeyCode[tCode] = function()
+    hs.task.new("/usr/bin/open", nil, { "-na", "Ghostty" }):start()
+    warpToApp("com.mitchellh.ghostty")
   end
 end
 
@@ -209,18 +214,23 @@ end
 --   command produces empty output and the existing fallback opens VSCode
 --   without a path.
 local function openVSCodeAtCurrentSession()
+  -- Capture Ghostty's screen now, before `open` shifts focus — VSCode's
+  -- window is moved there so it opens alongside the terminal it came from.
+  local ghostty = hs.application.get("com.mitchellh.ghostty")
+  local ghosttyWin = ghostty and ghostty:focusedWindow()
+  local targetScreen = ghosttyWin and ghosttyWin:screen() or nil
   hs.task.new("/bin/sh", function(_code, stdout)
     local dir = stdout and stdout:gsub("%s+$", "") or ""
     if dir == "" then
       hs.task.new("/usr/bin/open", nil, { "-a", "Visual Studio Code" }):start()
-      warpToApp("com.microsoft.VSCode")
+      warpToApp("com.microsoft.VSCode", targetScreen)
       return
     end
     hs.task.new("/bin/sh", function(_code2, stdout2)
       local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
       local target = gitRoot ~= "" and gitRoot or dir
       hs.task.new("/usr/bin/open", nil, { "-a", "Visual Studio Code", target }):start()
-      warpToApp("com.microsoft.VSCode")
+      warpToApp("com.microsoft.VSCode", targetScreen)
     end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
   end, { "-l", "-c", "S=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2); [ -n \"$S\" ] && tmux display-message -p -t \"$S\" '#{pane_current_path}' 2>/dev/null" }):start()
 end
