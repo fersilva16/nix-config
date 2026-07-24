@@ -19,13 +19,16 @@ in
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/dist/oh-my-opencode.schema.json";
       agents = {
         sisyphus = {
-          model = "anthropic/claude-fable-5";
+          model = "anthropic/claude-opus-5";
+          variant = "max";
         };
         prometheus = {
-          model = "anthropic/claude-fable-5";
+          model = "anthropic/claude-opus-5";
+          variant = "max";
         };
         metis = {
-          model = "anthropic/claude-fable-5";
+          model = "anthropic/claude-opus-5";
+          variant = "max";
         };
         hephaestus = {
           model = "openai/gpt-5.6-sol";
