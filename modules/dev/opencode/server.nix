@@ -16,6 +16,9 @@ let
   # plugins running inside the server can find direnv, nix, and friends.
   serverLauncher = pkgs.writeShellScript "opencode-server-launcher" ''
     export PATH="$HOME/.nix-profile/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    # Native FFF indexer pegs CPU via libgit2 on large monorepos
+    # (anomalyco/opencode#30086); ripgrep fallback is fine.
+    export OPENCODE_DISABLE_FFF=1
     exec ${opencode-unwrapped}/bin/opencode serve --port ${toString serverPort}
   '';
 
@@ -24,6 +27,9 @@ let
   mkWrapper =
     autoAttach:
     pkgs.writeShellScriptBin "opencode" ''
+      # Native FFF indexer pegs CPU via libgit2 on large monorepos
+      # (anomalyco/opencode#30086); ripgrep fallback is fine.
+      export OPENCODE_DISABLE_FFF=1
       REAL="${opencode-unwrapped}/bin/opencode"
       URL="${serverUrl}"
       AUTO_ATTACH=${if autoAttach then "1" else "0"}
