@@ -27,9 +27,9 @@ let
   #   @wt-ci     CI/mergeability glyph (pre-colored): ✓ pass · ✗ fail ·
   #              • pending · ⚠ merge conflict (overrides CI). Empty for merged
   #              and ready-to-merge PRs (green is implied).
-  # PR/CI come from two bounded `gh pr list` calls per repo (not per worktree),
-  # newest PR per branch wins, cached to a tmpfile with a 60s TTL so spamming
-  # the picker can't hammer the GitHub API. tmux-wt-pick reads every option
+  # PR/CI come from two bounded `gh pr list` calls per repo (not per worktree)
+  # scoped to your own PRs, newest PR per branch wins, cached to a tmpfile with
+  # a 60s TTL so spamming the picker can't hammer the GitHub API. tmux-wt-pick reads every option
   # verbatim, so wiring a future stack source back into @wt-sort needs no
   # picker changes.
   #
@@ -104,37 +104,48 @@ let
         # the mixed CheckRun/StatusContext rollup — fail wins, then pending.
         if (( age > 60 )); then
           # Two bounded queries: open PRs carry the CI rollup + review/mergeable
-          # (open count is small, so affordable) and derive a "ready" flag;
-          # merged PRs skip the rollup (cheap) and just flag landed branches. A
-          # single --state all WITH rollup fails on big repos ("unexpected end
-          # of JSON input"), hence the split. Open emitted before merged so
-          # open wins per branch below.
+          # and derive a "ready" flag; merged PRs skip the rollup (cheap) and
+          # just flag landed branches. A single --state all WITH rollup fails on
+          # big repos ("unexpected end of JSON input"), hence the split. Open
+          # emitted before merged so open wins per branch below.
+          #
+          # --author @me is load-bearing, not taste: statusCheckRollup is what
+          # makes the open query expensive, and past ~100 PRs in one page the
+          # GraphQL API gives up with HTTP 504 (measured on a 224-open-PR
+          # monorepo: limit 50 fine, 100+ dead). Scoping to your own PRs keeps
+          # the page small no matter how busy the repo gets — and the picker
+          # only needs branches you have a worktree on, which are yours.
+          # ponytail: someone else's PR on a branch you checked out gets no
+          # glyph; --search over the session branch names if that ever bites.
           # ponytail: merged is capped at the 200 most recent — a branch merged
           # further back shows no glyph; bump the limit if that bites.
           # SC2016: $c/$ci/$. are jq syntax, not shell.
           # shellcheck disable=SC2016
-          {
-            ( cd "$path" && gh pr list --state open --limit 300 \
-                --json number,headRefName,isDraft,statusCheckRollup,reviewDecision,mergeable \
-                --jq 'sort_by(.number) | reverse | .[] |
-                  ( [.statusCheckRollup[]?] as $c |
-                    if ($c|length)==0 then "none"
-                    elif ([$c[] | (.conclusion // .state // "")] | any(IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","FAILED","STARTUP_FAILURE"))) then "fail"
-                    elif ([$c[] | (.status // "")] | any(IN("IN_PROGRESS","QUEUED","PENDING","WAITING","REQUESTED"))) or ([$c[] | (.state // "")] | any(IN("PENDING","EXPECTED"))) then "pending"
-                    else "pass" end ) as $ci
-                  | [ .headRefName, (.isDraft|tostring), (.number|tostring), "OPEN", $ci,
-                      ( if .mergeable=="CONFLICTING" then "conflict"
-                        elif (.isDraft|not) and (.reviewDecision=="APPROVED") and ($ci=="pass") then "ready"
-                        else "no" end ) ]
-                  | @tsv' )
-            ( cd "$path" && gh pr list --state merged --limit 200 \
-                --json number,headRefName \
-                --jq 'sort_by(.number) | reverse | .[] | [ .headRefName, "false", (.number|tostring), "MERGED", "none", "no" ] | @tsv' )
-          } >"$cache.tmp" 2>/dev/null || true
-          # Keep whatever the queries produced (partial > none); on total
-          # failure the previous cache survives.
-          # shellcheck disable=SC2015
-          [[ -s "$cache.tmp" ]] && mv "$cache.tmp" "$cache" || rm -f "$cache.tmp"
+          if open=$( cd "$path" && gh pr list --state open --limit 300 --author @me \
+              --json number,headRefName,isDraft,statusCheckRollup,reviewDecision,mergeable \
+              --jq 'sort_by(.number) | reverse | .[] |
+                ( [.statusCheckRollup[]?] as $c |
+                  if ($c|length)==0 then "none"
+                  elif ([$c[] | (.conclusion // .state // "")] | any(IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","FAILED","STARTUP_FAILURE"))) then "fail"
+                  elif ([$c[] | (.status // "")] | any(IN("IN_PROGRESS","QUEUED","PENDING","WAITING","REQUESTED"))) or ([$c[] | (.state // "")] | any(IN("PENDING","EXPECTED"))) then "pending"
+                  else "pass" end ) as $ci
+                | [ .headRefName, (.isDraft|tostring), (.number|tostring), "OPEN", $ci,
+                    ( if .mergeable=="CONFLICTING" then "conflict"
+                      elif (.isDraft|not) and (.reviewDecision=="APPROVED") and ($ci=="pass") then "ready"
+                      else "no" end ) ]
+                | @tsv' 2>/dev/null ); then
+            # Promote only when the OPEN query succeeded. A merged-only cache is
+            # worse than stale data: every open PR silently loses its glyph,
+            # which reads as "no PR" rather than "the lookup broke".
+            {
+              [[ -n "$open" ]] && printf '%s\n' "$open"
+              ( cd "$path" && gh pr list --state merged --limit 200 \
+                  --json number,headRefName \
+                  --jq 'sort_by(.number) | reverse | .[] | [ .headRefName, "false", (.number|tostring), "MERGED", "none", "no" ] | @tsv' )
+            } >"$cache.tmp" 2>/dev/null || true
+            # shellcheck disable=SC2015
+            [[ -s "$cache.tmp" ]] && mv "$cache.tmp" "$cache" || rm -f "$cache.tmp"
+          fi
         fi
         [[ -f "$cache" ]] || return 0
         local head draft num state ci flag
