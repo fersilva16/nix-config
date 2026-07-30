@@ -27,9 +27,9 @@ let
   #   @wt-ci     CI/mergeability glyph (pre-colored): ✓ pass · ✗ fail ·
   #              • pending · ⚠ merge conflict (overrides CI). Empty for merged
   #              and ready-to-merge PRs (green is implied).
-  # PR/CI come from two bounded `gh pr list` calls per repo (not per worktree)
-  # scoped to your own PRs, newest PR per branch wins, cached to a tmpfile with
-  # a 60s TTL so spamming the picker can't hammer the GitHub API. tmux-wt-pick reads every option
+  # PR/CI come from one bounded `gh pr list --head` call per session branch —
+  # newest open PR wins, else newest merged — each cached to its own tmpfile
+  # with a 60s TTL so spamming the picker can't hammer the GitHub API. tmux-wt-pick reads every option
   # verbatim, so wiring a future stack source back into @wt-sort needs no
   # picker changes.
   #
@@ -87,15 +87,31 @@ let
           | jq -r '.[] | "\(.session)\t\(.event)"' 2>/dev/null || true)
       fi
 
-      # ── PR + CI per repo (bounded gh calls, 60s TTL cache) ───────────────
-      declare -A REPO_SEEN
-      declare -A PRMAP # "$cdir$US$branch" → "isdraft|number|state|ci|flag"
-
-      load_repo() {
-        local path="$1" cdir="$2" cache now age
-        [[ -z "$cdir" || -n "''${REPO_SEEN[$cdir]:-}" ]] && return 0
-        REPO_SEEN["$cdir"]=1
-        cache="''${TMPDIR:-/tmp}/wt-pr-$(printf '%s' "$cdir" | cksum | cut -d' ' -f1).tsv"
+      # ── PR + CI per session branch (one bounded gh call, 60s TTL cache) ──
+      # Asks for exactly the branch in front of you, never the whole repo. Two
+      # earlier repo-wide designs both failed on a busy monorepo, and both
+      # failed the same way — silently, by returning fewer PRs than exist:
+      #   --state all + rollup → "unexpected end of JSON input"
+      #   --state open + rollup → HTTP 504 past ~100 PRs in a page (224 open)
+      #   --author @me         → routes through the SEARCH api (verified via
+      #     GH_DEBUG=api: query PullRequestSearch), which is eventually
+      #     consistent and answers 200-with-zero-rows while its index lags. An
+      #     empty success is indistinguishable from "no PR", so every glyph
+      #     silently vanished until the next refresh.
+      # --head instead hits the repo's pullRequests(headRefName:) connection
+      # directly: no search index, no 300-PR page, no rollup fan-out. It is
+      # deterministic, ~0.9s, and cannot degrade into a plausible-looking lie.
+      # It also fixes two ceilings of the old design for free — a PR opened by
+      # someone else on your branch now shows, and so does one merged further
+      # back than the old 200-PR merged window.
+      #
+      # ponytail: one gh call per session branch (~8 here) instead of two per
+      # repo. Sequential, but it runs detached via `run-shell -b` and is capped
+      # by the TTL below; parallelize with & + wait if the session count grows.
+      pr_row() {
+        local path="$1" cdir="$2" branch="$3" cache now age row
+        [[ -z "$cdir" || -z "$branch" ]] && return 0
+        cache="''${TMPDIR:-/tmp}/wt-pr-$(printf '%s%s%s' "$cdir" "$US" "$branch" | cksum | cut -d' ' -f1)"
         now=$(date +%s)
         age=999
         [[ -f "$cache" ]] && age=$(( now - $(stat -c %Y "$cache" 2>/dev/null || echo 0) ))
@@ -103,58 +119,36 @@ let
         # it if PR/CI ever feels stale. CI classification is a heuristic over
         # the mixed CheckRun/StatusContext rollup — fail wins, then pending.
         if (( age > 60 )); then
-          # Two bounded queries: open PRs carry the CI rollup + review/mergeable
-          # and derive a "ready" flag; merged PRs skip the rollup (cheap) and
-          # just flag landed branches. A single --state all WITH rollup fails on
-          # big repos ("unexpected end of JSON input"), hence the split. Open
-          # emitted before merged so open wins per branch below.
-          #
-          # --author @me is load-bearing, not taste: statusCheckRollup is what
-          # makes the open query expensive, and past ~100 PRs in one page the
-          # GraphQL API gives up with HTTP 504 (measured on a 224-open-PR
-          # monorepo: limit 50 fine, 100+ dead). Scoping to your own PRs keeps
-          # the page small no matter how busy the repo gets — and the picker
-          # only needs branches you have a worktree on, which are yours.
-          # ponytail: someone else's PR on a branch you checked out gets no
-          # glyph; --search over the session branch names if that ever bites.
-          # ponytail: merged is capped at the 200 most recent — a branch merged
-          # further back shows no glyph; bump the limit if that bites.
-          # SC2016: $c/$ci/$. are jq syntax, not shell.
+          # Newest open PR wins, else newest merged; closed-unmerged yields
+          # nothing (treated as no PR). Only overwrite the cache when gh
+          # actually succeeded — a failed lookup keeps the last known glyph
+          # rather than reading as "this branch has no PR".
+          # SC2016: $p/$o/$m/$x/$c/$ci are jq syntax, not shell.
           # shellcheck disable=SC2016
-          if open=$( cd "$path" && gh pr list --state open --limit 300 --author @me \
-              --json number,headRefName,isDraft,statusCheckRollup,reviewDecision,mergeable \
-              --jq 'sort_by(.number) | reverse | .[] |
-                ( [.statusCheckRollup[]?] as $c |
-                  if ($c|length)==0 then "none"
-                  elif ([$c[] | (.conclusion // .state // "")] | any(IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","FAILED","STARTUP_FAILURE"))) then "fail"
-                  elif ([$c[] | (.status // "")] | any(IN("IN_PROGRESS","QUEUED","PENDING","WAITING","REQUESTED"))) or ([$c[] | (.state // "")] | any(IN("PENDING","EXPECTED"))) then "pending"
-                  else "pass" end ) as $ci
-                | [ .headRefName, (.isDraft|tostring), (.number|tostring), "OPEN", $ci,
-                    ( if .mergeable=="CONFLICTING" then "conflict"
-                      elif (.isDraft|not) and (.reviewDecision=="APPROVED") and ($ci=="pass") then "ready"
-                      else "no" end ) ]
-                | @tsv' 2>/dev/null ); then
-            # Promote only when the OPEN query succeeded. A merged-only cache is
-            # worse than stale data: every open PR silently loses its glyph,
-            # which reads as "no PR" rather than "the lookup broke".
-            {
-              [[ -n "$open" ]] && printf '%s\n' "$open"
-              ( cd "$path" && gh pr list --state merged --limit 200 \
-                  --json number,headRefName \
-                  --jq 'sort_by(.number) | reverse | .[] | [ .headRefName, "false", (.number|tostring), "MERGED", "none", "no" ] | @tsv' )
-            } >"$cache.tmp" 2>/dev/null || true
-            # shellcheck disable=SC2015
-            [[ -s "$cache.tmp" ]] && mv "$cache.tmp" "$cache" || rm -f "$cache.tmp"
+          if row=$( cd "$path" && gh pr list --head "$branch" --state all --limit 10 \
+              --json number,state,isDraft,statusCheckRollup,reviewDecision,mergeable \
+              --jq '[ .[] | select(.state=="OPEN" or .state=="MERGED") ] as $p
+                | ( [ $p[] | select(.state=="OPEN")   ] | sort_by(.number) | last ) as $o
+                | ( [ $p[] | select(.state=="MERGED") ] | sort_by(.number) | last ) as $m
+                | ( $o // $m ) as $x
+                | if $x == null then empty else
+                    ( [ $x.statusCheckRollup[]? ] as $c |
+                      if ($c|length)==0 then "none"
+                      elif ([$c[] | (.conclusion // .state // "")] | any(IN("FAILURE","ERROR","CANCELLED","TIMED_OUT","FAILED","STARTUP_FAILURE"))) then "fail"
+                      elif ([$c[] | (.status // "")] | any(IN("IN_PROGRESS","QUEUED","PENDING","WAITING","REQUESTED"))) or ([$c[] | (.state // "")] | any(IN("PENDING","EXPECTED"))) then "pending"
+                      else "pass" end ) as $ci
+                    | [ ($x.isDraft|tostring), ($x.number|tostring), $x.state,
+                        (if $x.state=="MERGED" then "none" else $ci end),
+                        (if $x.state=="MERGED" then "no"
+                         elif $x.mergeable=="CONFLICTING" then "conflict"
+                         elif ($x.isDraft|not) and ($x.reviewDecision=="APPROVED") and ($ci=="pass") then "ready"
+                         else "no" end) ]
+                    | join("|")
+                  end' 2>/dev/null ); then
+            printf '%s\n' "$row" >"$cache" 2>/dev/null || true
           fi
         fi
-        [[ -f "$cache" ]] || return 0
-        local head draft num state ci flag
-        while IFS="$TAB" read -r head draft num state ci flag; do
-          # Newest PR per branch wins (rows are number-desc); skip older ones.
-          [[ -n "$head" && -z "''${PRMAP[$cdir$US$head]:-}" ]] && PRMAP["$cdir$US$head"]="$draft|$num|$state|$ci|$flag"
-        done < "$cache"
-        # The loop's last guard may be false (already-seen branch) → non-zero;
-        # load_repo is called bare, so set -e would abort. Return 0 explicitly.
+        cat "$cache" 2>/dev/null || true
         return 0
       }
 
@@ -177,8 +171,7 @@ let
               [[ "$branch" != "$default" ]] && label="$branch"
             fi
             if [[ -n "$cdir" ]]; then
-              load_repo "$path" "$cdir"
-              data="''${PRMAP[$cdir$US$branch]:-}"
+              data=$(pr_row "$path" "$cdir" "$branch")
               if [[ -n "$data" ]]; then
                 IFS='|' read -r draft num state ci flag <<<"$data"
                 case "$state" in
