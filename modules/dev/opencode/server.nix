@@ -70,17 +70,19 @@ let
       # opencode session.
       #
       # State is stored as tmux pane user options (@oc-sid, @oc-dir) —
-      # auto-cleaned when panes die, survives detach. Plugins run
-      # server-side without TMUX_PANE, so the wrapper (which runs
-      # client-side in the tmux pane) owns the mapping.
+      # auto-cleaned when panes die, survives detach. In attach mode the
+      # plugin runs inside the shared server, so it has no TMUX_PANE and
+      # this wrapper (which runs client-side in the pane) owns the
+      # mapping.
       #
-      # Live session tracking after launch is handled out-of-band by the
-      # `pane-title-changed` tmux hook in `opencode-manager`, which runs
-      # `tmux-oc-sync-sid` to re-resolve `@oc-sid` from the DB whenever
-      # the TUI updates the pane title to `OC | <session.title>`. This
-      # avoids holding a per-pane SSE subscriber against the server
-      # (which previously overflowed opencode's EventEmitter listener
-      # cap and wedged the HTTP layer).
+      # ponytail: attach mode gets only this pre-launch snapshot; there
+      # is no live re-resolution after launch. With autoAttach=false
+      # (the setting in use) each pane runs its own instance, so the
+      # tmux-notifier plugin inherits TMUX_PANE and binds @oc-sid from
+      # session events authoritatively — including forks, which the old
+      # pane-title matching resolved ambiguously. If attach mode is
+      # revived, hand the plugin the pane id explicitly (env var or
+      # request header) rather than reviving title matching.
       #
       # Usage: attach_to_server <DIR> [opencode args...]
       attach_to_server() {
@@ -105,8 +107,9 @@ let
           # ── Pre-launch session resolution ──
           # Best-effort: set @oc-sid + @oc-status=active when we can
           # resolve a session before exec. For fork or first-launch-in-dir
-          # we leave both unset and let the pane-title hook resolve
-          # post-launch once the TUI sets the title.
+          # the id does not exist yet, so both stay unset and the
+          # tmux-notifier plugin binds them from the session.created
+          # event once the new session exists.
           if [[ -n "$_oc_sid" && "$_oc_fork" -eq 0 ]]; then
             # Explicit --session, no fork: known immediately
             tmux set-option -p -t "$_PANE" @oc-sid "$_oc_sid"

@@ -202,9 +202,9 @@ notify::add() {
       fi
     fi
 
-    # Fallback: resolve pane via @oc-sid (attach-mode where the plugin
-    # runs server-side without TMUX_PANE; wrapper sets @oc-sid on
-    # attach, oc-sync-sid.sh keeps it in sync).
+    # Fallback: resolve pane via @oc-sid — set by the tmux-notifier
+    # plugin from session events (per-pane instances), or by the
+    # wrapper's pre-launch resolution in attach mode.
     # Never fall back to bare `tmux display-message -p '#S'` — that
     # queries whichever client is currently attached, the root bug
     # this plugin fixes.

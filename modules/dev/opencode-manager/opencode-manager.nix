@@ -173,17 +173,6 @@ let
     '';
   };
 
-  tmux-oc-sync-sid = pkgs.writeShellApplication {
-    name = "tmux-oc-sync-sid";
-    runtimeInputs = [
-      pkgs.gnugrep
-      pkgs.gnused
-      pkgs.sqlite
-      pkgs.tmux
-    ];
-    text = builtins.readFile ./scripts/oc-sync-sid.sh;
-  };
-
   tmux-agent-prompt = pkgs.writeShellApplication {
     name = "tmux-agent-prompt";
     bashOptions = [ ];
@@ -269,7 +258,6 @@ mkUserModule {
       set-hook -g after-kill-pane 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-pane \"#{hook_arguments}\"; ${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       set-hook -g window-unlinked 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       set-hook -g session-closed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-session #{session_name}"'
-      set-hook -g pane-title-changed 'run-shell -b "${tmux-oc-sync-sid}/bin/tmux-oc-sync-sid #{pane_id}"'
       set-hook -g after-split-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       set-hook -g after-new-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-agent-prompt}/bin/tmux-agent-prompt '#{pane_current_path}'"
