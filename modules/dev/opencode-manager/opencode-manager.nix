@@ -108,8 +108,14 @@ let
       PANE_ID="''${1:?usage: tmux-opencode-session <pane_id> [pane_path]}"
       PANE_PATH="''${2:-}"
 
-      # Primary: tmux pane option (set by the wrapper SSE sidecar)
-      STATUS=$(tmux show-options -pv -t "$PANE_ID" @oc-status 2>/dev/null || true)
+      # Primary: tmux pane option (set by the wrapper SSE sidecar). These
+      # options persist after opencode exits, so they are only trustworthy
+      # while the pane is still running it; otherwise fall through to the DB.
+      CMD=$(tmux display-message -p -t "$PANE_ID" '#{pane_current_command}' 2>/dev/null || true)
+      STATUS=""
+      case "$CMD" in
+        *opencode*) STATUS=$(tmux show-options -pv -t "$PANE_ID" @oc-status 2>/dev/null || true) ;;
+      esac
       case "$STATUS" in
         active)
           SID=$(tmux show-options -pv -t "$PANE_ID" @oc-sid 2>/dev/null || true)

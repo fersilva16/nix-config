@@ -166,10 +166,13 @@ _resolve_target_by_sid() {
   local sid="$1"
   [[ -z "$sid" ]] && return 1
 
+  # Pane options outlive the opencode process, so a pane that has since
+  # returned to a shell still advertises its old @oc-sid. Match only panes
+  # actually running opencode, or notifications route to a dead pane.
   tmux list-panes -a \
-    -F '#{@oc-sid} #{session_name}:#{window_index} #{pane_id} #{window_active} #{session_attached}' \
+    -F '#{@oc-sid}	#{session_name}:#{window_index}	#{pane_id}	#{window_active}	#{session_attached}	#{pane_current_command}' \
     2>/dev/null |
-    awk -v sid="$sid" '$1 == sid { print $2, $3, $4, $5; exit }'
+    awk -F'\t' -v sid="$sid" '$1 == sid && $6 ~ /opencode/ { print $2, $3, $4, $5; exit }'
 }
 
 # @cmd Add a notification
@@ -343,7 +346,10 @@ notify::dismiss_orphans() {
   _lock
 
   local live_sids
-  live_sids="$(tmux list-panes -a -F '#{@oc-sid}' 2>/dev/null | awk 'NF>0' | sort -u | paste -sd, -)"
+  # Only sids claimed by a pane still running opencode count as live; a stale
+  # option on an exited pane would otherwise pin its notifications forever.
+  live_sids="$(tmux list-panes -a -F '#{@oc-sid}	#{pane_current_command}' 2>/dev/null |
+    awk -F'\t' '$1 != "" && $2 ~ /opencode/ { print $1 }' | sort -u | paste -sd, -)"
 
   local before after
   before=$(jq 'length' "$NOTIFY_FILE")
