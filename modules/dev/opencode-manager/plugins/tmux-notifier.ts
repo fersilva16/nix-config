@@ -65,6 +65,8 @@ function resolveSoundPath(event: EventKind): string {
 
 type EventKind = "complete" | "permission" | "error" | "question"
 
+type PaneStatus = "busy" | "idle" | "retry"
+
 type ToolState = {
   status?: string
   input?: Record<string, unknown>
@@ -269,6 +271,12 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
 
   let currentSessionID: string | null = null
 
+  // A parent that ends its turn to wait on background subagents reports idle
+  // while its children keep working, so the pane's status is the union: own
+  // status unless it is idle with a child still running.
+  let ownStatus: PaneStatus = "idle"
+  const busyChildren = new Set<string>()
+
   function noteParentage(sessionID: string | null, info: unknown) {
     if (!sessionID) return
     const parentID = (info as { parentID?: unknown } | undefined)?.parentID
@@ -279,20 +287,28 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
     if (!TMUX_PANE || childSessions.has(sessionID) || sessionID === currentSessionID) return
     currentSessionID = sessionID
     setPaneOption("@oc-sid", sessionID)
+    ownStatus = "idle"
+    busyChildren.clear()
     setPaneOptionOrdered("@oc-status", "idle")
     if (directory) setPaneOption("@oc-dir", directory)
   }
 
   // opencode is the only authority on whether a session is working, so
-  // publish its status verbatim. Guarded to the pane's own session:
-  // subagents share this event stream and would otherwise flip the pane
-  // to busy/idle on their own schedule.
+  // publish its status verbatim -- but a pane is busy while any of its
+  // subagents is, not just while its own session is. Sessions that are
+  // neither this pane's nor a known child of it are ignored.
   function publishStatus(sessionID: string | null, status: unknown) {
-    if (!sessionID || sessionID !== currentSessionID) return
+    if (!sessionID) return
     const type = (status as { type?: unknown } | undefined)?.type
-    if (type === "busy" || type === "idle" || type === "retry") {
-      setPaneOptionOrdered("@oc-status", type)
-    }
+    if (type !== "busy" && type !== "idle" && type !== "retry") return
+
+    if (sessionID === currentSessionID) ownStatus = type
+    else if (!childSessions.has(sessionID)) return
+    else if (type === "idle") busyChildren.delete(sessionID)
+    else busyChildren.add(sessionID)
+
+    const effective = ownStatus === "idle" && busyChildren.size > 0 ? "busy" : ownStatus
+    setPaneOptionOrdered("@oc-status", effective)
   }
 
   function clearPending(sessionID: string) {
@@ -376,6 +392,9 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
 
       if (event.type === "session.error") {
         if (sessionID) clearPending(sessionID)
+        // A cancelled or crashed child never sends idle, and would otherwise
+        // hold the pane busy for the rest of this process's life.
+        if (sessionID && sessionID !== currentSessionID) publishStatus(sessionID, { type: "idle" })
         await emitError(sessionID, props.error?.name === "MessageAbortedError")
         return
       }

@@ -82,11 +82,13 @@ let
       # retry here if that ever gets annoying.
       if [ -z "$session" ]; then exit 0; fi
 
+      # Already on the nvim window: `focus` arg → stay put (Hyper+C),
+      # otherwise toggle back to the previous window (Hyper+Space).
       active=$(tmux display-message -p -t "$session" '#{@nvim_window}' 2>/dev/null || true)
       if [ "$active" = "1" ]; then
         if [ "$(tmux display-message -p -t "$session" '#{pane_dead}' 2>/dev/null || true)" = "1" ]; then
           tmux respawn-window -k -t "$session" nvim
-        else
+        elif [ "''${1:-}" != "focus" ]; then
           tmux last-window -t "$session" 2>/dev/null || true
         fi
         exit 0

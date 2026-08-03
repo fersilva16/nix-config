@@ -200,16 +200,15 @@ if tCode then
   end
 end
 
--- Hyper + C → Focus (or create) the persistent nvim window pinned at
--- index 1 of the current tmux session. A second press toggles back to the
--- previously active window (via tmux last-window). All session/window
--- resolution lives in the tmux-nvim-window shell script; here we just
--- surface Ghostty and fire the script async so a slow tmux/git can't stall
--- the eventtap.
+-- Hyper + C → Go to nvim, never away from it: surface Ghostty, then focus
+-- (or create) the persistent nvim window of the current tmux session. Both
+-- halves are no-ops when already there, so repeat presses do nothing. All
+-- session/window resolution lives in the tmux-nvim-window shell script; it
+-- runs async so a slow tmux/git can't stall the eventtap.
 local function focusNvimWindow()
   hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
   warpToApp("com.mitchellh.ghostty")
-  hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window" }):start()
+  hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window focus" }):start()
 end
 
 local cCode = hs.keycodes.map["c"]
@@ -231,11 +230,21 @@ local function toggleApp(bundleID, appName)
   end
 end
 
--- Hyper + Space → Same nvim-anchored toggle as Hyper+C
+-- Hyper + Space → Reach the terminal, then toggle inside it: from another
+-- app it only surfaces Ghostty, and from Ghostty it flips between the nvim
+-- window and the last one (tmux-nvim-window without `focus`).
 local spaceCode = hs.keycodes.map["space"]
 if spaceCode then
   keyCodeNames[spaceCode] = "space"
-  hyperActionsByKeyCode[spaceCode] = focusNvimWindow
+  hyperActionsByKeyCode[spaceCode] = function()
+    local front = hs.application.frontmostApplication()
+    if front and front:bundleID() == "com.mitchellh.ghostty" then
+      hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window" }):start()
+    else
+      hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
+      warpToApp("com.mitchellh.ghostty")
+    end
+  end
 end
 
 -- Hyper + I → Toggle Linear (mnemonic: Issues)
