@@ -241,10 +241,22 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
   const projectName = directory ? basename(directory) : null
   const pendingIdle = new Map<string, ReturnType<typeof setTimeout>>()
 
+  // Subagents share this pane's event stream and would steal @oc-sid. Only
+  // session.created carries info.parentID; idle/status carry just a sessionID.
+  // ponytail: a subagent resumed by another process sends no session.created,
+  // so it can rebind once — use getSessionInfo().isChild if that ever bites.
+  const childSessions = new Set<string>()
+
   let currentSessionID: string | null = null
 
+  function noteParentage(sessionID: string | null, info: unknown) {
+    if (!sessionID) return
+    const parentID = (info as { parentID?: unknown } | undefined)?.parentID
+    if (typeof parentID === "string" && parentID.length > 0) childSessions.add(sessionID)
+  }
+
   function bindSessionToPane(sessionID: string) {
-    if (!TMUX_PANE || sessionID === currentSessionID) return
+    if (!TMUX_PANE || childSessions.has(sessionID) || sessionID === currentSessionID) return
     currentSessionID = sessionID
     setPaneOption("@oc-sid", sessionID)
     setPaneOption("@oc-status", "active")
@@ -303,6 +315,8 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
           : typeof props.info?.id === "string"
             ? props.info.id
             : null
+
+      noteParentage(sessionID, props.info)
 
       if (event.type === "session.created" && sessionID) {
         bindSessionToPane(sessionID)
