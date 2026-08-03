@@ -147,6 +147,21 @@ function setPaneOption(option: string, value: string) {
   runDetached("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value])
 }
 
+// @oc-status is written from two places in the same handler, and detached
+// writes carry no ordering guarantee -- an 'idle' default landing after a
+// 'busy' would park the pane on the wrong state until the next transition.
+function setPaneOptionOrdered(option: string, value: string) {
+  if (!TMUX_PANE) return
+  try {
+    spawnSync("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value], {
+      stdio: "ignore",
+      timeout: 300,
+    })
+  } catch {
+    // Notifier side-effects must never break the opencode session.
+  }
+}
+
 function isPaneFocusedInAttachedClient(): boolean {
   if (!TMUX_PANE) return false
   try {
@@ -241,6 +256,11 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
   const projectName = directory ? basename(directory) : null
   const pendingIdle = new Map<string, ReturnType<typeof setTimeout>>()
 
+  // Pane options outlive the process that wrote them, and a resumed session
+  // emits no status event until it does something -- without this reset the
+  // pane keeps a status from a previous process forever.
+  setPaneOptionOrdered("@oc-status", "idle")
+
   // Subagents share this pane's event stream and would steal @oc-sid. Only
   // session.created carries info.parentID; idle/status carry just a sessionID.
   // ponytail: a subagent resumed by another process sends no session.created,
@@ -259,8 +279,20 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
     if (!TMUX_PANE || childSessions.has(sessionID) || sessionID === currentSessionID) return
     currentSessionID = sessionID
     setPaneOption("@oc-sid", sessionID)
-    setPaneOption("@oc-status", "active")
+    setPaneOptionOrdered("@oc-status", "idle")
     if (directory) setPaneOption("@oc-dir", directory)
+  }
+
+  // opencode is the only authority on whether a session is working, so
+  // publish its status verbatim. Guarded to the pane's own session:
+  // subagents share this event stream and would otherwise flip the pane
+  // to busy/idle on their own schedule.
+  function publishStatus(sessionID: string | null, status: unknown) {
+    if (!sessionID || sessionID !== currentSessionID) return
+    const type = (status as { type?: unknown } | undefined)?.type
+    if (type === "busy" || type === "idle" || type === "retry") {
+      setPaneOptionOrdered("@oc-status", type)
+    }
   }
 
   function clearPending(sessionID: string) {
@@ -325,12 +357,14 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
 
       if (event.type === "session.status") {
         if (sessionID) bindSessionToPane(sessionID)
+        publishStatus(sessionID, props.status)
         if (props.status?.type === "busy" && sessionID) clearPending(sessionID)
         return
       }
 
       if (event.type === "session.idle" && sessionID) {
         bindSessionToPane(sessionID)
+        publishStatus(sessionID, { type: "idle" })
         clearPending(sessionID)
         const timer = setTimeout(() => {
           pendingIdle.delete(sessionID)

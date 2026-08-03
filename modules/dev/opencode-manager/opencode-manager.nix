@@ -112,20 +112,13 @@ let
       # options persist after opencode exits, so they are only trustworthy
       # while the pane is still running it; otherwise fall through to the DB.
       CMD=$(tmux display-message -p -t "$PANE_ID" '#{pane_current_command}' 2>/dev/null || true)
-      STATUS=""
       case "$CMD" in
-        *opencode*) STATUS=$(tmux show-options -pv -t "$PANE_ID" @oc-status 2>/dev/null || true) ;;
-      esac
-      case "$STATUS" in
-        active)
+        *opencode*)
           SID=$(tmux show-options -pv -t "$PANE_ID" @oc-sid 2>/dev/null || true)
           if [[ -n "$SID" ]]; then
             echo "$SID"
             exit 0
           fi
-          ;;
-        pending)
-          exit 2
           ;;
       esac
 

@@ -113,7 +113,6 @@ let
           if [[ -n "$_oc_sid" && "$_oc_fork" -eq 0 ]]; then
             # Explicit --session, no fork: known immediately
             tmux set-option -p -t "$_PANE" @oc-sid "$_oc_sid"
-            tmux set-option -p -t "$_PANE" @oc-status active
           elif [[ "$_oc_fork" -eq 0 ]]; then
             # Default/continue: resolve from DB before launch
             _sid=$(sqlite3 "$_DB" \
@@ -121,7 +120,6 @@ let
                ORDER BY time_updated DESC LIMIT 1" 2>/dev/null || true)
             if [[ -n "$_sid" ]]; then
               tmux set-option -p -t "$_PANE" @oc-sid "$_sid"
-              tmux set-option -p -t "$_PANE" @oc-status active
             fi
           fi
         fi
@@ -239,6 +237,26 @@ let
             fi
             attach_to_server "$DIR" "$@"
           fi
+
+          # Pane options outlive the process that set them, and resuming a
+          # session emits no event the plugin can bind on. Claim the session we
+          # were told to resume, and clear a stale one when starting fresh or
+          # forking (both create a new id the plugin binds on session.created),
+          # so the pane never advertises a session this process is not running.
+          if [[ -n "''${TMUX_PANE:-}" ]] && command -v tmux &>/dev/null; then
+            _claim_sid="" _claim_fork=0 _claim_prev=""
+            for _claim_arg in "$@"; do
+              case "$_claim_prev" in --session | -s) _claim_sid="$_claim_arg" ;; esac
+              [[ "$_claim_arg" == "--fork" ]] && _claim_fork=1
+              _claim_prev="$_claim_arg"
+            done
+            if [[ -n "$_claim_sid" && "$_claim_fork" -eq 0 ]]; then
+              tmux set-option -p -t "$TMUX_PANE" @oc-sid "$_claim_sid" 2>/dev/null || true
+            else
+              tmux set-option -pu -t "$TMUX_PANE" @oc-sid 2>/dev/null || true
+            fi
+          fi
+
           exec "$REAL" "$@"
           ;;
       esac
