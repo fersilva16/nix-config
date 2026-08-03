@@ -11,6 +11,14 @@
           { "<leader>Gp", "<cmd>Neogit push<cr>", desc = "Push" },
           { "<leader>Gl", "<cmd>Neogit pull<cr>", desc = "Pull" },
           { "<leader>Gd", "<cmd>DiffviewOpen<cr>", desc = "Diff view (all changes)" },
+          { "<leader>GD", function()
+              local base = vim.fn.system("git rev-parse --abbrev-ref origin/HEAD 2>/dev/null"):gsub("%s+$", "")
+              if vim.v.shell_error ~= 0 or base == "" then
+                vim.fn.system("git rev-parse --verify origin/main 2>/dev/null")
+                base = vim.v.shell_error == 0 and "origin/main" or "origin/master"
+              end
+              vim.cmd("DiffviewOpen " .. base .. "...HEAD")
+            end, desc = "Review branch vs base" },
           { "<leader>Gf", "<cmd>DiffviewFileHistory %<cr>", desc = "File history" },
           { "<leader>GL", "<cmd>DiffviewFileHistory<cr>", desc = "Repo log" },
           { "<leader>Gq", "<cmd>DiffviewClose<cr>", desc = "Close diff view" },
