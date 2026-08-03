@@ -37,6 +37,41 @@ let
     '';
   };
 
+  tmux-disk-widget = pkgs.writeShellApplication {
+    name = "tmux-disk-widget";
+    bashOptions = [ ];
+    text = ''
+      # Flexoki light theme colors
+      BG="#f2f0e5"
+      FG="#100f0f"
+      YELLOW="#d0a215"
+      ORANGE="#da702c"
+      RED="#d14d41"
+
+      RESET="#[fg=''${FG},bg=''${BG},nobold,noitalics,nounderscore,nodim]"
+
+      # df -k is ~5ms; the APFS container reports slightly more free than this
+      # (purgeable space), so the widget errs on the pessimistic side.
+      free=$(df -k / 2>/dev/null | awk 'NR==2 { printf "%d", $4 / 1048576 }')
+      [[ -z "''${free}" ]] && exit 0
+
+      # Silent above 100G. A widget that is always visible is a widget you stop
+      # seeing, and the point of this one is to be noticed exactly once.
+      # 25G is where nix.settings.min-free starts collecting garbage mid-build.
+      if (( free >= 100 )); then
+        exit 0
+      elif (( free >= 50 )); then
+        color="''${YELLOW}"
+      elif (( free >= 25 )); then
+        color="''${ORANGE}"
+      else
+        color="''${RED}"
+      fi
+
+      echo "#[fg=''${color},bg=''${BG},bold]  ''${free}G''${RESET} "
+    '';
+  };
+
   # Composable status bar orchestrator.
   # Scans ~/.config/tmux/widgets/ (normal) or ~/.config/tmux/widgets-remote/ (remote)
   # and runs every executable in filename order. Each part registers its own widgets.
@@ -72,6 +107,7 @@ in
     home.packages = [
       tmux-status-right
       tmux-cpu-widget
+      tmux-disk-widget
     ];
 
     # Register widgets for normal mode (ordered by filename prefix)
@@ -80,6 +116,14 @@ in
       text = ''
         #!/usr/bin/env bash
         exec ${tmux-cpu-widget}/bin/tmux-cpu-widget "$@"
+      '';
+    };
+
+    xdg.configFile."tmux/widgets/55-disk" = {
+      executable = true;
+      text = ''
+        #!/usr/bin/env bash
+        exec ${tmux-disk-widget}/bin/tmux-disk-widget "$@"
       '';
     };
 
