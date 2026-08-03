@@ -121,7 +121,12 @@ in
         vim.lsp.config('rust_analyzer', {
           settings = {
             ['rust-analyzer'] = {
-              checkOnSave = { command = 'clippy' },
+              -- ponytail: check-on-save shells out to cargo; without a toolchain
+              -- rust-analyzer errors on every save. Gate it on clippy existing.
+              -- (`checkOnSave` is a bool in current rust-analyzer; the command
+              -- moved to `check.command`.)
+              checkOnSave = vim.fn.executable('cargo-clippy') == 1,
+              check = { command = 'clippy' },
               cargo = { allFeatures = true },
             },
           },

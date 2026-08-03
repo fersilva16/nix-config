@@ -9,6 +9,7 @@ A nix-darwin flake configuration for a single macOS Apple Silicon host (`vega`),
 - **Rebuild:** `sudo darwin-rebuild switch --flake .#vega`
 - **Format:** `nixfmt <file.nix>` (RFC style, enforced by pre-commit)
 - **Lint:** `statix check .` — **run after every edit to .nix files, before rebuild**
+- **Check:** `nix flake check` — **run after every edit to embedded Lua, before rebuild.** Byte-compiles the generated nvim `init.lua`. Nix treats embedded Lua as opaque text, so `statix`/`nixfmt` cannot see a Lua syntax error and a rebuild will happily install a broken nvim config.
 - **Shell lint:** `shellcheck <file.sh>`
 - **Enter dev shell:** `nix develop` (auto-activates via direnv)
 

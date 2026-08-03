@@ -117,8 +117,9 @@
     let
       mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs; };
       mkNixOSHost = import ./lib/mkNixOSHost.nix { inherit inputs; };
-    in
-    {
+
+      inherit (nixpkgs) lib;
+
       darwinConfigurations = {
         vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
       };
@@ -126,14 +127,46 @@
       nixosConfigurations = {
         polaris = import ./modules/hosts/polaris.nix { inherit mkNixOSHost; };
       };
+    in
+    {
+      inherit darwinConfigurations nixosConfigurations;
     }
     // utils.lib.eachDefaultSystem (
       system:
       let
         pkgs = import nixpkgs { inherit system; };
+
+        # The neovim config is Lua embedded in Nix strings, which Nix treats as
+        # opaque text — a syntax error there survives a rebuild and only shows
+        # up when nvim next starts. Byte-compile the generated init.lua so
+        # `nix flake check` catches it first. LuaJIT, not lua5_1, because that
+        # is what nvim actually runs (it accepts `goto`, 5.1 does not).
+        #
+        # ponytail: syntax only. A missing API key or absent binary still needs
+        # a guard in the module itself — this check cannot see runtime paths.
+        nvimInitCheck =
+          hostName: hostCfg:
+          pkgs.runCommand "nvim-init-lua-${hostName}" { } ''
+            ${pkgs.luajit}/bin/luajit -b ${
+              hostCfg.config.home-manager.users.fernando.xdg.configFile."nvim/init.lua".source
+            } /dev/null && touch $out
+          '';
       in
       {
-        packages = pkgs;
+        # legacyPackages, not packages: this is the whole nixpkgs set, and
+        # `nix flake check` requires every `packages.<system>.<name>` to be a
+        # derivation (`pkgs.system` is a string, so it failed the check).
+        # legacyPackages is the output nixpkgs itself uses for exactly this,
+        # and `nix build .#<anypkg>` still resolves through it.
+        legacyPackages = pkgs;
+
+        checks =
+          lib.optionalAttrs (system == "aarch64-darwin") {
+            nvim-init-vega = nvimInitCheck "vega" darwinConfigurations.vega;
+          }
+          // lib.optionalAttrs (system == "x86_64-linux") {
+            nvim-init-polaris = nvimInitCheck "polaris" nixosConfigurations.polaris;
+          };
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
