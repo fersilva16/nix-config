@@ -12,11 +12,18 @@
       plugins = with pkgs; [
         # ── AI autocomplete (minuet-ai, Codestral FIM) ─────
         # Requires CODESTRAL_API_KEY in the environment (free tier at
-        # https://console.mistral.ai/codestral). Without it, completions
-        # are simply silent.
+        # https://console.mistral.ai/codestral).
+        #
+        # The guard below is load-bearing: minuet does NOT validate the key.
+        # codestral.lua calls straight into openai_base.lua, which does
+        # `'Bearer ' .. utils.get_api_key(...)`. With no key that is a
+        # concat-on-nil, thrown from a vim.schedule callback on every
+        # completion trigger — i.e. constantly, while typing.
+        # Skipping setup() entirely means no autocmds, so nothing can fire.
         {
           plugin = vimPlugins.minuet-ai-nvim;
           config = ''
+            if vim.env.CODESTRAL_API_KEY and vim.env.CODESTRAL_API_KEY ~= "" then
             require('minuet').setup({
               provider = 'codestral',
               provider_options = {
@@ -42,6 +49,7 @@
                 },
               },
             })
+            end
           '';
         }
 
