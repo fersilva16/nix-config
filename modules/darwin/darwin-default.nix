@@ -22,6 +22,9 @@ mkSystemModule {
       finder = {
         AppleShowAllExtensions = true;
         AppleShowAllFiles = true;
+
+        # Trash is stuff already decided against — don't let it accumulate.
+        FXRemoveOldTrashItems = true;
       };
 
       menuExtraClock = {
