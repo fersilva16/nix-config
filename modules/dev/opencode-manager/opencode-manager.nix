@@ -33,19 +33,13 @@ let
   tmux-opencode-manager = pkgs.writeShellApplication {
     name = "tmux-opencode-manager";
     bashOptions = [ ];
-    excludeShellChecks = [
-      "SC2154"
-      "SC2329"
-    ];
     runtimeInputs = [
       pkgs.argc
-      pkgs.fswatch
+      pkgs.fzf
       pkgs.jq
-      pkgs.sqlite
       pkgs.tmux
       pkgs.coreutils
       pkgs.gawk
-      pkgs.ncurses
     ];
     text = builtins.readFile ./scripts/opencode-manager.sh;
   };
@@ -250,15 +244,12 @@ mkUserModule {
     home.sessionVariables.OPENCODE_TMUX_NOTIFIER_SOUND_DIR = "${mohak34-sounds}";
 
     programs.tmux.extraConfig = ''
-      bind-key 'n' run-shell "tmux display-popup -w 80 -h 30 -E -e TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager tui"
+      bind-key 'n' run-shell "tmux display-popup -w 60% -h 50% -E -e TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager tui"
       bind-key 'N' run-shell -b "env TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager notify goto"
       set-hook -g after-select-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
       set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
-      set-hook -g after-kill-pane 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-pane \"#{hook_arguments}\"; ${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
-      set-hook -g window-unlinked 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
+      set-hook -g after-kill-pane 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-pane \"#{hook_arguments}\""'
       set-hook -g session-closed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-session #{session_name}"'
-      set-hook -g after-split-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
-      set-hook -g after-new-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager refresh"'
       bind-key 'a' display-popup -E -h 3 -w 60% -s 'bg=default' -S 'bg=default' "${tmux-agent-prompt}/bin/tmux-agent-prompt '#{pane_current_path}'"
       bind-key 'f' run-shell "${tmux-opencode-fork-window}/bin/tmux-opencode-fork-window '#{pane_id}' '#{pane_current_path}'"
     '';

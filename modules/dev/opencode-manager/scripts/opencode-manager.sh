@@ -7,8 +7,6 @@ set -eu
 
 NOTIFY_FILE="${TMUX_NOTIFY_FILE:-/tmp/tmux-notifications.json}"
 LOCK_FILE="${NOTIFY_FILE}.lock"
-OPENCODE_DB="${HOME}/.local/share/opencode/opencode.db"
-TRIGGER_FILE="/tmp/tmux-opencode-refresh"
 
 _init_file() {
   if [[ ! -f "$NOTIFY_FILE" ]]; then
@@ -488,354 +486,233 @@ widget() {
   echo "$output"
 }
 
-# @cmd Open TUI popup via tmux
-open() {
-  if ! command -v tmux &>/dev/null; then
-    echo "tmux is not available" >&2
-    exit 1
-  fi
-
-  tmux display-popup -w 60 -h 20 -E "$0 tui"
-}
-
-# @cmd Signal the TUI to refresh (used by tmux hooks)
-refresh() {
-  touch "$TRIGGER_FILE"
-}
-
-# @cmd Interactive session manager TUI
+# @cmd Interactive session manager (fzf picker)
+# @flag --list   Emit picker rows; internal, used by fzf's reload binds
 tui() {
-  local BOLD DIM RESET YELLOW GREEN MAGENTA CYAN REVERSE
-  BOLD=$(tput bold)
-  DIM=$(tput dim)
-  RESET=$(tput sgr0)
-  YELLOW=$(tput setaf 3)
-  GREEN=$(tput setaf 2)
-  MAGENTA=$(tput setaf 5)
-  CYAN=$(tput setaf 6)
-  REVERSE=$(tput rev)
+  local DIM=$'\033[2m' RST=$'\033[0m'
+  local GRN=$'\033[32m' YEL=$'\033[33m' RED=$'\033[31m'
 
-  local SESSIONS=""
-  local RENDER_LINES=()
-  local SEPARATOR
-  SEPARATOR=$(printf '%.0s─' {1..78})
-  local SELECTED=0
-  local SCROLL_OFFSET=0
-  local NEEDS_REFRESH=1
-  local NEEDS_RENDER=0
-  local WATCHER_PID=""
-
-  trap 'NEEDS_REFRESH=1' USR1
-
-  _tui_start_watcher() {
-    touch "$TRIGGER_FILE"
-    local tui_pid=$$
-    local targets=("$NOTIFY_FILE" "$TRIGGER_FILE")
-    [[ -f "${OPENCODE_DB}-wal" ]] && targets+=("${OPENCODE_DB}-wal")
-
-    (fswatch --one-per-batch --latency=0.3 "${targets[@]}" 2>/dev/null | while read -r _; do
-      kill -USR1 "$tui_pid" 2>/dev/null || break
-    done) &
-    WATCHER_PID=$!
+  # The popup is its own tmux client, so #S inside it is the popup — not the
+  # pane you opened it from. opencode-manager.nix passes the caller's tty via
+  # `-e`, which is the only reliable handle on "where am I".
+  #
+  # Two calls, because -c does NOT retarget #S: only client_* formats resolve
+  # against the client, everything else expands against the *calling* pane
+  # (verified — a single `-c ... -p '#S:#{window_index}'` returns the popup's
+  # own session). So: ask the client for its session, then ask that session
+  # for its current window.
+  _tui_current() {
+    [[ -z "${TMUX_OPENCODE_CALLER_TTY:-}" ]] && return 0
+    local sess
+    sess=$(tmux display-message -c "$TMUX_OPENCODE_CALLER_TTY" -p '#{client_session}' 2>/dev/null || true)
+    [[ -z "$sess" ]] && return 0
+    tmux display-message -t "$sess" -p '#S:#{window_index}' 2>/dev/null || true
   }
 
-  # shellcheck disable=SC2329 # invoked indirectly via trap EXIT
-  _tui_stop_watcher() {
-    if [[ -n "${WATCHER_PID:-}" ]]; then
-      pkill -P "$WATCHER_PID" 2>/dev/null || true
-      kill "$WATCHER_PID" 2>/dev/null || true
-      wait "$WATCHER_PID" 2>/dev/null || true
+  # One selectable row per opencode pane: "<target>\t<display>". Layout and
+  # glyphs match the session picker (cli/tmux/session-picker.nix) so the two
+  # popups read the same: worktree sessions nest under their root with ├─/└─
+  # connectors, and ◍ busy · ● done · ⏸ permission · ? question · ‼ error.
+  # A pending notification means "needs YOU" and outranks a busy spinner.
+  #
+  # Everything inside a root hangs off one stem in column 0, so a root's own
+  # extra panes and its worktrees read as one group. A worktree branches off it
+  # with ├─ (└─ for the last); an extra pane of a session is just the stem
+  # continuing, unbranched. Depth needs no marker — a nested pane draws its
+  # parent's rail too, so "│  └" is a pane of the worktree above while a bare
+  # "│" is a pane of the root. Every rail closes with └ on its last row. The
+  # window index is never shown: you pick a pane by its title, and the index
+  # fzf needs to switch to it is in hidden field 1.
+  #
+  # Both the rail and the tree hide text a name search needs — a rail row shows
+  # no name at all, and a nested row shows only its leaf. So filtering drops
+  # both: fzf exports FZF_PROMPT and FZF_QUERY to the children it spawns for
+  # reload, so pressing "/" re-renders as a flat list of fully-qualified names
+  # and Esc restores the tree. Without this, searching "telepatia" would
+  # quietly return one row when nine match.
+  #
+  # Order is the tree, not urgency: the glyph already carries urgency, and a
+  # stable order means the 2s auto-refresh never reshuffles rows under the
+  # cursor. prefix+N (notify goto) is the urgency-first entry point.
+  #
+  # Targets are the union of live opencode panes and notification targets: a
+  # notification whose pane already exited still has to be visible to be
+  # dismissable.
+  #
+  # ponytail: no per-tmux-session group headers, no notification message
+  # previews, no counts, no "N more" — the glyph says what needs attention and
+  # Enter takes you to the pane that has the detail.
+  _tui_list() {
+    local collapse=1
+    if [[ -n "${FZF_QUERY:-}" || "${FZF_PROMPT:-}" == "/ " ]]; then
+      collapse=0
     fi
-  }
 
-  _tui_load_state() {
-    local sess_data notif_data
-    sess_data=$(_get_sessions)
-    notif_data=$(_get_notifications)
-    SESSIONS=$(_build_tui_sessions "$sess_data" "$notif_data")
-
-    RENDER_LINES=()
-    local line
-    while IFS= read -r line; do
-      RENDER_LINES+=("$line")
-    done < <(echo "$SESSIONS" | jq -r '
-      "\(length)\t\([.[] | select(.status == "generating")] | length)\t\([.[] | select(.status == "idle")] | length)",
-      (group_by(.session)[] |
-        "S\t\(.[0].session)\t\([.[] | select(.status == "generating")] | length)\t\([.[] | select(.status == "idle")] | length)\t\([.[] | .count] | add // 0)",
-        (.[] |
-          "E\t\(.target | split(":") | .[1])\t\(.status)\t\(.count)\t\(.title[:40] | if length >= 40 then . + "…" else . end)",
-          (.notifications[:3][] |
-            "N\t\(.message[:36] | if length >= 36 then . + "…" else . end)\t\(.timestamp[11:16])"
-          ),
-          (if .count > 3 then "X\t\(.count - 3)" else empty end)
-        )
-      )
-    ')
-
-    NEEDS_RENDER=1
-  }
-
-  _build_tui_sessions() {
-    local sess_json="$1"
-    local notifications="$2"
-
-    jq -n \
-      --argjson sess "$sess_json" \
-      --argjson notifs "$notifications" \
+    jq -rn \
+      --argjson sess "$(_get_sessions)" \
+      --argjson notifs "$(_get_notifications)" \
+      --argjson collapse "$collapse" \
+      --arg cur "$(_tui_current)" \
+      --arg dim "$DIM" --arg rst "$RST" \
+      --arg grn "$GRN" --arg yel "$YEL" --arg red "$RED" \
       '
+      def rank:
+        if   . == "error"      then 4
+        elif . == "question"   then 3
+        elif . == "permission" then 2
+        else 1 end;
+
       ($notifs | group_by(.target) | map({
         key: .[0].target,
-        value: {notifs: ., count: length, session: .[0].session}
-      }) | from_entries) as $nm |
+        value: ([.[] | .event | rank] | max)
+      }) | from_entries) as $nrank |
+      ($sess | map({key: .target, value: .}) | from_entries) as $live |
 
-      ($sess | map({key: .target, value: {session: .session, status: .status, title: .title}}) | from_entries) as $sm |
+      ([$sess[].target] + [$notifs[].target]
+        | map(select(. != null and . != "")) | unique) as $targets |
 
-      ([($sess // [])[].target] + [($notifs // [])[].target] | map(select(. != null and . != "")) | unique) as $all |
-
-      [$all[] as $t | {
-        session: ($sm[$t].session // $nm[$t].session // ($t | split(":") | .[0])),
-        target: $t,
-        status: ($sm[$t].status // "none"),
-        title: ($sm[$t].title // ""),
-        notifications: ($nm[$t].notifs // []),
-        count: ($nm[$t].count // 0)
-      }] |
-      sort_by([(.count == 0 and .status != "generating" and .status != "idle"), (.status != "generating"), (.status != "idle"), .target]) |
-      # _render groups rows by .session and jq group_by sorts groups by key,
-      # so the array SELECTED indexes has to be flattened the same way or the
-      # visible row and the chosen target drift apart.
-      group_by(.session) | flatten(1)
+      [ $targets[]
+        | . as $t
+        | ($t | split(":")) as $p
+        | ($p[0]) as $s
+        | {
+            target: $t,
+            sess:   $s,
+            win:    (($p[1] // "") | tonumber? // 0),
+            root:   ($s | split("/") | .[0]),
+            leaf:   ($s | split("/") | .[-1]),
+            status: ($live[$t].status // "none"),
+            title:  ($live[$t].title  // ""),
+            rank:   ($nrank[$t] // 0)
+          }
+      ]
+      | sort_by([.root, (if .sess == .root then 0 else 1 end), .sess, .win]) as $rows
+      | ([ $rows[] | select(.sess == .root) | .root ] | unique) as $roots
+      | ( $rows | map(select(.sess != .root)) | group_by(.root)
+          | map({key: .[0].root, value: (.[-1].sess)}) | from_entries ) as $lastkid
+      | [ $rows
+          | to_entries[]
+          | .key as $i
+          | .value as $r
+          | ((if $i == 0 then null else $rows[$i - 1] end)
+             | if . == null then true else .sess != $r.sess end) as $isfirst
+          | (($rows[$i + 1] // null)
+             | if . == null then true else .root != $r.root end) as $islastinroot
+          | (($rows[$i + 1] // null)
+             | if . == null then true else .sess != $r.sess end) as $islastinsess
+          | (if $r.sess == $r.root or ($roots | index($r.root) | not) then ""
+             elif $lastkid[$r.root] == $r.sess then "└─"
+             else "├─" end) as $conn
+          | (if $conn == "" then
+               (if $islastinroot then "└" else "│" end)
+             else
+               (if $islastinroot then " " else "│" end)
+               + "  " + (if $islastinsess then "└" else "│" end)
+             end) as $panebar
+          | (if $collapse == 0 then
+               { plain: $r.sess, body: $r.sess }
+             elif ($isfirst | not) then
+               { plain: $panebar,
+                 body:  ($dim + $panebar + $rst) }
+             elif $conn == "" then
+               { plain: $r.sess, body: $r.sess }
+             else
+               { plain: ($conn + " " + $r.leaf),
+                 body:  ($dim + $conn + $rst + " " + $r.leaf) }
+             end) as $c
+          | $r + $c
+        ] as $out
+      | ([ $out[] | .plain | length ] | max // 0) as $w
+      | $out[]
+      | (if   .rank == 4              then $red + "‼"
+         elif .rank == 3              then $yel + "?"
+         elif .rank == 2              then $yel + "⏸"
+         elif .rank == 1              then $grn + "●"
+         elif .status == "generating" then $dim + "◍"
+         else " " end) as $glyph
+      | (if .target == $cur then $grn + "●" + $rst else " " end) as $mark
+      | (" " * ($w - (.plain | length) + 2)) as $pad
+      | (if .title == "" then "—" else .title end) as $title
+      | "\(.target)\t\($mark) \($glyph)\($rst)  \(.body)\($pad)\($dim)\($title)\($rst)"
       '
   }
 
-  _render() {
-    local total_sessions total_generating total_idle
-    IFS=$'\t' read -r total_sessions total_generating total_idle <<< "${RENDER_LINES[0]}"
+  if [[ "${argc_list:-0}" -eq 1 ]]; then
+    _tui_list
+    exit 0
+  fi
 
-    local max_lines=$(( ${LINES:-30} - 6 ))
+  local self="$0"
+  local list cur pos=1
+  list=$(_tui_list)
+  cur=$(_tui_current)
+  if [[ -n "$cur" ]]; then
+    # Exact field-1 match, not a substring: grep -F "nix-config:1" would also
+    # hit a worktree row like "other/nix-config:1".
+    pos=$(printf '%s\n' "$list" | awk -F'\t' -v c="$cur" '$1 == c { print NR; exit }')
+    : "${pos:=1}"
+  fi
 
-    clear
+  # switch-client must name the caller's client: inside display-popup an
+  # unscoped tmux command targets the popup's own client instead.
+  local switch="tmux switch-client -t {1}"
+  if [[ -n "${TMUX_OPENCODE_CALLER_TTY:-}" ]]; then
+    switch="tmux switch-client -c ${TMUX_OPENCODE_CALLER_TTY} -t {1}"
+  fi
 
-    printf " %s%s  OpenCode Manager%s" "$BOLD" "$MAGENTA" "$RESET"
-    local summary=""
-    [[ "$total_generating" -gt 0 ]] && summary="${total_generating} generating"
-    if [[ "$total_idle" -gt 0 ]]; then
-      [[ -n "$summary" ]] && summary="${summary}, "
-      summary="${summary}${total_idle} idle"
-    fi
-    [[ -n "$summary" ]] && printf "  %s(%s)%s" "$DIM" "$summary" "$RESET"
-    echo ""
-    echo "${DIM}${SEPARATOR}${RESET}"
+  local reload="reload($self tui --list)"
 
-    if [[ "$total_sessions" -eq 0 ]]; then
-      echo ""
-      echo "  ${DIM}No opencode sessions${RESET}"
-      echo ""
-      echo "${DIM}${SEPARATOR}${RESET}"
-      echo "  ${DIM}press q to close${RESET}"
-      return
-    fi
+  # Menu mode by default (--disabled): printable keys are shortcuts, not a
+  # filter. "/" switches to live search, Esc returns to menu mode (detected via
+  # $FZF_PROMPT). transform~...~ uses ~ as delimiter because the action bodies
+  # contain ()/[] the default parser would choke on.
+  local b_enter="become($self notify dismiss-target {1} >/dev/null 2>&1; $switch)"
+  local b_dismiss="execute-silent($self notify dismiss-target {1})+$reload"
+  local b_dismiss_all="execute-silent($self notify dismiss all; tmux refresh-client -S)+$reload"
+  # The trailing reload runs after change-prompt, so the child sees
+  # FZF_PROMPT="/ " and spells out every session name for the search.
+  local b_search="unbind(d)+unbind(D)+unbind(j)+unbind(k)+unbind(q)+unbind(/)+clear-query+change-prompt(/ )+enable-search+$reload"
+  local b_esc_back="clear-query+disable-search+change-prompt(❯ )+rebind(d)+rebind(D)+rebind(j)+rebind(k)+rebind(q)+rebind(/)+$reload"
+  # shellcheck disable=SC2016 # $FZF_PROMPT is fzf's, not this shell's
+  local b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
 
-    [[ $SELECTED -ge $total_sessions ]] && SELECTED=$((total_sessions - 1))
-    [[ $SELECTED -lt 0 ]] && SELECTED=0
-    [[ $SELECTED -lt $SCROLL_OFFSET ]] && SCROLL_OFFSET=$SELECTED
+  # --sync: load all input before `start` fires, so start:pos() actually lands
+  # on the current pane. The list is already in memory, so EOF is immediate.
+  # load:reload(sleep 2; ...) is fzf's auto-refresh idiom — reload re-fires
+  # `load`, so the list self-refreshes on a 2s beat. It also means a reader is
+  # always in flight, which is why --info=hidden: the alternative is a spinner
+  # that never stops turning.
+  # ponytail: replaces the old fswatch watcher + USR1 trap + manual scroll
+  # bookkeeping. Poll cadence matches the old read -t 2 loop.
+  local rc=0
+  printf '%s\n' "$list" | fzf \
+    --ansi --no-sort --layout=reverse --cycle \
+    --delimiter='\t' --with-nth=2 \
+    --disabled --sync \
+    --prompt='❯ ' \
+    --info=hidden \
+    --pointer='▶' \
+    --gutter=' ' \
+    --color='pointer:green,prompt:green,info:dim,header:dim' \
+    --header='enter goto · d dismiss · D all · / search' \
+    --bind "start:pos($pos)" \
+    --bind "load:reload(sleep 2; $self tui --list)" \
+    --bind "enter:$b_enter" \
+    --bind 'j:down' \
+    --bind 'k:up' \
+    --bind "d:$b_dismiss" \
+    --bind "D:$b_dismiss_all" \
+    --bind 'q:abort' \
+    --bind "/:$b_search" \
+    --bind "esc:$b_esc" || rc=$?
 
-    local drawn=0
-    local visible=0
-    local entry_idx=0
-    local ri=1
-
-    while [[ $ri -lt ${#RENDER_LINES[@]} ]]; do
-      local rtype rfield1 rfield2 rfield3 rfield4
-      IFS=$'\t' read -r rtype rfield1 rfield2 rfield3 rfield4 <<< "${RENDER_LINES[$ri]}"
-
-      if [[ "$rtype" == "S" ]]; then
-        [[ $drawn -ge $max_lines ]] && break
-        local s_name="$rfield1" s_gen="$rfield2" s_idle="$rfield3" s_notifs="$rfield4"
-        local s_summary=""
-        [[ "$s_gen" -gt 0 ]] && s_summary="${s_gen} generating"
-        if [[ "$s_idle" -gt 0 ]]; then
-          [[ -n "$s_summary" ]] && s_summary="${s_summary}, "
-          s_summary="${s_summary}${s_idle} idle"
-        fi
-        local s_notif_text=""
-        [[ "$s_notifs" -gt 0 ]] && s_notif_text="${YELLOW}${s_notifs} new${RESET}"
-
-        if [[ $drawn -gt 0 ]]; then
-          echo ""
-          drawn=$((drawn + 1))
-        fi
-        printf "  %s%s%s  %s%s%s  %s\n" "$BOLD" "$s_name" "$RESET" "$DIM" "$s_summary" "$RESET" "$s_notif_text"
-        drawn=$((drawn + 1))
-        ri=$((ri + 1))
-        continue
-      fi
-
-      if [[ "$rtype" != "E" ]]; then
-        ri=$((ri + 1))
-        continue
-      fi
-
-      local win_idx="$rfield1" status="$rfield2" count="$rfield3" title="$rfield4"
-
-      if [[ $entry_idx -lt $SCROLL_OFFSET ]]; then
-        entry_idx=$((entry_idx + 1))
-        ri=$((ri + 1))
-        while [[ $ri -lt ${#RENDER_LINES[@]} ]]; do
-          IFS=$'\t' read -r rtype _ <<< "${RENDER_LINES[$ri]}"
-          [[ "$rtype" == "E" || "$rtype" == "S" ]] && break
-          ri=$((ri + 1))
-        done
-        continue
-      fi
-
-      [[ $drawn -ge $max_lines ]] && break
-
-      local bullet="${DIM}○${RESET}" status_text="" notif_text=""
-
-      case "$status" in
-        generating) bullet="${GREEN}●${RESET}"; status_text="${GREEN}${RESET}" ;;
-        idle) bullet="${CYAN}●${RESET}"; status_text="${DIM}idle${RESET}" ;;
-      esac
-
-      [[ "$count" -gt 0 ]] && notif_text="${YELLOW}${count} new${RESET}"
-
-      local title_display="${title:-}"
-      [[ -z "$title_display" ]] && title_display="${DIM}-${RESET}"
-
-      if [[ $entry_idx -eq $SELECTED ]]; then
-        printf "  %s▸%s %s ${REVERSE}:%-2s%s %-40s${RESET} %s  %s\n" "$BOLD" "$RESET" "$bullet" "$win_idx" "" "$title_display" "$status_text" "$notif_text"
-      else
-        printf "    %s :%-2s %-40s %s  %s\n" "$bullet" "$win_idx" "$title_display" "$status_text" "$notif_text"
-      fi
-      drawn=$((drawn + 1))
-      ri=$((ri + 1))
-
-      while [[ $ri -lt ${#RENDER_LINES[@]} && $drawn -lt $max_lines ]]; do
-        IFS=$'\t' read -r rtype rfield1 rfield2 <<< "${RENDER_LINES[$ri]}"
-        if [[ "$rtype" == "N" ]]; then
-          printf "        %s󰭞 %-38s  %s%s\n" "$DIM" "$rfield1" "$rfield2" "$RESET"
-          drawn=$((drawn + 1))
-        elif [[ "$rtype" == "X" ]]; then
-          printf "        %s… and %s more%s\n" "$DIM" "$rfield1" "$RESET"
-          drawn=$((drawn + 1))
-        else
-          break
-        fi
-        ri=$((ri + 1))
-      done
-
-      entry_idx=$((entry_idx + 1))
-      visible=$((visible + 1))
-    done
-
-    [[ $SELECTED -ge $((SCROLL_OFFSET + visible)) && $visible -gt 0 ]] && SCROLL_OFFSET=$((SELECTED - visible + 1))
-
-    if [[ "$total_sessions" -gt $((SCROLL_OFFSET + visible)) ]]; then
-      echo "${DIM}  ↓ $((total_sessions - SCROLL_OFFSET - visible)) more below${RESET}"
-    fi
-
-    echo "${DIM}${SEPARATOR}${RESET}"
-    echo "  ${DIM}j/k${RESET} navigate  ${DIM}Enter${RESET} goto  ${DIM}d${RESET} dismiss  ${DIM}D${RESET} all  ${DIM}q${RESET} close"
-  }
-
-  _dismiss_selected() {
-    local count
-    count=$(echo "$SESSIONS" | jq 'length')
-    [[ $count -eq 0 ]] && return
-
-    local sel_target
-    sel_target=$(echo "$SESSIONS" | jq -r ".[$SELECTED].target")
-
-    _init_file
-    _lock
-    jq --arg tgt "$sel_target" '[.[] | select(.target != $tgt)]' "$NOTIFY_FILE" >"${NOTIFY_FILE}.tmp" &&
-      mv "${NOTIFY_FILE}.tmp" "$NOTIFY_FILE"
-    _unlock
-    tmux refresh-client -S 2>/dev/null || true
-    NEEDS_REFRESH=1
-  }
-
-  _dismiss_all() {
-    _init_file
-    _lock
-    echo '[]' >"$NOTIFY_FILE"
-    _unlock
-    tmux refresh-client -S 2>/dev/null || true
-    SELECTED=0
-    SCROLL_OFFSET=0
-    NEEDS_REFRESH=1
-  }
-
-  _goto_selected() {
-    local count
-    count=$(echo "$SESSIONS" | jq 'length')
-    [[ $count -eq 0 ]] && return
-
-    local target notif_count
-    target=$(echo "$SESSIONS" | jq -r ".[$SELECTED].target // empty")
-    notif_count=$(echo "$SESSIONS" | jq -r ".[$SELECTED].count")
-
-    if [[ -n "$target" ]]; then
-      [[ "$notif_count" -gt 0 ]] && _dismiss_selected
-      # Target the CALLER's client explicitly. Inside a display-popup,
-      # tmux picks "the client currently in use" for unscoped commands,
-      # which is the popup's own client — not the user's terminal.
-      # opencode-manager.nix passes TMUX_OPENCODE_CALLER_TTY via `-e`.
-      if [[ -n "${TMUX_OPENCODE_CALLER_TTY:-}" ]]; then
-        tmux switch-client -c "$TMUX_OPENCODE_CALLER_TTY" -t "$target" 2>/dev/null || true
-      else
-        tmux select-window -t "$target" 2>/dev/null || true
-        tmux switch-client -t "$target" 2>/dev/null || true
-      fi
-      exit 0
-    fi
-  }
-
-  tput civis 2>/dev/null || true
-  _tui_start_watcher
-  trap '_tui_stop_watcher; tput cnorm 2>/dev/null || true' EXIT
-
-  while true; do
-    if [[ $NEEDS_REFRESH -eq 1 ]]; then
-      NEEDS_REFRESH=0
-      _tui_load_state
-    fi
-
-    if [[ $NEEDS_RENDER -eq 1 ]]; then
-      NEEDS_RENDER=0
-      _render
-    fi
-
-    local key=""
-    local rc=0
-    IFS= read -rsn1 -t 2 key || rc=$?
-
-    if [[ $rc -gt 128 ]]; then
-      continue
-    fi
-
-    case "$key" in
-      j) SELECTED=$((SELECTED + 1)); NEEDS_RENDER=1 ;;
-      k) SELECTED=$((SELECTED - 1)); NEEDS_RENDER=1 ;;
-      '') _goto_selected ;;
-      d) _dismiss_selected ;;
-      D) _dismiss_all ;;
-      q) exit 0 ;;
-      $'\e')
-        read -rsn1 -t 0.1 next_key || true
-        if [[ "${next_key:-}" == "[" ]]; then
-          read -rsn1 -t 0.1 arrow_key || true
-          case "${arrow_key:-}" in
-            A) SELECTED=$((SELECTED - 1)); NEEDS_RENDER=1 ;;
-            B) SELECTED=$((SELECTED + 1)); NEEDS_RENDER=1 ;;
-          esac
-        else
-          exit 0
-        fi
-        ;;
-    esac
-  done
+  # Closing the picker is not a failure. fzf exits 130 on abort (q/Esc) and 1
+  # on "nothing selected"; the tmux bind wraps this in run-shell, which reports
+  # any non-zero status to the user as `... returned 130`.
+  if [[ $rc -eq 1 || $rc -eq 130 ]]; then
+    rc=0
+  fi
+  return $rc
 }
 
 eval "$(argc --argc-eval "$0" "$@")"
