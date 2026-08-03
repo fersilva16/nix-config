@@ -668,7 +668,11 @@ tui() {
         notifications: ($nm[$t].notifs // []),
         count: ($nm[$t].count // 0)
       }] |
-      sort_by([(.count == 0 and .status != "generating" and .status != "idle"), (.status != "generating"), (.status != "idle"), .target])
+      sort_by([(.count == 0 and .status != "generating" and .status != "idle"), (.status != "generating"), (.status != "idle"), .target]) |
+      # _render groups rows by .session and jq group_by sorts groups by key,
+      # so the array SELECTED indexes has to be flattened the same way or the
+      # visible row and the chosen target drift apart.
+      group_by(.session) | flatten(1)
       '
   }
 
