@@ -61,7 +61,8 @@
               callback = function()
                 -- Only open if we're not opening a specific file via stdin or with args that are directories
                 if vim.fn.argc() == 0 then return end
-                vim.cmd('Neotree show right')
+                -- ponytail: pcall so a broken/missing Neotree can't abort startup
+                pcall(vim.cmd, 'Neotree show right')
               end,
             })
 
@@ -70,7 +71,7 @@
               once = true,
               callback = function()
                 vim.schedule(function()
-                  vim.cmd('Neotree show right')
+                  pcall(vim.cmd, 'Neotree show right')
                 end)
               end,
             })

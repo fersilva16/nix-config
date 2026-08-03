@@ -17,6 +17,12 @@
                 vim.fn.system("git rev-parse --verify origin/main 2>/dev/null")
                 base = vim.v.shell_error == 0 and "origin/main" or "origin/master"
               end
+              -- ponytail: one verify on the final ref covers every fallback path
+              vim.fn.system("git rev-parse --verify " .. base .. " 2>/dev/null")
+              if vim.v.shell_error ~= 0 then
+                vim.notify("No base branch (tried origin/HEAD, origin/main, origin/master)", vim.log.levels.WARN)
+                return
+              end
               vim.cmd("DiffviewOpen " .. base .. "...HEAD")
             end, desc = "Review branch vs base" },
           { "<leader>Gf", "<cmd>DiffviewFileHistory %<cr>", desc = "File history" },
