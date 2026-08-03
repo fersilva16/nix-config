@@ -39,97 +39,29 @@ _get_sessions() {
     return
   fi
 
-  # Include a pane if it is CURRENTLY running opencode (command check).
-  # Stale @oc-sid/@oc-status options persist after opencode exits, so
-  # relying on pane options alone surfaces ghost sessions; we intersect
-  # with pane_current_command to filter them out.
-  # Uses a tab separator so empty @oc-sid/@oc-status fields (pre-session
-  # panes) don't shift columns when parsed.
-  # pane_title comes from this same call rather than a per-pane
-  # display-message fork, and fields stay tab-separated so paths
-  # containing spaces survive parsing.
+  # Include a pane if it is CURRENTLY running opencode: @oc-sid/@oc-status
+  # persist after opencode exits, so pane options alone surface ghosts.
+  # @oc-status carries opencode's own session status (busy/idle/retry),
+  # published by the tmux-notifier plugin -- no DB round trip, and no
+  # guessing liveness from message timestamps.
   local panes
   panes=$(tmux list-panes -a \
-    -F '#{session_name}	#{window_index}	#{pane_current_path}	#{pane_id}	#{@oc-sid}	#{@oc-status}	#{pane_current_command}	#{pane_title}' 2>/dev/null |
-    awk -F'\t' -v OFS='\t' '$7 ~ /opencode/ {print $1, $2, $3, $4, $5, $8}' | sort -u)
+    -F '#{session_name}	#{window_index}	#{@oc-status}	#{pane_current_command}	#{pane_title}' 2>/dev/null |
+    awk -F'\t' -v OFS='\t' '$4 ~ /opencode/ {print $1, $2, $3, $5}' | sort -u)
 
   if [[ -z "$panes" ]]; then
     echo '[]'
     return
   fi
 
-  # DB query for generating status and titles, keyed by session ID.
-  # A session is "generating" iff its latest assistant message has no
-  # time.completed AND was created within the last 5 minutes. The tight
-  # window avoids reporting stuck/orphaned messages (crashed opencode
-  # never wrote the completion timestamp) as live generation.
-  # Restrict the DB query to sessions these panes could match. Unfiltered it
-  # returns every session ever recorded, turning the lookup below into
-  # panes x sessions shell iterations. Directory is only the fallback for a
-  # pane with no sid, so a pane that has one contributes its sid and nothing
-  # else -- otherwise every historical session for that directory comes back.
-  local sid_in="" dir_in=""
-  local _p_path _p_sid
-  while IFS=$'\t' read -r _ _ _p_path _ _p_sid _; do
-    if [[ -n "$_p_sid" ]]; then
-      sid_in+=",'${_p_sid//\'/\'\'}'"
-    elif [[ -n "$_p_path" ]]; then
-      dir_in+=",'${_p_path//\'/\'\'}'"
-    fi
-  done <<<"$panes"
-  sid_in="${sid_in#,}"
-  dir_in="${dir_in#,}"
-  [[ -z "$sid_in" ]] && sid_in="''"
-  [[ -z "$dir_in" ]] && dir_in="''"
-
-  local db_sessions=""
-  if [[ -f "$OPENCODE_DB" ]] && command -v sqlite3 &>/dev/null; then
-    local db_query="WITH gen AS (
-        SELECT DISTINCT m.session_id
-        FROM message m
-        WHERE json_extract(m.data, '\$.role') = 'assistant'
-          AND (json_extract(m.data, '\$.time.completed') IS NULL
-               OR json_extract(m.data, '\$.time.completed') = '')
-          AND m.time_created > ((strftime('%s', 'now') - 300) * 1000)
-      )
-      SELECT s.id, s.directory,
-        CASE WHEN gen.session_id IS NOT NULL THEN 'generating' ELSE 'idle' END
-      FROM session s
-      LEFT JOIN gen ON gen.session_id = s.id
-      WHERE s.id IN ($sid_in) OR s.directory IN ($dir_in)
-      ORDER BY (gen.session_id IS NOT NULL) DESC, s.time_updated DESC"
-    local sep
-    sep=$(printf '\x1f')
-    db_sessions=$(sqlite3 -separator "$sep" "$OPENCODE_DB" "$db_query" 2>/dev/null || true)
-  fi
-
   local result=""
-  local assigned=""
-  local pane_title
-  while IFS=$'\t' read -r sess win path _ oc_sid pane_title; do
+  while IFS=$'\t' read -r sess win oc_status pane_title; do
     local status="idle"
+    case "$oc_status" in
+      busy | retry) status="generating" ;;
+    esac
+
     local title=""
-
-    if [[ -n "$oc_sid" ]]; then
-      assigned="$assigned $oc_sid"
-      if [[ -n "$db_sessions" ]]; then
-        while IFS="$sep" read -r s_id _ s_status; do
-          if [[ "$s_id" == "$oc_sid" ]]; then
-            status="$s_status"
-            break
-          fi
-        done <<<"$db_sessions"
-      fi
-    elif [[ -n "$db_sessions" ]]; then
-      while IFS="$sep" read -r s_id s_dir s_status; do
-        [[ "$s_dir" != "$path" ]] && continue
-        case " $assigned " in *" $s_id "*) continue ;; esac
-        status="$s_status"
-        assigned="$assigned $s_id"
-        break
-      done <<<"$db_sessions"
-    fi
-
     if [[ "$pane_title" == OC\ \|\ * ]]; then
       title="${pane_title#OC | }"
     fi
