@@ -1,6 +1,7 @@
 {
   mkUserModule,
   forPlatform,
+  lib,
   pkgs,
   ...
 }:
@@ -17,50 +18,64 @@ mkUserModule {
 
     programs.fish.enable = true;
   };
-  home = {
-    programs.fish = {
-      enable = true;
+  home =
+    { userCfg, ... }:
+    {
+      # Outbound integration: opencode agents default to bash syntax, so tell
+      # them the interactive shell is fish. `xdg.configFile.<name>.text` is
+      # `types.lines`, so this concatenates onto opencode's global AGENTS.md.
+      xdg.configFile."opencode/AGENTS.md".text = lib.mkIf userCfg.opencode.enable ''
 
-      # HM generates completions by parsing every package's man pages; the
-      # parser chokes on some of them (bat 0.26.1 on nixos-unstable broke the
-      # polaris install build). Packages ship real completions via
-      # vendor_completions.d anyway — the scraped ones aren't worth the
-      # build fragility.
-      generateCompletions = false;
+        ## My shell is fish
 
-      interactiveShellInit = ''
-        ${forPlatform { darwin = "ssh-add --apple-load-keychain 2> /dev/null"; }}
-
-        set fish_cursor_default block
-        set fish_cursor_insert line
-        set -U fish_greeting
-
-        ${forPlatform {
-          # PATH juggling is darwin-only: nix paths must beat /usr/bin and
-          # homebrew there. NixOS orders PATH correctly natively — and moving
-          # /run/current-system/sw/bin forward on linux shadows the setuid
-          # sudo in /run/wrappers/bin ("sudo: must be owned by uid 0").
-          darwin = ''
-            fish_add_path -amP /usr/bin
-            fish_add_path -amP /opt/homebrew/bin
-            fish_add_path -amP /opt/local/bin
-            fish_add_path -m /run/current-system/sw/bin
-            fish_add_path -m ~/.nix-profile/bin
-          '';
-        }}
+        My interactive shell is fish 4.x — commands you hand me to run must be
+        valid fish. Your own tool calls are unaffected: those run in `/bin/sh`,
+        so keep them POSIX, same for scripts you write with a non-fish shebang.
       '';
 
-      functions = {
-        fish_command_not_found = "__fish_default_command_not_found_handler $argv";
+      programs.fish = {
+        enable = true;
 
-        envsource = ''
-          for line in (cat $argv | grep -v '^#' | grep -v '^\s*$')
-            set item (string trim $line | string replace -r '\s*=\s*' '=' | string split -m 1 '=')
-            set -gx $item[1] $item[2]
-            echo \"Exported key $item[1]\"
-          end
+        # HM generates completions by parsing every package's man pages; the
+        # parser chokes on some of them (bat 0.26.1 on nixos-unstable broke the
+        # polaris install build). Packages ship real completions via
+        # vendor_completions.d anyway — the scraped ones aren't worth the
+        # build fragility.
+        generateCompletions = false;
+
+        interactiveShellInit = ''
+          ${forPlatform { darwin = "ssh-add --apple-load-keychain 2> /dev/null"; }}
+
+          set fish_cursor_default block
+          set fish_cursor_insert line
+          set -U fish_greeting
+
+          ${forPlatform {
+            # PATH juggling is darwin-only: nix paths must beat /usr/bin and
+            # homebrew there. NixOS orders PATH correctly natively — and moving
+            # /run/current-system/sw/bin forward on linux shadows the setuid
+            # sudo in /run/wrappers/bin ("sudo: must be owned by uid 0").
+            darwin = ''
+              fish_add_path -amP /usr/bin
+              fish_add_path -amP /opt/homebrew/bin
+              fish_add_path -amP /opt/local/bin
+              fish_add_path -m /run/current-system/sw/bin
+              fish_add_path -m ~/.nix-profile/bin
+            '';
+          }}
         '';
+
+        functions = {
+          fish_command_not_found = "__fish_default_command_not_found_handler $argv";
+
+          envsource = ''
+            for line in (cat $argv | grep -v '^#' | grep -v '^\s*$')
+              set item (string trim $line | string replace -r '\s*=\s*' '=' | string split -m 1 '=')
+              set -gx $item[1] $item[2]
+              echo \"Exported key $item[1]\"
+            end
+          '';
+        };
       };
     };
-  };
 }
