@@ -174,7 +174,7 @@ end
 -- giving up after ~1s. When `screen` is given, the window is moved there
 -- first so the app lands on a specific monitor regardless of where macOS
 -- placed it.
--- ponytail: 1s poll budget; bump tries if a cold VSCode launch outruns it.
+-- ponytail: 1s poll budget; bump tries if a cold app launch outruns it.
 local function warpToApp(bundleID, screen, tries)
   tries = tries or 0
   local app = hs.application.get(bundleID)
@@ -200,67 +200,22 @@ if tCode then
   end
 end
 
--- Hyper + C → Open VSCode at the git root of the current tmux pane directory.
--- Uses hs.task (async) instead of hs.execute to avoid blocking the main
--- thread — a hung tmux/git would otherwise cause macOS to disable the tap.
---
--- Resolving "the current tmux session" from outside tmux:
---   `tmux display-message -p '#{pane_current_path}'` without a target is
---   ambiguous when multiple sessions exist — tmux falls back to an internal
---   default (often the first/oldest session) rather than the one the user
---   is actually attached to. We fix this by picking the most recently
---   active *client* (sorted by client_activity), then resolving that
---   client's session's active pane path. If no client is attached, the
---   command produces empty output and the existing fallback opens VSCode
---   without a path.
-local function openVSCodeAtCurrentSession()
-  -- Capture Ghostty's screen now, before `open` shifts focus — VSCode's
-  -- window is moved there so it opens alongside the terminal it came from.
-  local ghostty = hs.application.get("com.mitchellh.ghostty")
-  local ghosttyWin = ghostty and ghostty:focusedWindow()
-  local targetScreen = ghosttyWin and ghosttyWin:screen() or nil
-  hs.task.new("/bin/sh", function(_code, stdout)
-    local dir = stdout and stdout:gsub("%s+$", "") or ""
-    if dir == "" then
-      hs.task.new("/usr/bin/open", nil, { "-a", "Visual Studio Code" }):start()
-      warpToApp("com.microsoft.VSCode", targetScreen)
-      return
-    end
-    hs.task.new("/bin/sh", function(_code2, stdout2)
-      local gitRoot = stdout2 and stdout2:gsub("%s+$", "") or ""
-      local target = gitRoot ~= "" and gitRoot or dir
-      hs.task.new("/usr/bin/open", nil, { "-a", "Visual Studio Code", target }):start()
-      warpToApp("com.microsoft.VSCode", targetScreen)
-    end, { "-l", "-c", string.format("git -C '%s' rev-parse --show-toplevel 2>/dev/null", dir) }):start()
-  end, { "-l", "-c", "S=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2); [ -n \"$S\" ] && tmux display-message -p -t \"$S\" '#{pane_current_path}' 2>/dev/null" }):start()
+-- Hyper + C → Focus (or create) the persistent nvim window pinned at
+-- index 1 of the current tmux session. A second press toggles back to the
+-- previously active window (via tmux last-window). All session/window
+-- resolution lives in the tmux-nvim-window shell script; here we just
+-- surface Ghostty and fire the script async so a slow tmux/git can't stall
+-- the eventtap.
+local function focusNvimWindow()
+  hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
+  warpToApp("com.mitchellh.ghostty")
+  hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window" }):start()
 end
 
 local cCode = hs.keycodes.map["c"]
 if cCode then
   keyCodeNames[cCode] = "c"
-  hyperActionsByKeyCode[cCode] = openVSCodeAtCurrentSession
-end
-
--- Hyper + Space → Toggle between Ghostty and VSCode; default to Ghostty.
--- Toggling to VSCode opens it at the current tmux session's git root (same
--- resolution as Hyper+C). `open -a "Visual Studio Code" <dir>` is idempotent:
--- it focuses the existing window when that folder is already open, so no
--- duplicates.
--- Uses hs.task (async) — hs.application.open() blocks the main thread and
--- freezes all timers when an app is slow to respond to Launch Services.
-local spaceCode = hs.keycodes.map["space"]
-if spaceCode then
-  keyCodeNames[spaceCode] = "space"
-  hyperActionsByKeyCode[spaceCode] = function()
-    local front = hs.application.frontmostApplication()
-    local bid = front and front:bundleID() or ""
-    if bid == "com.mitchellh.ghostty" then
-      openVSCodeAtCurrentSession()
-    else
-      hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
-      warpToApp("com.mitchellh.ghostty")
-    end
-  end
+  hyperActionsByKeyCode[cCode] = focusNvimWindow
 end
 
 -- Toggle an app: hide it when it's frontmost, otherwise launch/focus it.
@@ -274,6 +229,13 @@ local function toggleApp(bundleID, appName)
     hs.task.new("/usr/bin/open", nil, { "-a", appName }):start()
     warpToApp(bundleID)
   end
+end
+
+-- Hyper + Space → Same nvim-anchored toggle as Hyper+C
+local spaceCode = hs.keycodes.map["space"]
+if spaceCode then
+  keyCodeNames[spaceCode] = "space"
+  hyperActionsByKeyCode[spaceCode] = focusNvimWindow
 end
 
 -- Hyper + I → Toggle Linear (mnemonic: Issues)
