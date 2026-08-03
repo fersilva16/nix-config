@@ -122,6 +122,8 @@ mkUserModule {
 
       xdg.configFile = {
         # Global instructions opencode injects into every session's system prompt.
+        # `types.lines`, so other modules concatenate onto this — `i-have-adhd`
+        # (output style) and `cli/fish.nix` (fish syntax) both append sections.
         "opencode/AGENTS.md".text = ''
           # Global instructions
 
