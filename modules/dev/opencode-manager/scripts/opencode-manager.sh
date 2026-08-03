@@ -45,10 +45,13 @@ _get_sessions() {
   # with pane_current_command to filter them out.
   # Uses a tab separator so empty @oc-sid/@oc-status fields (pre-session
   # panes) don't shift columns when parsed.
+  # pane_title comes from this same call rather than a per-pane
+  # display-message fork, and fields stay tab-separated so paths
+  # containing spaces survive parsing.
   local panes
   panes=$(tmux list-panes -a \
-    -F '#{session_name}	#{window_index}	#{pane_current_path}	#{pane_id}	#{@oc-sid}	#{@oc-status}	#{pane_current_command}' 2>/dev/null |
-    awk -F'\t' '$7 ~ /opencode/ {print $1 " " $2 " " $3 " " $4 " " $5}' | sort -u)
+    -F '#{session_name}	#{window_index}	#{pane_current_path}	#{pane_id}	#{@oc-sid}	#{@oc-status}	#{pane_current_command}	#{pane_title}' 2>/dev/null |
+    awk -F'\t' -v OFS='\t' '$7 ~ /opencode/ {print $1, $2, $3, $4, $5, $8}' | sort -u)
 
   if [[ -z "$panes" ]]; then
     echo '[]'
@@ -60,6 +63,25 @@ _get_sessions() {
   # time.completed AND was created within the last 5 minutes. The tight
   # window avoids reporting stuck/orphaned messages (crashed opencode
   # never wrote the completion timestamp) as live generation.
+  # Restrict the DB query to sessions these panes could match. Unfiltered it
+  # returns every session ever recorded, turning the lookup below into
+  # panes x sessions shell iterations. Directory is only the fallback for a
+  # pane with no sid, so a pane that has one contributes its sid and nothing
+  # else -- otherwise every historical session for that directory comes back.
+  local sid_in="" dir_in=""
+  local _p_path _p_sid
+  while IFS=$'\t' read -r _ _ _p_path _ _p_sid _; do
+    if [[ -n "$_p_sid" ]]; then
+      sid_in+=",'${_p_sid//\'/\'\'}'"
+    elif [[ -n "$_p_path" ]]; then
+      dir_in+=",'${_p_path//\'/\'\'}'"
+    fi
+  done <<<"$panes"
+  sid_in="${sid_in#,}"
+  dir_in="${dir_in#,}"
+  [[ -z "$sid_in" ]] && sid_in="''"
+  [[ -z "$dir_in" ]] && dir_in="''"
+
   local db_sessions=""
   if [[ -f "$OPENCODE_DB" ]] && command -v sqlite3 &>/dev/null; then
     local db_query="WITH gen AS (
@@ -71,11 +93,10 @@ _get_sessions() {
           AND m.time_created > ((strftime('%s', 'now') - 300) * 1000)
       )
       SELECT s.id, s.directory,
-        CASE WHEN gen.session_id IS NOT NULL THEN 'generating' ELSE 'idle' END,
-        CASE WHEN s.title LIKE '<%' OR s.title LIKE '{%' OR length(s.title) = 0
-          THEN '' ELSE s.title END
+        CASE WHEN gen.session_id IS NOT NULL THEN 'generating' ELSE 'idle' END
       FROM session s
       LEFT JOIN gen ON gen.session_id = s.id
+      WHERE s.id IN ($sid_in) OR s.directory IN ($dir_in)
       ORDER BY (gen.session_id IS NOT NULL) DESC, s.time_updated DESC"
     local sep
     sep=$(printf '\x1f')
@@ -84,16 +105,15 @@ _get_sessions() {
 
   local result=""
   local assigned=""
-  local sep
-  sep=$(printf '\x1f')
-  while IFS=' ' read -r sess win path pane_id oc_sid; do
+  local pane_title
+  while IFS=$'\t' read -r sess win path _ oc_sid pane_title; do
     local status="idle"
     local title=""
 
     if [[ -n "$oc_sid" ]]; then
       assigned="$assigned $oc_sid"
       if [[ -n "$db_sessions" ]]; then
-        while IFS="$sep" read -r s_id s_dir s_status _; do
+        while IFS="$sep" read -r s_id _ s_status; do
           if [[ "$s_id" == "$oc_sid" ]]; then
             status="$s_status"
             break
@@ -101,7 +121,7 @@ _get_sessions() {
         done <<<"$db_sessions"
       fi
     elif [[ -n "$db_sessions" ]]; then
-      while IFS="$sep" read -r s_id s_dir s_status _; do
+      while IFS="$sep" read -r s_id s_dir s_status; do
         [[ "$s_dir" != "$path" ]] && continue
         case " $assigned " in *" $s_id "*) continue ;; esac
         status="$s_status"
@@ -110,8 +130,6 @@ _get_sessions() {
       done <<<"$db_sessions"
     fi
 
-    local pane_title
-    pane_title=$(tmux display-message -p -t "$pane_id" '#{pane_title}' 2>/dev/null || true)
     if [[ "$pane_title" == OC\ \|\ * ]]; then
       title="${pane_title#OC | }"
     fi
