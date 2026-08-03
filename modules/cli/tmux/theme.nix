@@ -44,6 +44,7 @@ in
         .opencode-wrapp: ""
         task: "󱓞"
         agents: "󰚩"
+        nvim: ""
     '';
 
     programs.tmux.plugins = [

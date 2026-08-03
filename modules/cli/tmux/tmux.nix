@@ -35,6 +35,84 @@ let
     '';
   };
 
+  # Move the session's nvim window to the end. Renumber preserves relative
+  # order, so shifting it past everything and letting tmux compact leaves it
+  # last with the real windows contiguous at 1..N-1.
+  tmux-nvim-park = pkgs.writeShellApplication {
+    name = "tmux-nvim-park";
+    runtimeInputs = [ pkgs.tmux ];
+    text = ''
+      session="''${1:-}"
+      [ -n "$session" ] || exit 0
+      win=$(tmux list-windows -t "$session" -f '#{==:#{@nvim_window},1}' -F '#{window_id}' 2>/dev/null | head -1)
+      [ -n "$win" ] || exit 0
+      tmux move-window -d -s "$win" -t "$session:9999" 2>/dev/null || true
+      tmux move-window -r -t "$session" 2>/dev/null || true
+    '';
+  };
+
+  # Focus (or create) a persistent nvim window for the current tmux session,
+  # kept as the last window by tmux-nvim-park so it never takes a prefix+N slot
+  # a real window wants. It stays an ordinary window, so prefix+2 and friends
+  # work normally from inside it.
+  #
+  # It is tagged with an @nvim_window option rather than named: the status bar
+  # hides tagged windows from the window list and draws the icon in status-left
+  # instead, so it reads as a session-level fixture.
+  tmux-nvim-window = pkgs.writeShellApplication {
+    name = "tmux-nvim-window";
+    runtimeInputs = [
+      pkgs.tmux
+      tmux-git-root-path
+      tmux-nvim-park
+    ];
+    text = ''
+      if [ -n "''${TMUX:-}" ]; then
+        session=$(tmux display-message -p '#S')
+      else
+        # Most recently active client's session, falling back to the most
+        # recently attached session so this still resolves when the server is
+        # up but no client has registered yet. `|| true` keeps a missing tmux
+        # server from tripping errexit.
+        session=$(tmux list-clients -F '#{client_activity}|#{client_session}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2 || true)
+        [ -n "$session" ] || session=$(tmux list-sessions -F '#{session_last_attached}|#{session_name}' 2>/dev/null | sort -rn | head -1 | cut -d'|' -f2 || true)
+      fi
+      # ponytail: no retry loop — on a cold Ghostty launch the tmux server may
+      # not exist yet, so this no-ops and a second Hyper+C works. Add a bounded
+      # retry here if that ever gets annoying.
+      if [ -z "$session" ]; then exit 0; fi
+
+      active=$(tmux display-message -p -t "$session" '#{@nvim_window}' 2>/dev/null || true)
+      if [ "$active" = "1" ]; then
+        if [ "$(tmux display-message -p -t "$session" '#{pane_dead}' 2>/dev/null || true)" = "1" ]; then
+          tmux respawn-window -k -t "$session" nvim
+        else
+          tmux last-window -t "$session" 2>/dev/null || true
+        fi
+        exit 0
+      fi
+
+      win=$(tmux list-windows -t "$session" -f '#{==:#{@nvim_window},1}' -F '#{window_id}' 2>/dev/null | head -1)
+      if [ -n "$win" ]; then
+        if [ "$(tmux display-message -p -t "$win" '#{pane_dead}' 2>/dev/null || true)" = "1" ]; then
+          tmux respawn-window -k -t "$win" nvim
+        fi
+        tmux select-window -t "$win"
+        exit 0
+      fi
+
+      pane_path=$(tmux display-message -p -t "$session" '#{pane_current_path}' 2>/dev/null || echo "$HOME")
+      root=$(tmux-git-root-path "$pane_path")
+      win=$(tmux new-window -d -t "$session:" -c "$root" -P -F '#{window_id}' nvim)
+      tmux set-option -w -t "$win" @nvim_window 1
+      # remain-on-exit keeps a crashed nvim's output on screen instead of the
+      # window vanishing; Hyper+C respawns nvim into it.
+      tmux set-option -w -t "$win" remain-on-exit on
+      tmux-nvim-park "$session"
+      tmux select-window -t "$win"
+    '';
+  };
+
   # Session picker rules, shared by the choose-tree binds here and in
   # session-picker.nix: sessions only, zoomed, sorted by name (worktree sessions
   # stay grouped with parent), and the `pocket` session filtered out (see
@@ -59,6 +137,8 @@ mkUserModule {
       home.packages = [
         tmux-git-root-path
         tmux-attach
+        tmux-nvim-window
+        tmux-nvim-park
       ];
 
       # Outbound: configure ghostty to auto-attach tmux
@@ -88,6 +168,13 @@ mkUserModule {
           set -g default-command "${pkgs.fish}/bin/fish -l"
 
           set -g renumber-windows on
+
+          # Renumber compacts every window with no way to exempt one, so the
+          # nvim window can't just sit at a high index — it gets dragged back
+          # among the real windows. Instead, re-park it last whenever a window
+          # is created; renumber preserves order, so it stays last from then on
+          # and the real windows keep a contiguous 1..N-1.
+          set-hook -g after-new-window 'run-shell -b "${tmux-nvim-park}/bin/tmux-nvim-park \"#{session_name}\""'
           set -g  escape-time 1
           set -g display-time 4000
           set -g status-interval 5
@@ -106,12 +193,6 @@ mkUserModule {
 
           # Reload config with prefix + R
           bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
-
-          # Open opencode in a new pane at nearest git root
-          bind-key o run-shell 'tmux split-window -h -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")" opencode'
-
-          # Open lazygit in a new pane at nearest git root
-          bind-key l run-shell 'tmux split-window -h -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")" lazygit'
 
           # New windows open at nearest git root; panes inherit current directory
           bind-key c run-shell 'tmux new-window -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
