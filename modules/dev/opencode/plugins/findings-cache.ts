@@ -14,6 +14,11 @@
 //
 // The index is built in memory at injection time from the directory contents,
 // so deletions/edits self-heal with no separate index file to keep in sync.
+//
+// Eviction is LRU with mtime as the clock: set on write, refreshed whenever an
+// agent reads the finding.  Anything untouched for PRUNE_MS is deleted during
+// the next index build.  The filesystem already tracks last-use, so there is no
+// access log, no counter, and no separate state to keep in sync.
 
 import type { Plugin } from "@opencode-ai/plugin";
 import {
@@ -21,6 +26,9 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  statSync,
+  unlinkSync,
+  utimesSync,
   writeFileSync,
 } from "fs";
 import { dirname, join } from "path";
@@ -29,23 +37,31 @@ import { spawnSync } from "child_process";
 const CACHE_DIR_NAME = ".opencode-cache";
 const SUBAGENT_PATTERN = /\(@(explore|librarian|oracle)\s+subagent\)\s*$/i;
 const MIN_BODY_LEN = 32;
+const PRUNE_MS = 14 * 24 * 60 * 60 * 1000;
 
 const CONTEXT_PREAMBLE = `
 ## Cached Research (.opencode-cache/)
 
-Recent research from @explore / @librarian / @oracle subagents in this worktree.
-**These are first-class context, not optional reading.** Treat them as the
-freshest signal on what's been investigated — including conclusions that may
-contradict other docs in the repo (treat such contradictions as worth
-investigating, not as noise).
+Prior findings from @explore / @librarian / @oracle subagents in this worktree.
 
-The cost of producing these has already been paid; not reading relevant ones
-is the actual waste.  Read the full body of any relevant entry via
-\`.opencode-cache/<filename>\` before doing your own research on the same topic.
-Each finding starts with a \`Sections:\` line so you can skim structure first.
+**These are leads, not facts.** Each was true when written and decays from that
+moment. Measured against this cache: ~40% of file references are already dead or
+moved, and line numbers rot first — treat any \`file:line\` here as stale.
 
-If a finding is stale, wrong, or superseded by newer work, just delete it
-(\`rm .opencode-cache/<filename>\`) — no reindex step needed.
+Use them to see what was already investigated and where to look. Before acting on
+a claim, confirm it in the repo: re-locate code by symbol name, never by the line
+number quoted. Where a finding and the working tree disagree, the working tree
+wins.
+
+Frontmatter \`commit:\` is the sha the finding was written against. To see exactly
+what has moved under it:
+\`git diff --stat <commit>..HEAD -- <paths it cites>\`
+
+Read the full body via \`.opencode-cache/<filename>\`. Each starts with a
+\`Sections:\` line for skimming; frontmatter \`created:\` tells you how much decay
+to expect.
+
+Delete on sight if wrong or superseded: \`rm .opencode-cache/<filename>\`.
 `.trim();
 
 type AgentType = "explore" | "librarian" | "oracle";
@@ -76,6 +92,21 @@ type EventInput = {
 function resolveWorktreeRoot(dir: string): string | null {
   try {
     const res = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: dir,
+      encoding: "utf8",
+      timeout: 1000,
+    });
+    if (res.status !== 0) return null;
+    const out = res.stdout.trim();
+    return out.length > 0 ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveHead(dir: string): string | null {
+  try {
+    const res = spawnSync("git", ["rev-parse", "--short", "HEAD"], {
       cwd: dir,
       encoding: "utf8",
       timeout: 1000,
@@ -186,6 +217,7 @@ function buildFinding(opts: {
   agent: AgentType;
   session: string;
   parent: string | null;
+  commit: string | null;
   createdISO: string;
   updatedISO: string;
   body: string;
@@ -195,6 +227,7 @@ function buildFinding(opts: {
   fm.push(`agent: ${opts.agent}`);
   fm.push(`session: ${opts.session}`);
   if (opts.parent) fm.push(`parent: ${opts.parent}`);
+  if (opts.commit) fm.push(`commit: ${opts.commit}`);
   fm.push(`created: ${opts.createdISO}`);
   fm.push(`updated: ${opts.updatedISO}`);
   fm.push("---");
@@ -221,8 +254,13 @@ function buildIndex(cacheDir: string): string {
 
   for (const f of names) {
     if (!f.endsWith(".md") || f === "_index.md") continue;
+    const path = join(cacheDir, f);
     try {
-      const content = readFileSync(join(cacheDir, f), "utf8");
+      if (Date.now() - statSync(path).mtimeMs > PRUNE_MS) {
+        unlinkSync(path);
+        continue;
+      }
+      const content = readFileSync(path, "utf8");
       const fm = parseFrontMatter(content);
       entries.push({
         file: f,
@@ -310,6 +348,7 @@ export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
         agent,
         session: sessionID,
         parent: parentID,
+        commit: resolveHead(root),
         createdISO: isoFromMs(createdMs) || new Date().toISOString(),
         updatedISO: isoFromMs(updatedMs) || new Date().toISOString(),
         body,
@@ -330,6 +369,21 @@ export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
             : null;
       if (!sessionID) return;
       await captureFinding(sessionID);
+    },
+
+    "tool.execute.after": async (input: { tool?: string; args?: unknown }) => {
+      if (String(input?.tool ?? "").toLowerCase() !== "read") return;
+      const path = (input?.args as Record<string, unknown> | undefined)?.path;
+      if (
+        typeof path !== "string" ||
+        !path.includes(`/${CACHE_DIR_NAME}/`) ||
+        !path.endsWith(".md")
+      )
+        return;
+      try {
+        const now = new Date();
+        utimesSync(path, now, now);
+      } catch {}
     },
 
     "experimental.chat.system.transform": async (_input, output) => {
