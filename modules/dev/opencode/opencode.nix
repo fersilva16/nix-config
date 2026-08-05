@@ -41,6 +41,7 @@ mkUserModule {
     cache = import ./cache.nix { };
     omo-gitignore = import ./omo-gitignore.nix { };
     omo = import ./omo.nix { inherit pkgs; };
+    worktree-move = import ./worktree-move.nix { };
   };
   home =
     { username, ... }:
@@ -83,6 +84,17 @@ mkUserModule {
             lin = {
               template = "!`fish -c lin`";
               description = "Load Linear issue context";
+            };
+            # Runs inside this session's pane, so wtoc reads @oc-sid from
+            # $TMUX_PANE and relocates *this* session without a picker.
+            move = {
+              template = ''
+                !`fish -c 'wtoc $ARGUMENTS'`
+
+                That is the result of moving this session to a worktree. Repeat it
+                back verbatim and do nothing else — the move already happened.
+              '';
+              description = "Move this session into a git worktree (usage: /move [-c] <name>)";
             };
           };
           permission = {
