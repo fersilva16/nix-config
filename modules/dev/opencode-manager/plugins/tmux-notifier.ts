@@ -144,23 +144,22 @@ function sendDesktopNotification(title: string, body: string) {
   }
 }
 
-function setPaneOption(option: string, value: string) {
-  if (!TMUX_PANE) return
-  runDetached("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value])
-}
-
-// @oc-status is written from two places in the same handler, and detached
-// writes carry no ordering guarantee -- an 'idle' default landing after a
-// 'busy' would park the pane on the wrong state until the next transition.
-function setPaneOptionOrdered(option: string, value: string) {
-  if (!TMUX_PANE) return
+// Pane options are the pane's identity and status, so every write is
+// synchronous and reports whether it landed. Detached writes carry no
+// ordering or delivery guarantee: an 'idle' default arriving after a 'busy'
+// parks the pane on the wrong state, and a dropped @oc-sid leaves the pane
+// unclaimed for the whole life of the process.
+function setPaneOption(option: string, value: string): boolean {
+  if (!TMUX_PANE) return false
   try {
-    spawnSync("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value], {
+    const result = spawnSync("tmux", ["set-option", "-p", "-t", TMUX_PANE, option, value], {
       stdio: "ignore",
       timeout: 300,
     })
+    return !result.error && result.status === 0
   } catch {
     // Notifier side-effects must never break the opencode session.
+    return false
   }
 }
 
@@ -261,7 +260,7 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
   // Pane options outlive the process that wrote them, and a resumed session
   // emits no status event until it does something -- without this reset the
   // pane keeps a status from a previous process forever.
-  setPaneOptionOrdered("@oc-status", "idle")
+  setPaneOption("@oc-status", "idle")
 
   // Subagents share this pane's event stream and would steal @oc-sid. Only
   // session.created carries info.parentID; idle/status carry just a sessionID.
@@ -285,11 +284,15 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
 
   function bindSessionToPane(sessionID: string) {
     if (!TMUX_PANE || childSessions.has(sessionID) || sessionID === currentSessionID) return
+    // Latch only after the claim lands. currentSessionID short-circuits every
+    // later attempt, so latching first turns one dropped write into a pane
+    // that stays unclaimed until the process exits; bailing here lets the
+    // next session event retry.
+    if (!setPaneOption("@oc-sid", sessionID)) return
     currentSessionID = sessionID
-    setPaneOption("@oc-sid", sessionID)
     ownStatus = "idle"
     busyChildren.clear()
-    setPaneOptionOrdered("@oc-status", "idle")
+    setPaneOption("@oc-status", "idle")
     if (directory) setPaneOption("@oc-dir", directory)
   }
 
@@ -308,7 +311,7 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
     else busyChildren.add(sessionID)
 
     const effective = ownStatus === "idle" && busyChildren.size > 0 ? "busy" : ownStatus
-    setPaneOptionOrdered("@oc-status", effective)
+    setPaneOption("@oc-status", effective)
   }
 
   function clearPending(sessionID: string) {
