@@ -146,6 +146,7 @@ mkUser {
   tailscale.enable = true;
   "cloudflare-warp".enable = true;
   wireguard.enable = true;
+  openfortivpn.enable = true;
 
   # Security
   "1password".enable = true;
