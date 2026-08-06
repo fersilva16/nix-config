@@ -58,6 +58,17 @@ let
       YEL=$'\033[33m'
       MAG=$'\033[38;5;135m'
 
+      # This runs under `run-shell`, so PATH is the tmux server's — inherited
+      # from launchd at server start, NOT from a login shell. It contains only
+      # tmux's own bin plus the system dirs, so the home-manager profile is
+      # absent and the `command -v` gate below can never find its soft dep.
+      # That failed silently for the entire life of this picker: @wt-oc was
+      # always empty while @wt-pr/@wt-ci worked, because gh/git are
+      # runtimeInputs and resolve by store path. Prepend the profile rather
+      # than hard-wiring a cross-module store path, which would turn a soft
+      # dep into a build-time one.
+      PATH="$HOME/.nix-profile/bin:$PATH"
+
       # ── opencode attention (session name → pre-colored glyph) ────────────
       # Soft dep: tmux-opencode-manager (opencode-manager module). Absent →
       # opencode glyphs are simply skipped. A pending notification means "needs
