@@ -189,13 +189,26 @@ local function warpToApp(bundleID, screen, tries)
   end
 end
 
--- Hyper + T → Open a new Ghostty window
--- Uses hs.task (async) to avoid blocking the main thread.
+-- Hyper + T → Open a new Ghostty window in the ALREADY-RUNNING instance.
+-- This used to shell out to `open -na Ghostty`, but -n means "new instance":
+-- every press forked another Ghostty process, so AltTab filled with duplicate
+-- windows that no amount of quitting one window would clear. The File → New
+-- Window menu item is the supported way to add a window here — ghostty's own
+-- `+new-window` action is GTK-only and exits with "not supported on this
+-- platform" on macOS.
 local tCode = hs.keycodes.map["t"]
 if tCode then
   keyCodeNames[tCode] = "t"
   hyperActionsByKeyCode[tCode] = function()
-    hs.task.new("/usr/bin/open", nil, { "-na", "Ghostty" }):start()
+    local ghostty = hs.application.get("com.mitchellh.ghostty")
+    if ghostty then
+      -- Activate first: selectMenuItem drives the AX menu bar, which is only
+      -- reliably populated for the frontmost app.
+      ghostty:activate()
+      ghostty:selectMenuItem({ "File", "New Window" })
+    else
+      hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
+    end
     warpToApp("com.mitchellh.ghostty")
   end
 end
@@ -206,7 +219,7 @@ end
 -- session/window resolution lives in the tmux-nvim-window shell script; it
 -- runs async so a slow tmux/git can't stall the eventtap.
 local function focusNvimWindow()
-  hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
+  hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
   warpToApp("com.mitchellh.ghostty")
   hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window focus" }):start()
 end
@@ -218,14 +231,14 @@ if cCode then
 end
 
 -- Toggle an app: hide it when it's frontmost, otherwise launch/focus it.
--- hide() on an already-running app is a fast AX call; launching goes through
--- hs.task (async) to avoid blocking the main thread.
-local function toggleApp(bundleID, appName)
+-- Both halves are fast AX/NSWorkspace calls, and launchOrFocusByBundleID
+-- never forks a second instance the way `open -n` does.
+local function toggleApp(bundleID)
   local front = hs.application.frontmostApplication()
   if front and front:bundleID() == bundleID then
     front:hide()
   else
-    hs.task.new("/usr/bin/open", nil, { "-a", appName }):start()
+    hs.application.launchOrFocusByBundleID(bundleID)
     warpToApp(bundleID)
   end
 end
@@ -241,7 +254,7 @@ if spaceCode then
     if front and front:bundleID() == "com.mitchellh.ghostty" then
       hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window" }):start()
     else
-      hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
+      hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
       warpToApp("com.mitchellh.ghostty")
     end
   end
@@ -252,7 +265,7 @@ local iCode = hs.keycodes.map["i"]
 if iCode then
   keyCodeNames[iCode] = "i"
   hyperActionsByKeyCode[iCode] = function()
-    toggleApp("com.linear", "Linear")
+    toggleApp("com.linear")
   end
 end
 
@@ -261,7 +274,7 @@ local sCode = hs.keycodes.map["s"]
 if sCode then
   keyCodeNames[sCode] = "s"
   hyperActionsByKeyCode[sCode] = function()
-    toggleApp("com.tinyspeck.slackmacgap", "Slack")
+    toggleApp("com.tinyspeck.slackmacgap")
   end
 end
 
@@ -270,7 +283,7 @@ local oCode = hs.keycodes.map["o"]
 if oCode then
   keyCodeNames[oCode] = "o"
   hyperActionsByKeyCode[oCode] = function()
-    toggleApp("md.obsidian", "Obsidian")
+    toggleApp("md.obsidian")
   end
 end
 
@@ -283,7 +296,7 @@ if nCode then
   hyperActionsByKeyCode[nCode] = function()
     local ghostty = hs.application.get("com.mitchellh.ghostty")
     if not ghostty then
-      hs.task.new("/usr/bin/open", nil, { "-a", "Ghostty" }):start()
+      hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
       return
     end
     ghostty:activate()
