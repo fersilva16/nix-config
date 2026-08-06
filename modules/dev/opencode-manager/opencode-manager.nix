@@ -35,7 +35,6 @@ let
     bashOptions = [ ];
     runtimeInputs = [
       pkgs.argc
-      pkgs.fzf
       pkgs.jq
       pkgs.tmux
       pkgs.coreutils
@@ -244,7 +243,14 @@ mkUserModule {
     home.sessionVariables.OPENCODE_TMUX_NOTIFIER_SOUND_DIR = "${mohak34-sounds}";
 
     programs.tmux.extraConfig = ''
-      bind-key 'n' run-shell "tmux display-popup -w 60% -h 50% -E -e TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager tui"
+      # prefix+N drains the notification queue: jumps to the most recent
+      # notification's window and dismisses it, so pressing it repeatedly walks
+      # every pending one. This replaced a `prefix+n` browse-all popup — the
+      # session picker (cli/tmux/session-picker.nix) already shows the same
+      # per-session attention glyph from the same source, and worktree-per-topic
+      # keeps sessions ~1:1 with opencode panes, so a second picker earned
+      # nothing. prefix+n is left unbound deliberately: muscle memory should
+      # fail loudly, not do something surprising.
       bind-key 'N' run-shell -b "env TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager notify goto"
       set-hook -g after-select-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
       set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
