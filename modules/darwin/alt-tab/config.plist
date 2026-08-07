@@ -74,6 +74,10 @@
 	<string>0</string>
 	<key>showOnScreen</key>
 	<string>1</string>
+	<key>showWindowlessApps</key>
+	<string>1</string>
+	<key>showWindowlessApps2</key>
+	<string>1</string>
 	<key>updatePolicy</key>
 	<string>1</string>
 </dict>
