@@ -72,18 +72,18 @@ mkUserModule {
               return 1
             end
 
-            if test -n "$branch"
-              # Use existing branch, or create new branch from current
-              if git show-ref --verify --quiet "refs/heads/$branch"
-                git worktree add "$wt_path" "$branch"
-              else if git show-ref --verify --quiet "refs/remotes/origin/$branch"
-                git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
-              else
-                git worktree add -b "$branch" "$wt_path" "$base_branch"
-              end
+            # No branch given: name it after the worktree, namespaced by
+            # `git config wt.prefix` (e.g. "fernando/") so it can't collide with
+            # other people's PRs. An explicit branch arg is used verbatim.
+            test -z "$branch"; and set branch (git config --default "" wt.prefix)"$name"
+
+            # Use existing branch (local, then remote), else create it from current
+            if git show-ref --verify --quiet "refs/heads/$branch"
+              git worktree add "$wt_path" "$branch"
+            else if git show-ref --verify --quiet "refs/remotes/origin/$branch"
+              git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
             else
-              # New branch (named after worktree) from current branch
-              git worktree add -b "$name" "$wt_path" "$base_branch"
+              git worktree add -b "$branch" "$wt_path" "$base_branch"
             end
             or begin; echo "wt: failed to create worktree"; return 1; end
             echo "Created worktree at $wt_path (from $base_branch)"
@@ -180,9 +180,10 @@ mkUserModule {
 
           # Rename the branch only when it matches the old worktree name
           # (the auto-named case from wt), fixing the typo everywhere.
-          if test "$branch" = "$old"
-            git -C "$main_root" branch -m "$old" "$new" 2>/dev/null
-            and set branch "$new"
+          # wt.prefix is empty when unset, so this is the plain name by default.
+          set -l prefix (git config --default "" wt.prefix)
+          if test "$branch" = "$prefix$old"
+            git -C "$main_root" branch -m "$branch" "$prefix$new" 2>/dev/null
           end
 
           direnv allow "$new_path" 2>/dev/null
