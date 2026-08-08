@@ -91,6 +91,8 @@ build_list() {
 
   # Subagent sessions (parent_id NOT NULL) are 64% of all rows and are never
   # something you resume by hand, so they are excluded outright.
+  # project_id 'global' is opencode's bucket for runs outside a repo, which is
+  # where headless one-shots (lin ai) are parked on purpose. Also never resumed.
   local rows
   rows=$(sqlite3 -separator "$TAB" "$DB" "
     SELECT s.id,
@@ -99,7 +101,8 @@ build_list() {
            replace(s.directory, '$HOME', '~'),
            s.title
     FROM session s
-    WHERE s.parent_id IS NULL AND s.time_archived IS NULL AND $pred $grep_pred
+    WHERE s.parent_id IS NULL AND s.time_archived IS NULL
+      AND s.project_id <> 'global' AND $pred $grep_pred
     ORDER BY s.time_updated DESC" 2>/dev/null) || true
   [ -z "$rows" ] && return 0
 

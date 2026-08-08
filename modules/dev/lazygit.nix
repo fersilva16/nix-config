@@ -10,14 +10,17 @@ mkUserModule {
           {
             key = "<c-a>";
             context = "files";
-            command = ''opencode run -m "anthropic/claude-haiku-4-5" "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
+            # --title tags the session with its origin. These runs need the repo
+            # cwd to see staged changes, so unlike `lin ai` they cannot be parked
+            # in a scratch dir and will show up in this project's session picker.
+            command = ''opencode run --title "lazygit commit" -m "anthropic/claude-haiku-4-5" "Look at the staged changes and create a commit following conventional commit conventions. Just commit directly."'';
             output = "terminal";
             description = "Generate commit with OpenCode";
           }
           {
             key = "H";
             context = "global";
-            command = ''opencode run -m "anthropic/claude-haiku-4-5" "{{.Form.Prompt}}"'';
+            command = ''opencode run --title "lazygit: {{.Form.Prompt}}" -m "anthropic/claude-haiku-4-5" "{{.Form.Prompt}}"'';
             output = "terminal";
             description = "AI help (haiku)";
             prompts = [
