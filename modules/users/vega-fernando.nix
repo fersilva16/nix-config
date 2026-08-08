@@ -139,6 +139,7 @@ mkUser {
   word.enable = true;
   "windows-app".enable = true;
   granola.enable = true;
+  "wispr-flow".enable = true;
   "cold-turkey-blocker".enable = true;
   selfcontrol.enable = true;
 
