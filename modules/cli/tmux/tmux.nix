@@ -36,25 +36,46 @@ let
     name = "tmux-new-window";
     runtimeInputs = [
       pkgs.tmux
-      tmux-git-root-path
+      pkgs.git
     ];
     text = ''
-      root=$(tmux-git-root-path "''${1:-.}")
+      # This runs on every prefix+c, so it is written to spawn as few processes
+      # as it can: one tmux round trip for everything the branch below needs,
+      # then git, then the action. Do not reach for tmux-git-root-path here —
+      # the extra wrapper process costs more than the line it saves.
+      #
+      # The keybind passes no args (they exist for the test harness): run-shell
+      # expands #{...} into the command string before /bin/sh parses it, so a
+      # session_id like $101 would arrive as "01". Formats read from in here are
+      # safe — run-shell never sees this file. Target them explicitly, since a
+      # bare target resolves by most-recently-used session rather than by the
+      # pane that invoked us. run-shell exports TMUX_PANE.
+      pane=()
+      if [ -n "''${TMUX_PANE:-}" ]; then pane=(-t "$TMUX_PANE"); fi
+      # Path last: it is the only one of the three that can contain a space.
+      info=$(tmux display-message -p "''${pane[@]}" '#{session_id} #{window_id} #{pane_current_path}')
+      rest=''${info#* }
+      here="''${1:-''${rest#* }}"
+      session="''${2:-''${info%% *}}"
+      win=''${rest%% *}
+
+      root=$(git -C "$here" rev-parse --show-toplevel 2>/dev/null || echo "$here")
       # pane_current_path is always the physical path, and macOS symlinks /tmp
       # and /var (plus any symlinked checkout), so compare like with like —
       # otherwise the match silently never fires and this degrades back into
       # plain new-window with no visible symptom.
       root=$(cd "$root" 2>/dev/null && pwd -P || echo "$root")
-      session="''${2:-$(tmux display-message -p '#{session_id}')}"
 
       # fish is default-command below, so an idle pane reports exactly "fish".
       # Nested #{&&:} because tmux formats have no n-ary and.
       filter="#{&&:#{==:#{window_panes},1},#{&&:#{==:#{pane_current_command},fish},#{==:#{pane_current_path},$root}}}"
-      idle=$(tmux list-windows -t "$session" -F '#{window_id}' -f "$filter" 2>/dev/null | head -1)
+      # read takes the first line without forking head.
+      idle=""
+      read -r idle < <(tmux list-windows -t "$session" -F '#{window_id}' -f "$filter" 2>/dev/null) || true
 
       if [ -z "$idle" ]; then
         tmux new-window -t "$session:" -c "$root"
-      elif [ "$idle" = "$(tmux display-message -p -t "$session" '#{window_id}' 2>/dev/null)" ]; then
+      elif [ "$idle" = "$win" ]; then
         # Selecting the window you are already on is a silent no-op, which
         # reads as a dead keybind. Say so, and advertise the escape hatch.
         tmux display-message "already on an empty window — prefix+C forces a new one"
@@ -251,8 +272,11 @@ mkUserModule {
           # prefix+c reuses an idle window at that root if one exists (see
           # tmux-new-window); prefix+C always creates, mirroring the s/S split.
           # C was tmux's customize-mode, still reachable via prefix+: .
-          bind-key c run-shell '${tmux-new-window}/bin/tmux-new-window "#{pane_current_path}" "#{session_id}"'
-          bind-key C run-shell 'tmux new-window -t "#{session_id}:" -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
+          # Neither passes #{session_id}: run-shell expands formats into the
+          # command string before /bin/sh parses it, so $101 becomes "01".
+          # run-shell exports TMUX_PANE, so an omitted target is the right one.
+          bind-key c run-shell '${tmux-new-window}/bin/tmux-new-window'
+          bind-key C run-shell 'tmux new-window -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
           bind-key '"' split-window -c "#{pane_current_path}"
           bind-key % split-window -h -c "#{pane_current_path}"
 
