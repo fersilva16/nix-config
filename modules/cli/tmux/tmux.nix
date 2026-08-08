@@ -171,6 +171,14 @@ mkUserModule {
 
           set -g renumber-windows on
 
+          # Destroying a session (prefix+x on its last pane, wtrm, the picker's
+          # kill bind) switches the client to the most recently active
+          # remaining session instead of detaching — killing a worktree session
+          # drops you back on its parent rather than closing the terminal. The
+          # client still exits when nothing is left, so the last session out
+          # closes Ghostty.
+          set -g detach-on-destroy off
+
           # Renumber compacts every window with no way to exempt one, so the
           # nvim window can't just sit at a high index — it gets dragged back
           # among the real windows. Instead, re-park it last whenever a window
