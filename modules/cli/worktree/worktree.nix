@@ -18,6 +18,20 @@ mkUserModule {
   home = {
     programs.fish = {
       functions = {
+        # Namespace for branches the wt family invents (`git config wt.prefix`,
+        # e.g. "fernando/"), so they can't collide with other people's PRs.
+        # Empty when unset, which makes every call site a no-op by default.
+        _wt_prefix = ''
+          git config --default "" wt.prefix
+        '';
+
+        # Worktree/session name for a branch: drop our own prefix, then slashes
+        # → dashes. "fernando/fix-foo" → "fix-foo", but someone else's
+        # "alice/fix" stays "alice-fix" (whose branch it is still reads).
+        _wt_name = ''
+          string replace -r "^"(string escape --style=regex -- (_wt_prefix)) "" -- $argv[1] | string replace -a / -
+        '';
+
         wt = ''
           set git_root (git rev-parse --show-toplevel 2>/dev/null)
           or begin; echo "wt: not a git repo"; return 1; end
@@ -73,9 +87,9 @@ mkUserModule {
             end
 
             # No branch given: name it after the worktree, namespaced by
-            # `git config wt.prefix` (e.g. "fernando/") so it can't collide with
-            # other people's PRs. An explicit branch arg is used verbatim.
-            test -z "$branch"; and set branch (git config --default "" wt.prefix)"$name"
+            # wt.prefix so it can't collide with other people's PRs. An
+            # explicit branch arg is used verbatim.
+            test -z "$branch"; and set branch (_wt_prefix)"$name"
 
             # Use existing branch (local, then remote), else create it from current
             if git show-ref --verify --quiet "refs/heads/$branch"
@@ -181,7 +195,7 @@ mkUserModule {
           # Rename the branch only when it matches the old worktree name
           # (the auto-named case from wt), fixing the typo everywhere.
           # wt.prefix is empty when unset, so this is the plain name by default.
-          set -l prefix (git config --default "" wt.prefix)
+          set -l prefix (_wt_prefix)
           if test "$branch" = "$prefix$old"
             git -C "$main_root" branch -m "$branch" "$prefix$new" 2>/dev/null
           end
