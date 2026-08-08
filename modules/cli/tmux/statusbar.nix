@@ -14,14 +14,14 @@ let
 
       RESET="#[fg=''${FG},bg=''${BG},nobold,noitalics,nounderscore,nodim]"
 
-      # 1-minute load average as a percentage of available cores. macOS exposes
-      # no cheap instantaneous CPU%: top -l 1 costs ~1.2s and iostat -c 2 ~1.0s,
-      # both far too slow for a 5s status interval. vm.loadavg is ~18ms.
-      # ponytail: load counts runnable + uninterruptible tasks, so this reads a
-      # little higher than top's user+sys. Clamped to 100 — past saturation the
-      # backlog depth doesn't change what the widget is telling you.
+      # Sum of per-process CPU% over available cores. macOS exposes no cheap
+      # instantaneous CPU%: top -l 1 costs ~1.2s and iostat -c 2 ~1.0s, both far
+      # too slow for a 5s status interval. ps is ~30ms.
+      # ponytail: was vm.loadavg/ncpu, but macOS load counts threads that aren't
+      # running, so it pinned at 100% with the CPU 70% idle. ps pcpu is a
+      # decaying per-process average — close enough for a status bar.
       ncpu=$(sysctl -n hw.ncpu 2>/dev/null)
-      cpu=$(sysctl -n vm.loadavg 2>/dev/null | awk -v n="''${ncpu:-1}" '{ v = $2 / n * 100; printf "%.0f", (v > 100 ? 100 : v) }')
+      cpu=$(ps -Ao pcpu 2>/dev/null | awk -v n="''${ncpu:-1}" 'NR > 1 { s += $1 } END { v = s / n; printf "%.0f", (v > 100 ? 100 : v) }')
       [[ -z "''${cpu}" ]] && exit 0
 
       if (( cpu < 30 )); then
