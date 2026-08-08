@@ -22,6 +22,48 @@ let
     '';
   };
 
+  # prefix+c, but idempotent. A single-pane window already sitting at a shell
+  # prompt in the same git root IS what prefix+c would create, so select it
+  # instead of stacking a duplicate — the reason a session drifts to two or
+  # three identical empty windows nobody remembers opening.
+  #
+  # "Idle" is decided by pane_current_command: a window running anything
+  # (nvim, opencode, a build) reports that command and never matches, so this
+  # can only ever land you on a bare prompt. The path test keeps it from
+  # teleporting across projects when a session spans more than one root.
+  # prefix+C keeps the old always-create behavior.
+  tmux-new-window = pkgs.writeShellApplication {
+    name = "tmux-new-window";
+    runtimeInputs = [
+      pkgs.tmux
+      tmux-git-root-path
+    ];
+    text = ''
+      root=$(tmux-git-root-path "''${1:-.}")
+      # pane_current_path is always the physical path, and macOS symlinks /tmp
+      # and /var (plus any symlinked checkout), so compare like with like —
+      # otherwise the match silently never fires and this degrades back into
+      # plain new-window with no visible symptom.
+      root=$(cd "$root" 2>/dev/null && pwd -P || echo "$root")
+      session="''${2:-$(tmux display-message -p '#{session_id}')}"
+
+      # fish is default-command below, so an idle pane reports exactly "fish".
+      # Nested #{&&:} because tmux formats have no n-ary and.
+      filter="#{&&:#{==:#{window_panes},1},#{&&:#{==:#{pane_current_command},fish},#{==:#{pane_current_path},$root}}}"
+      idle=$(tmux list-windows -t "$session" -F '#{window_id}' -f "$filter" 2>/dev/null | head -1)
+
+      if [ -z "$idle" ]; then
+        tmux new-window -t "$session:" -c "$root"
+      elif [ "$idle" = "$(tmux display-message -p -t "$session" '#{window_id}' 2>/dev/null)" ]; then
+        # Selecting the window you are already on is a silent no-op, which
+        # reads as a dead keybind. Say so, and advertise the escape hatch.
+        tmux display-message "already on an empty window — prefix+C forces a new one"
+      else
+        tmux select-window -t "$idle"
+      fi
+    '';
+  };
+
   tmux-attach = pkgs.writeShellApplication {
     name = "tmux-attach";
     bashOptions = [ ];
@@ -139,6 +181,7 @@ mkUserModule {
       home.packages = [
         tmux-git-root-path
         tmux-attach
+        tmux-new-window
         tmux-nvim-window
         tmux-nvim-park
       ];
@@ -204,8 +247,12 @@ mkUserModule {
           # Reload config with prefix + R
           bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
 
-          # New windows open at nearest git root; panes inherit current directory
-          bind-key c run-shell 'tmux new-window -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
+          # New windows open at nearest git root; panes inherit current directory.
+          # prefix+c reuses an idle window at that root if one exists (see
+          # tmux-new-window); prefix+C always creates, mirroring the s/S split.
+          # C was tmux's customize-mode, still reachable via prefix+: .
+          bind-key c run-shell '${tmux-new-window}/bin/tmux-new-window "#{pane_current_path}" "#{session_id}"'
+          bind-key C run-shell 'tmux new-window -t "#{session_id}:" -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
           bind-key '"' split-window -c "#{pane_current_path}"
           bind-key % split-window -h -c "#{pane_current_path}"
 
