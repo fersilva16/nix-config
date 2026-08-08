@@ -126,9 +126,10 @@
       # huge tmux session labels that long branch names produce. The
       # branch itself is unchanged — checkout/tracking below uses
       # $head_branch; only the worktree dir + session label differ.
-      # Sanitized branch (slashes → dashes) is offered as the default.
+      # Sanitized branch (our wt.prefix dropped, slashes → dashes) is the
+      # default, so my own "fernando/fix-foo" opens as just "fix-foo".
       if test -z "$name"
-        set -l default_name (string replace -a '/' '-' -- $head_branch)
+        set -l default_name (_wt_name $head_branch)
         read -P "wtpr: worktree name [$default_name]: " name
         or return 1
         test -z "$name"; and set name $default_name
@@ -172,9 +173,10 @@
         else
           # Fork PR: no push access, and the fork's head branch name may
           # collide locally (e.g. a fork's `main`). Fetch pull/N/head into
-          # a namespaced pr-N branch; re-running wtpr refreshes force-pushed
-          # PRs. The + forces fast-forward to handle force-pushes.
-          set -l local_branch "pr-$pr_num"
+          # a namespaced pr-N branch (under wt.prefix, like every branch wt
+          # invents); re-running wtpr refreshes force-pushed PRs. The +
+          # forces fast-forward to handle force-pushes.
+          set -l local_branch (_wt_prefix)"pr-$pr_num"
           git fetch origin "+pull/$pr_num/head:refs/heads/$local_branch" 2>/dev/null
           or begin; echo "wtpr: failed to fetch PR"; return 1; end
 

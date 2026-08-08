@@ -251,7 +251,9 @@ in
 
           git fetch origin 2>/dev/null
           set -l trunk (_wts_trunk)
-          git worktree add -b $name "$ws_path" "origin/$trunk"
+          # Namespace the branch with wt.prefix (like wt); the worktree dir and
+          # tmux session keep the short name.
+          git worktree add -b (_wt_prefix)"$name" "$ws_path" "origin/$trunk"
           or begin
             echo "wts new: git worktree add failed" >&2
             return 1
@@ -345,7 +347,7 @@ in
           # (sanitized) as default — short names avoid huge tmux session labels.
           set -l name $argv[2]
           if test -z "$name"
-            set -l default_name (string replace -a '/' '-' -- $heads[$si])
+            set -l default_name (_wt_name $heads[$si])
             read -P "wts pr: worktree name [$default_name]: " name
             or return 1
             test -z "$name"; and set name $default_name
