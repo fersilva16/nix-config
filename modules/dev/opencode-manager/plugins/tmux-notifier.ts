@@ -7,8 +7,8 @@
 //   OPENCODE_TMUX_NOTIFIER_SOUND=0       disable sound
 //   OPENCODE_TMUX_NOTIFIER_DESKTOP=0     disable desktop notifications
 //   OPENCODE_TMUX_NOTIFIER_OMO_FILTER=0  allow OMO turns to notify
-//   OPENCODE_TMUX_NOTIFIER_BG_FILTER=0   allow notifications when waiting on
-//                                        spawned background task() agents
+//   OPENCODE_TMUX_NOTIFIER_BG_FILTER=0   allow notifications while subagents
+//                                        are still running
 //   OPENCODE_TMUX_NOTIFIER_IDLE_DELAY_MS=1500
 //                                        debounce window before firing on idle.
 //                                        Larger values give OMO directives
@@ -338,6 +338,10 @@ export const TmuxNotifierPlugin = async ({ client, directory }: PluginInput): Pr
   async function emitComplete(sessionID: string) {
     const { title, isChild } = await getSessionInfo(client, sessionID)
     if (isChild) return
+    // Live child state, same signal the pane's busy colour uses. The message
+    // scan below only sees the newest assistant message, so a subagent spawned
+    // a message or two ago is invisible to it -- this catches those.
+    if (BG_FILTER_ENABLED && busyChildren.size > 0) return
     if (await isLastUserMessageFromOmo(client, sessionID)) return
     if (await isWaitingOnBackgroundTasks(client, sessionID)) return
     const body = `Session has finished${buildSuffix(title)}`

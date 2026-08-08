@@ -1,7 +1,8 @@
 // Run: bun run modules/dev/opencode-manager/plugins/tmux-notifier.check.ts
 //
-// Covers only @oc-status: the pane must read busy while a subagent works,
-// even though the parent session itself went idle to wait for it.
+// Covers @oc-status and the completion notification: the pane must read busy
+// -- and stay silent -- while a subagent works, even though the parent session
+// itself went idle to wait for it.
 import assert from "assert";
 import { spawnSync } from "child_process";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "fs";
@@ -13,9 +14,14 @@ import { join } from "path";
 // process.env, hence the re-exec instead of an in-process mutation.
 if (!process.env.OC_CHECK_DIR) {
   const dir = mkdtempSync(join(tmpdir(), "tmux-notifier-check-"));
-  const fakeTmux = join(dir, "tmux");
-  writeFileSync(fakeTmux, `#!/bin/sh\nprintf '%s\\n' "$*" >> ${join(dir, "tmux.log")}\nexit 0\n`);
-  chmodSync(fakeTmux, 0o755);
+  for (const [bin, log] of [
+    ["tmux", "tmux.log"],
+    ["tmux-opencode-manager", "notify.log"],
+  ]) {
+    const path = join(dir, bin);
+    writeFileSync(path, `#!/bin/sh\nprintf '%s\\n' "$*" >> ${join(dir, log)}\nexit 0\n`);
+    chmodSync(path, 0o755);
+  }
   const { status } = spawnSync(process.execPath, [import.meta.path], {
     stdio: "inherit",
     env: {
@@ -33,13 +39,17 @@ if (!process.env.OC_CHECK_DIR) {
 }
 
 const log = join(process.env.OC_CHECK_DIR, "tmux.log");
+const notifyLog = join(process.env.OC_CHECK_DIR, "notify.log");
 writeFileSync(log, "");
+writeFileSync(notifyLog, "");
 
 const { default: TmuxNotifierPlugin } = await import("./tmux-notifier.ts");
 
 const client = {
   session: {
-    get: async () => ({ data: { title: "check", parentID: null } }),
+    get: async ({ path }: { path: { id: string } }) => ({
+      data: { title: "check", parentID: path.id.startsWith("child") ? "parent" : null },
+    }),
     messages: async () => ({ data: [] }),
   },
 };
@@ -72,6 +82,25 @@ await emit("session.status", { sessionID: "child2", status: { type: "busy" } });
 assert.strictEqual(paneStatus(), "busy", "second child busy");
 await emit("session.error", { sessionID: "child2", error: { name: "MessageAbortedError" } });
 assert.strictEqual(paneStatus(), "idle", "cancelled child releases the pane");
+
+// fireTmuxNotify spawns detached, so writes land well after emitComplete
+// returns: drain the previous round before truncating, or its notification
+// shows up as this round's.
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function notifiesOnParentIdle(): Promise<boolean> {
+  await sleep(400);
+  writeFileSync(notifyLog, "");
+  await emit("session.idle", { sessionID: "parent" });
+  await sleep(400);
+  return readFileSync(notifyLog, "utf8").includes("--event complete");
+}
+
+await emit("session.created", { info: { id: "child3", parentID: "parent" } });
+await emit("session.status", { sessionID: "child3", status: { type: "busy" } });
+assert.ok(!(await notifiesOnParentIdle()), "silent while a subagent is still running");
+
+await emit("session.idle", { sessionID: "child3" });
+assert.ok(await notifiesOnParentIdle(), "notifies once every subagent settled");
 
 console.log("tmux-notifier check: ok");
 process.exit(0);
