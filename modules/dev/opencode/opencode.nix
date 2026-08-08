@@ -42,6 +42,7 @@ mkUserModule {
     omo-gitignore = import ./omo-gitignore.nix { };
     omo = import ./omo.nix { inherit pkgs; };
     worktree-move = import ./worktree-move.nix { };
+    session-search = import ./session-search.nix { inherit pkgs; };
   };
   home =
     { username, ... }:
