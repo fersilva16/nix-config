@@ -43,7 +43,8 @@ trap 'rm -f "$CONTENT"' EXIT
   sep
 
   header "Windows"
-  key "prefix c" "new window"
+  key "prefix c" "new window (reuses an empty one)"
+  key "prefix C" "new window (always creates)"
   key "prefix ," "rename window"
   key "prefix n / p" "next / previous window"
   key "prefix 1-9" "go to window #"
