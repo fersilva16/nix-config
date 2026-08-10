@@ -194,6 +194,7 @@ mkUserModule {
     remote = import ./remote.nix { inherit pkgs; };
     group = import ./group.nix { inherit pkgs forPlatform; };
     pocket = import ./pocket.nix { inherit pkgs; };
+    pr = import ./pr.nix { inherit pkgs; };
     session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker; };
   };
   home =
