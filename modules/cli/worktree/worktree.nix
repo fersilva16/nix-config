@@ -323,9 +323,12 @@ mkUserModule {
               end
             end
 
-            # Switch to parent, then schedule cleanup in background
+            # Switch to parent, then schedule cleanup in background.
+            # Silenced: run-shell displays stdout (and a failing exit status) in
+            # view mode on whatever client is attached — git's "Deleted branch
+            # X" would take over an unrelated session seconds later.
             command tmux switch-client -t "=$parent_session"
-            command tmux run-shell -b "$cleanup"
+            command tmux run-shell -b "{ $cleanup; } >/dev/null || true"
           else
             # Regular remove (from a different session)
             if set -q TMUX
