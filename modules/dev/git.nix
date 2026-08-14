@@ -42,6 +42,11 @@ mkUserModule {
 
             core = {
               ignorecase = false;
+              # Cache the untracked-file scan keyed on directory mtimes.
+              # `git status` in a 36k-file worktree goes ~300ms -> ~80ms, which
+              # every status caller inherits: the prompt, the wt pickers, wtrm.
+              # APFS supports it (git update-index --test-untracked-cache).
+              untrackedCache = true;
             };
           };
         };
