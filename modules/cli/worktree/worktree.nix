@@ -259,11 +259,30 @@ mkUserModule {
             or return 1
           end
 
+          # Guard: $wt_path gets rm -rf'd below, so no traversal in $name
+          if string match -qr '(^\.|/)' -- "$name"
+            echo "wtrm: invalid worktree name '$name'"
+            return 1
+          end
+
           set wt_path "$wt_base/$repo_name.worktrees/$name"
 
-          if not test -d "$wt_path"
-            echo "wtrm: no worktree found for '$name'"
-            return 1
+          # Resolve the branch so a half-deleted worktree still cleans up fully:
+          # from the worktree itself, else from git's (possibly stale)
+          # registration, else the name wt would have given it.
+          set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+          if test -z "$branch" -o "$branch" = "HEAD"
+            set branch (git worktree list --porcelain | awk -v p="$wt_path" '$1=="worktree"{m=($2==p)} m&&$1=="branch"{sub("refs/heads/","",$2); print $2; exit}')
+          end
+          test -n "$branch"; or set branch (_wt_prefix)"$name"
+          git show-ref --verify --quiet "refs/heads/$branch"; or set branch ""
+
+          # Already in the desired state: prune any stale registration and stop.
+          # Removing something twice is not an error.
+          if not test -e "$wt_path"; and test -z "$branch"
+            git worktree prune
+            echo "wtrm: '$name' already removed"
+            return 0
           end
 
           # Confirm when name was auto-detected from session
@@ -298,8 +317,6 @@ mkUserModule {
               end
             end
 
-            set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-
             # Pre-check for uncommitted changes (can't report errors after switching away)
             if test $force -eq 0
               if test -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)"
@@ -308,14 +325,15 @@ mkUserModule {
               end
             end
 
-            # Build cleanup command (POSIX shell, runs server-side via tmux run-shell -b)
+            # Build cleanup command (POSIX shell, runs server-side via tmux
+            # run-shell -b). Every step tolerates already-being-done: --force is
+            # safe here because the pre-check above cleared the worktree, and
+            # rm -rf + prune reconcile a dir git no longer tracks (or vice versa).
             set -l cleanup "tmux kill-session -t '=$current_session'"
-            if test $force -eq 1
-              set cleanup "$cleanup; git -C '$main_root' worktree remove --force '$wt_path'"
-            else
-              set cleanup "$cleanup; git -C '$main_root' worktree remove '$wt_path'"
-            end
-            if test -n "$branch" -a "$branch" != "HEAD"
+            set cleanup "$cleanup; git -C '$main_root' worktree remove --force '$wt_path' 2>/dev/null"
+            set cleanup "$cleanup; rm -rf '$wt_path'"
+            set cleanup "$cleanup; git -C '$main_root' worktree prune"
+            if test -n "$branch"
               if test $force -eq 1
                 set cleanup "$cleanup; git -C '$main_root' branch -D '$branch' 2>/dev/null"
               else
@@ -338,25 +356,32 @@ mkUserModule {
               end
             end
 
-            set -l branch (git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-            if test $force -eq 1
-              git worktree remove --force "$wt_path"
-            else
-              git worktree remove "$wt_path"
+            # Refuse to throw away real work; anything else is fair game
+            if test $force -eq 0; and test -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)"
+              echo "wtrm: worktree has changes — use 'wtrm --force $name' to force"
+              return 1
             end
-            or begin; echo "wtrm: worktree has changes — use 'wtrm --force $name' to force"; return 1; end
 
-            if test -n "$branch" -a "$branch" != "HEAD"
-              if test $force -eq 1
-                git branch -D "$branch" 2>/dev/null
-              else
-                git branch -d "$branch" 2>/dev/null
-              end
-              and echo "Removed worktree '$name' and branch '$branch'"
-              or echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'wtrm --force $name' to force)"
-            else
+            # Don't rm the floor out from under the shell
+            if string match -q "$wt_path*" -- "$PWD"
+              cd "$main_root"
+            end
+
+            # Teardown: each step tolerates already-being-done, so a dir git
+            # forgot (or a registration whose dir vanished) still ends up gone.
+            git worktree remove --force "$wt_path" 2>/dev/null
+            rm -rf "$wt_path"
+            git worktree prune
+
+            if test -z "$branch"
               echo "Removed worktree '$name'"
+            else if test $force -eq 1
+              git branch -D "$branch" 2>/dev/null
+              echo "Removed worktree '$name' and branch '$branch'"
+            else if git branch -d "$branch" 2>/dev/null
+              echo "Removed worktree '$name' and branch '$branch'"
+            else
+              echo "Removed worktree '$name' (branch '$branch' not fully merged — use 'wtrm --force $name' to force)"
             end
           end
         '';
