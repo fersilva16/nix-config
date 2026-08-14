@@ -1,15 +1,14 @@
-// Captures @explore / @librarian / @oracle subagent findings to a per-worktree
-// `.opencode-cache/` so future sessions can read prior research before re-doing
-// it.  Solves cross-time work duplication without adding A2A tools to agent
-// context.  All operations are wrapped in try/catch — this plugin must NEVER
-// break the host opencode session.
+// Captures @explore / @librarian / @oracle subagent findings so future sessions
+// can read prior research before re-doing it.  Solves cross-time work
+// duplication without adding A2A tools to agent context.  All operations are
+// wrapped in try/catch — this plugin must NEVER break the host opencode session.
 //
-// Storage layout (per worktree, fully gitignored — folder + contents):
-//   .opencode-cache/
-//     ├── .gitignore        `*`  — ignores everything in this folder,
-//     │                     including itself.  Folder is bootstrapped
-//     │                     lazily on first capture; nothing here is
-//     │                     ever tracked by git.
+// Storage layout — the git *common* dir, so every linked worktree of a repo
+// shares one set of findings.  Findings describe the codebase, not the branch,
+// and a fresh `git worktree add` is exactly when prior research is most useful.
+// Living inside `.git` means nothing here is trackable, so no .gitignore is
+// needed, and bare-repo layouts work unchanged:
+//   $(git rev-parse --git-common-dir)/opencode-cache/
 //     └── <slug>-<id>.md    Finding: frontmatter + title + sections TOC + body.
 //
 // The index is built in memory at injection time from the directory contents,
@@ -22,7 +21,6 @@
 
 import type { Plugin } from "@opencode-ai/plugin";
 import {
-  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -31,18 +29,21 @@ import {
   utimesSync,
   writeFileSync,
 } from "fs";
-import { dirname, join } from "path";
+import { join } from "path";
 import { spawnSync } from "child_process";
 
-const CACHE_DIR_NAME = ".opencode-cache";
+const CACHE_DIR_NAME = "opencode-cache";
 const SUBAGENT_PATTERN = /\(@(explore|librarian|oracle)\s+subagent\)\s*$/i;
 const MIN_BODY_LEN = 32;
 const PRUNE_MS = 14 * 24 * 60 * 60 * 1000;
 
-const CONTEXT_PREAMBLE = `
-## Cached Research (.opencode-cache/)
+const contextPreamble = (dir: string) =>
+  `
+## Cached Research
 
-Prior findings from @explore / @librarian / @oracle subagents in this worktree.
+Prior findings from @explore / @librarian / @oracle subagents in this repo. One
+cache is shared by every worktree, so a finding may have been written from a
+different branch than the one checked out here.
 
 **These are leads, not facts.** Each was true when written and decays from that
 moment. Measured against this cache: ~40% of file references are already dead or
@@ -57,11 +58,11 @@ Frontmatter \`commit:\` is the sha the finding was written against. To see exact
 what has moved under it:
 \`git diff --stat <commit>..HEAD -- <paths it cites>\`
 
-Read the full body via \`.opencode-cache/<filename>\`. Each starts with a
+Read the full body via \`${dir}/<filename>\`. Each starts with a
 \`Sections:\` line for skimming; frontmatter \`created:\` tells you how much decay
 to expect.
 
-Delete on sight if wrong or superseded: \`rm .opencode-cache/<filename>\`.
+Delete on sight if wrong or superseded: \`rm ${dir}/<filename>\`.
 `.trim();
 
 type AgentType = "explore" | "librarian" | "oracle";
@@ -89,9 +90,9 @@ type EventInput = {
   event: { type: string; properties: Record<string, any> };
 };
 
-function resolveWorktreeRoot(dir: string): string | null {
+function gitOut(dir: string, args: string[]): string | null {
   try {
-    const res = spawnSync("git", ["rev-parse", "--show-toplevel"], {
+    const res = spawnSync("git", args, {
       cwd: dir,
       encoding: "utf8",
       timeout: 1000,
@@ -102,30 +103,19 @@ function resolveWorktreeRoot(dir: string): string | null {
   } catch {
     return null;
   }
+}
+
+function resolveCacheDir(dir: string): string | null {
+  const common = gitOut(dir, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-common-dir",
+  ]);
+  return common ? join(common, CACHE_DIR_NAME) : null;
 }
 
 function resolveHead(dir: string): string | null {
-  try {
-    const res = spawnSync("git", ["rev-parse", "--short", "HEAD"], {
-      cwd: dir,
-      encoding: "utf8",
-      timeout: 1000,
-    });
-    if (res.status !== 0) return null;
-    const out = res.stdout.trim();
-    return out.length > 0 ? out : null;
-  } catch {
-    return null;
-  }
-}
-
-function ensureCacheDir(root: string): string {
-  const cacheDir = join(root, CACHE_DIR_NAME);
-  mkdirSync(cacheDir, { recursive: true });
-  const gi = join(cacheDir, ".gitignore");
-  // `*` ignores everything in this folder, including the .gitignore itself.
-  if (!existsSync(gi)) writeFileSync(gi, "*\n");
-  return cacheDir;
+  return gitOut(dir, ["rev-parse", "--short", "HEAD"]);
 }
 
 function detectAgentType(title: string): AgentType | null {
@@ -282,18 +272,6 @@ function buildIndex(cacheDir: string): string {
     .join("\n");
 }
 
-function findCacheDir(start: string, maxDepth = 8): string | null {
-  let cur = start;
-  for (let i = 0; i < maxDepth; i++) {
-    const dir = join(cur, CACHE_DIR_NAME);
-    if (existsSync(dir)) return dir;
-    const parent = dirname(cur);
-    if (parent === cur) return null;
-    cur = parent;
-  }
-  return null;
-}
-
 export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
   // `directory` is the session's project root, but git-worktree setups can
   // disagree with opencode's view, and sessions launched from a subdir need
@@ -322,8 +300,8 @@ export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
     const agent = detectAgentType(title);
     if (!agent) return;
 
-    const root = resolveWorktreeRoot(cwdHint);
-    if (!root) return;
+    const cacheDir = resolveCacheDir(cwdHint);
+    if (!cacheDir) return;
 
     if (typeof client.session.messages !== "function") return;
     let body = "";
@@ -338,7 +316,7 @@ export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
     if (body.length < MIN_BODY_LEN) return;
 
     try {
-      const cacheDir = ensureCacheDir(root);
+      mkdirSync(cacheDir, { recursive: true });
       const topic = title.replace(SUBAGENT_PATTERN, "").trim();
       const filename = `${slugify(title)}-${shortId(sessionID)}.md`;
       const filepath = join(cacheDir, filename);
@@ -348,7 +326,7 @@ export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
         agent,
         session: sessionID,
         parent: parentID,
-        commit: resolveHead(root),
+        commit: resolveHead(cwdHint),
         createdISO: isoFromMs(createdMs) || new Date().toISOString(),
         updatedISO: isoFromMs(updatedMs) || new Date().toISOString(),
         body,
@@ -387,11 +365,11 @@ export const FindingsCachePlugin: Plugin = async ({ client, directory }) => {
     },
 
     "experimental.chat.system.transform": async (_input, output) => {
-      const cacheDir = findCacheDir(cwdHint);
+      const cacheDir = resolveCacheDir(cwdHint);
       if (!cacheDir) return;
       const index = buildIndex(cacheDir);
       if (!index) return;
-      output.system.push(`${CONTEXT_PREAMBLE}\n\n${index}`);
+      output.system.push(`${contextPreamble(cacheDir)}\n\n${index}`);
     },
   };
 };
