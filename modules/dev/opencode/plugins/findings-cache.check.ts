@@ -13,8 +13,8 @@ const root = mkdtempSync(join(tmpdir(), "fc-check-"));
 const git = (...a: string[]) => spawnSync("git", a, { cwd: root, encoding: "utf8" });
 git("init", "-q");
 git("commit", "-q", "--allow-empty", "-m", "root", "--author=t <t@t>");
-const cacheDir = join(root, ".opencode-cache");
-mkdirSync(cacheDir);
+const cacheDir = join(root, ".git", "opencode-cache");
+mkdirSync(cacheDir, { recursive: true });
 
 function finding(name: string, topic: string, ageDays: number) {
   const p = join(cacheDir, name);
@@ -72,4 +72,16 @@ utimesSync(other, before, before);
 await plugin["tool.execute.after"]({ tool: "read", args: { path: other } });
 assert(Date.now() - statSync(other).mtimeMs > 59 * DAY, "non-cache reads must be ignored");
 
-console.log("PASS: captures with commit sha, evicts stale, keeps fresh, read revives LRU clock, ignores non-cache reads");
+// A linked worktree resolves to the same git common dir, so it must not start cold.
+const wtPath = join(mkdtempSync(join(tmpdir(), "fc-check-wt-")), "linked");
+git("worktree", "add", "--detach", wtPath, "HEAD");
+const wtPlugin: any = await FindingsCachePlugin({ directory: wtPath, client } as any);
+
+const wtOut: { system: string[] } = { system: [] };
+await wtPlugin["experimental.chat.system.transform"]({}, wtOut);
+assert(wtOut.system.join("\n").includes("Fresh finding"), "linked worktree must read the shared cache");
+
+await wtPlugin.event({ event: { type: "session.idle", properties: { sessionID: "ses_deadbeefcafe89abcdef" } } });
+assert(existsSync(join(cacheDir, "check-the-write-path-89abcdef.md")), "capture from a linked worktree must land in the shared cache");
+
+console.log("PASS: captures with commit sha, evicts stale, keeps fresh, read revives LRU clock, ignores non-cache reads, shares one cache across worktrees");
