@@ -211,6 +211,28 @@ mkUserModule {
       # Outbound: configure ghostty to auto-attach tmux
       programs.ghostty.settings.command = lib.mkIf userCfg.ghostty.enable "${tmux-attach}/bin/tmux-attach";
 
+      # Outbound integration: agents run in /bin/sh and have no idea they're
+      # inside a tmux server. Tell them the layout and that they can use it.
+      # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates
+      # onto opencode's global AGENTS.md.
+      xdg.configFile."opencode/AGENTS.md".text = lib.mkIf userCfg.opencode.enable ''
+
+        ## I work in tmux
+
+        You are running inside my tmux server and can use it. `tmux
+        display-message -p '#S'` tells you which session you are in; a
+        `parent/branch` name means it is a git worktree on that branch.
+
+        Every session you did not create is mine. Never kill, rename, detach,
+        or send-keys to one.
+
+        Create your own freely — windows, panes, sessions — for dev servers, log
+        tails, anything long-running or interactive that would block your shell.
+        Name every session `agents/<name>`. Always detached:
+        `tmux new-session -d -s agents/<name>` (you are already inside tmux, so
+        an attached `new-session` errors). Kill them when you are done.
+      '';
+
       programs.tmux = {
         enable = true;
         # default-shell is the wrapper tmux uses to run jobs — display-popup
