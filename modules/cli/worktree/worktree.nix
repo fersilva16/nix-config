@@ -186,7 +186,6 @@ mkUserModule {
           # Create worktree if dir doesn't exist
           set -l is_new 0
           if not test -d "$wt_path"
-            git fetch origin 2>/dev/null
             set base_branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
             if test -z "$base_branch" -o "$base_branch" = "HEAD"
               echo "wt: detached HEAD — checkout a branch first"
@@ -198,13 +197,25 @@ mkUserModule {
             # explicit branch arg is used verbatim.
             test -z "$branch"; and set branch (_wt_prefix)"$name"
 
-            # Use existing branch (local, then remote), else create it from current
+            # Use existing branch (local, then remote), else create it from current.
+            #
+            # The local check goes first so it can answer without the network.
+            # `git fetch origin` costs ~2.7s against a big repo and the only
+            # thing it feeds is the refs/remotes lookup below — so it's pure
+            # latency once a local branch has already matched, which is every
+            # time you re-create a worktree you deleted.
             if git show-ref --verify --quiet "refs/heads/$branch"
               git worktree add "$wt_path" "$branch"
-            else if git show-ref --verify --quiet "refs/remotes/origin/$branch"
-              git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
             else
-              git worktree add -b "$branch" "$wt_path" "$base_branch"
+              # No local branch. Now the remote's answer actually matters:
+              # without a fetch we'd miss a branch pushed from another machine
+              # and fork a second one with the same name.
+              git fetch origin 2>/dev/null
+              if git show-ref --verify --quiet "refs/remotes/origin/$branch"
+                git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
+              else
+                git worktree add -b "$branch" "$wt_path" "$base_branch"
+              end
             end
             or begin; echo "wt: failed to create worktree"; return 1; end
             echo "Created worktree at $wt_path (from $base_branch)"
