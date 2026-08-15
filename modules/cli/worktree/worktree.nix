@@ -7,21 +7,43 @@ let
   # Rows for the worktree pickers: "name  *  2 days ago", most recent first.
   #
   # Sorted by commit epoch, not by the rendered string ("2 weeks ago" doesn't
-  # collate). Stable, so equal timestamps fall back to the glob's alphabetical
-  # order — both passes below then agree on ordering, which is what keeps the
-  # async swap from reshuffling rows under the cursor.
+  # collate), then by name to break ties. Both keys are explicit because the
+  # rows are produced in parallel and so arrive in nondeterministic order —
+  # the old code leaned on a stable sort preserving the glob's alphabetical
+  # order, which parallelism destroys. Getting this wrong doesn't corrupt
+  # anything, it just reshuffles rows under the cursor when the async pass
+  # swaps in.
   #
   # `*` is the *same* status check wtrm gates --force on, so the marker can
-  # never disagree with what removal will actually do. That check is also the
-  # only slow part — a working-tree scan, ~120ms per worktree, ~4s across a
-  # 38-worktree monorepo, and measurably I/O-bound (parallelising it plateaus
-  # at 1.5x and gets *worse* past -P 8, so don't bother).
+  # never disagree with what removal will actually do. It's also the only slow
+  # part: a working-tree scan, ~150ms per worktree, ~2.5s across a 17-worktree
+  # monorepo.
   #
-  # Hence --fast: identical layout minus the scan, ~300ms for the same 38, so
-  # the picker can open on it immediately and swap in the marks afterwards.
+  # Two things fix that, and the order matters — measured on that monorepo:
+  #
+  #   serial, no fsmonitor          2571ms   (what this used to be)
+  #   parallel alone, -P 16         1474ms   1.7x
+  #   core.fsmonitor alone           757ms   3.4x
+  #   both                           126ms   20x
+  #
+  # Parallelism alone really does plateau at ~1.7x, which is what an earlier
+  # note here concluded before giving up on it. But the thing it was
+  # contending on was the working-tree scan, and core.fsmonitor (set in
+  # modules/dev/git.nix) deletes that scan rather than sharing it out. With
+  # the scan gone there's nothing left to serialise on, so the two compound
+  # instead of overlapping. Don't reintroduce one without the other and
+  # re-measure — either alone looks disappointing.
+  #
+  # --fast stays anyway: identical layout minus the scan, so the picker opens
+  # on it immediately and swaps in the marks afterwards. It's cheap insurance
+  # for repos where fsmonitor isn't running yet (the daemon's first call still
+  # pays a full scan while it warms up).
   wt-rows = pkgs.writeShellApplication {
     name = "wt-rows";
-    runtimeInputs = [ pkgs.git ];
+    runtimeInputs = [
+      pkgs.git
+      pkgs.bash
+    ];
     text = ''
       # usage: wt-rows [--fast] <worktrees-dir>
       fast=""
@@ -33,15 +55,13 @@ let
       wd="''${1:-}"
       [ -d "$wd" ] || exit 0
 
-      for dir in "$wd"/*/; do
-        path="''${dir%/}"
+      # One row. Runs in an xargs child, so everything it needs is exported.
+      row() {
+        path="$1"
         name="''${path##*/}"
-        # An empty dir leaves the glob unmatched, expanding to the pattern
-        if [ "$name" = "*" ]; then continue; fi
 
         # --no-optional-locks: this is a read-only probe, so don't take the
-        # index lock or write the refreshed index back (halves the cost, and
-        # keeps 38 of these from serialising on one .git dir).
+        # index lock or write the refreshed index back.
         mark=" "
         if [ -z "$fast" ] &&
           [ -n "$(git --no-optional-locks -C "$path" status --porcelain 2>/dev/null || true)" ]; then
@@ -54,8 +74,22 @@ let
         stamp="''${meta%% *}"
         [ -n "$stamp" ] || stamp=0
 
+        # Single write, ~55 bytes. Under PIPE_BUF (512 on darwin) a pipe write
+        # is atomic, so parallel children can't interleave halves of a row.
         printf '%s\t%-24s %s  %s\n' "$stamp" "$name" "$mark" "''${meta#* }"
-      done | sort -s -rn | cut -f2-
+      }
+      export -f row
+      export fast
+
+      for dir in "$wd"/*/; do
+        path="''${dir%/}"
+        # An empty dir leaves the glob unmatched, expanding to the pattern
+        if [ "''${path##*/}" = "*" ]; then continue; fi
+        printf '%s\n' "$path"
+      done \
+        | xargs -P "$(sysctl -n hw.ncpu 2>/dev/null || echo 8)" -I{} bash -c 'row "$@"' _ {} \
+        | sort -t"$(printf '\t')" -k1,1rn -k2,2 \
+        | cut -f2-
     '';
   };
 in
