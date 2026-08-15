@@ -223,14 +223,15 @@ mkUserModule {
         display-message -p '#S'` tells you which session you are in; a
         `parent/branch` name means it is a git worktree on that branch.
 
-        Every session you did not create is mine. Never kill, rename, detach,
-        or send-keys to one.
-
-        Create your own freely — windows, panes, sessions — for dev servers, log
+        Create your own windows, panes, and sessions freely — dev servers, log
         tails, anything long-running or interactive that would block your shell.
-        Name every session `agents/<name>`. Always detached:
+        Name every session `agents/<name>`, always detached:
         `tmux new-session -d -s agents/<name>` (you are already inside tmux, so
-        an attached `new-session` errors). Kill them when you are done.
+        an attached `new-session` errors).
+
+        Sessions named `agents/*` are yours: use and kill them freely, including
+        leftovers from earlier runs. Every other session is mine — never kill,
+        rename, detach, or send-keys to one.
       '';
 
       programs.tmux = {
