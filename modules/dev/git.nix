@@ -47,6 +47,19 @@ mkUserModule {
               # every status caller inherits: the prompt, the wt pickers, wtrm.
               # APFS supports it (git update-index --test-untracked-cache).
               untrackedCache = true;
+              # Let an FSEvents daemon answer "what changed?" instead of
+              # rescanning the working tree. Picks up where untrackedCache
+              # stops: ~86ms -> ~38ms on the same 36k-file worktree, and the
+              # prompt pays that on *every* command, so it's felt far more
+              # than in any one tool.
+              #
+              # Each linked worktree gets its own daemon (~9MB), so a repo
+              # with N worktrees idles N of them — fine at ~17, worth a look
+              # if that ever reaches the hundreds.
+              #
+              # Needs git > 2.35.1 for the boolean form, and 2.47.1 for a
+              # macOS race fix. We pin pkgs.git above, currently 2.53.
+              fsmonitor = true;
             };
           };
         };
