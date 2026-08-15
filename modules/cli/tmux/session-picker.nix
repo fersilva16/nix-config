@@ -171,6 +171,12 @@ let
           cdir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
           branch=$(git -C "$path" branch --show-current 2>/dev/null || true)
 
+          # ponytail: agent-spawned sessions (agents/*) are ephemeral scratch
+          # sessions — no branch worth labelling and never a PR of their own.
+          # Blanking the branch skips their gh call entirely; drop this line if
+          # agent sessions ever grow real branches.
+          [[ "$name" == agents/* ]] && branch=""
+
           label=""
           prg=""
           cig=""
@@ -249,6 +255,28 @@ let
       RST=$'\033[0m'
       CUR=$'\033[32m'
 
+      # ── view mode (main | agents) ────────────────────────────────────────
+      # Agent-spawned sessions (agents/*) are noise in the human's list but
+      # still worth reaching, so tab swaps between the two views instead of
+      # hiding them outright. The mode lives in a tmpfile because the toggle
+      # runs as a separate process (fzf `transform`); it resets to `main` on
+      # every fresh popup so the picker always opens on your own sessions.
+      mode_file="''${TMPDIR:-/tmp}/wt-pick-mode"
+      mode() { cat "$mode_file" 2>/dev/null || echo main; }
+      agent_count() {
+        tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -c '^agents/' || true
+      }
+      # The header doubles as the mode indicator — the prompt can't, "/" search
+      # mode already uses it as its sentinel. Keep it paren-free: fzf parses
+      # change-header(...) by balanced parens.
+      hdr() {
+        if [[ "$(mode)" == agents ]]; then
+          printf 'agents %s · tab back · enter switch · x kill · / search' "$(agent_count)"
+        else
+          printf 'enter switch · x kill · o PR · / search · tab agents %s' "$(agent_count)"
+        fi
+      }
+
       # build_list prints one line per session: "<target>\t<display>". target is
       # the session name (used by the binds via {1}); display is the decorated,
       # tree-indented label shown by fzf (--with-nth=2).
@@ -259,8 +287,15 @@ let
         # the glyphs don't have to thread through the sort below.
         declare -A STATUS
         rows=()
+        m=$(mode)
         while IFS="$RS" read -r name label chain oc pr ci; do
           [[ -z "$name" || "$name" == "pocket" ]] && continue
+          # Exactly one of the two views ever shows a given session.
+          if [[ "$m" == agents ]]; then
+            [[ "$name" != agents/* ]] && continue
+          else
+            [[ "$name" == agents/* ]] && continue
+          fi
           cluster=""
           for g in "$oc" "$pr" "$ci"; do [[ -n "$g" ]] && cluster+="''${cluster:+ }$g"; done
           STATUS["$name"]="$cluster"
@@ -314,7 +349,9 @@ let
             body="  ''${DIM}''${conn}''${RST} ''${extra}''${name#*/}"
           else
             # Worktree whose root session is not present: full name, no tree.
-            body="$name"
+            # In the agents view every row is agents/*, so the shared prefix is
+            # pure noise — strip it. No-op in the main view, which filters them.
+            body="''${name#agents/}"
           fi
 
           [[ -n "$label" ]] && body="''${body}  ''${DIM}''${label}''${RST}"
@@ -336,9 +373,23 @@ let
         if [[ -n "$out" ]]; then
           printf '%s\n' "$out" >"$pick_cache" 2>/dev/null || true
           printf '%s\n' "$out"
-        else
+        elif [[ "$(mode)" != agents ]]; then
+          # Only the main view can never legitimately be empty (you are always
+          # in one of your own sessions). "No agent sessions" is a real state,
+          # so don't paper over it with the cached main list.
           cat "$pick_cache" 2>/dev/null || true
         fi
+        exit 0
+      fi
+
+      # Flip the view and hand fzf back the actions to repaint (bound to tab).
+      if [[ "''${1:-}" == "--toggle" ]]; then
+        if [[ "$(mode)" == agents ]]; then
+          printf 'main\n' >"$mode_file" 2>/dev/null || true
+        else
+          printf 'agents\n' >"$mode_file" 2>/dev/null || true
+        fi
+        printf 'reload(%s --list)+change-header(%s)\n' "$0" "$(hdr)"
         exit 0
       fi
 
@@ -351,6 +402,9 @@ let
         [[ -n "$p" ]] && cd "$p" && gh pr view --web >/dev/null 2>&1 || true
         exit 0
       fi
+
+      # Always open on your own sessions, whatever the last toggle left behind.
+      printf 'main\n' >"$mode_file" 2>/dev/null || true
 
       self="$0"
       list=$("$self" --list)
@@ -379,6 +433,9 @@ let
       b_esc_back='clear-query+disable-search+change-prompt(❯ )+rebind(x)+rebind(o)+rebind(j)+rebind(k)+rebind(q)+rebind(/)+reload('"$self"' --list)'
       # shellcheck disable=SC2016
       b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
+      # Tab stays bound in search mode too — it is not a printable key, so it
+      # never collides with the filter.
+      b_tab='transform~'"$self"' --toggle~'
 
       # --sync: load all input before the start event fires, so start:pos($pos)
       # reliably lands on the current session (without it, pos runs before the
@@ -393,8 +450,9 @@ let
         --pointer='▶' \
         --gutter=' ' \
         --color='pointer:green,prompt:green,info:dim,header:dim' \
-        --header='enter switch · x kill · o PR · / search' \
+        --header="$(hdr)" \
         --bind "start:pos($pos)" \
+        --bind "tab:$b_tab" \
         --bind "enter:$b_enter" \
         --bind 'j:down' \
         --bind 'k:up' \
