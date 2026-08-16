@@ -1,4 +1,13 @@
-{ mkUserModule, ... }:
+{ mkUserModule, pkgs, ... }:
+let
+  # Drops the Hyper layer so someone else can use this machine: clears the
+  # hidutil map below and quits Hammerspoon. See scripts/guest-mode.sh.
+  guest-mode = pkgs.writeShellApplication {
+    name = "guest-mode";
+    bashOptions = [ ];
+    text = builtins.readFile ./scripts/guest-mode.sh;
+  };
+in
 mkUserModule {
   name = "hammerspoon";
   system = {
@@ -40,5 +49,6 @@ mkUserModule {
     home.file.".hammerspoon/init.lua" = {
       source = ./init.lua;
     };
+    home.packages = [ guest-mode ];
   };
 }
