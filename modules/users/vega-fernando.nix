@@ -18,6 +18,7 @@ mkUser {
   ripgrep.enable = true;
   chrome-cli.enable = true;
   readwise.enable = true;
+  todoist.enable = true;
 
   # Dev tools
   git.enable = true;
