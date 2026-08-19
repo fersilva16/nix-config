@@ -56,23 +56,16 @@
         {
           plugin = vimPlugins.neo-tree-nvim;
           config = ''
-            -- Open neo-tree on startup
+            -- Open neo-tree on startup, but only when nvim was given a file.
+            -- ponytail: exactly one opener. A second one (BufReadPost) raced this
+            -- and fed neo-tree a duplicate filesystem_navigate while the first
+            -- split was still mounting, killing the winid nui was about to focus
+            -- ("Invalid window id" from nui/split/init.lua:184).
             vim.api.nvim_create_autocmd('VimEnter', {
               callback = function()
-                -- Only open if we're not opening a specific file via stdin or with args that are directories
                 if vim.fn.argc() == 0 then return end
                 -- ponytail: pcall so a broken/missing Neotree can't abort startup
                 pcall(vim.cmd, 'Neotree show right')
-              end,
-            })
-
-            -- Also open when entering a buffer (covers opening nvim with a file)
-            vim.api.nvim_create_autocmd('BufReadPost', {
-              once = true,
-              callback = function()
-                vim.schedule(function()
-                  pcall(vim.cmd, 'Neotree show right')
-                end)
               end,
             })
 
