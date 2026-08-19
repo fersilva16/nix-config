@@ -41,6 +41,7 @@ mkUser {
     enable = true;
     server.autoAttach = false;
   };
+  openclaw.enable = true;
   playwright-cli.enable = true;
   opencode-manager.enable = true;
   # rtk.enable = true;
