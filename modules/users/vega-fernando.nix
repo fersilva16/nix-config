@@ -48,7 +48,16 @@ mkUser {
   # rtk.enable = true;
   ollama.enable = true;
   # hermes.enable = true;
-  linear.enable = true;
+  linear = {
+    enable = true;
+    # One-way mirror of the Linear issues assigned to me into the Todoist
+    # project I already keep work in. Reads Linear's state, so it is blind to
+    # how an issue was created.
+    todoist-mirror = {
+      enable = true;
+      project = "Telepatia";
+    };
+  };
 
   # Editors
   nvim.enable = true;
