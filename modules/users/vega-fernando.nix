@@ -14,6 +14,7 @@ mkUser {
   zoxide.enable = true;
   eza.enable = true;
   fzf.enable = true;
+  gum.enable = true;
   fd.enable = true;
   ripgrep.enable = true;
   chrome-cli.enable = true;

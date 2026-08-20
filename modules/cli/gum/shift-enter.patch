@@ -1,0 +1,15 @@
+diff --git a/write/write.go b/write/write.go
+index 02adf1b..17437e5 100644
+--- a/write/write.go
++++ b/write/write.go
+@@ -43,8 +43,8 @@ func (k keymap) ShortHelp() []key.Binding {
+ func defaultKeymap() keymap {
+ 	km := textarea.DefaultKeyMap()
+ 	km.InsertNewline = key.NewBinding(
+-		key.WithKeys("ctrl+j"),
+-		key.WithHelp("ctrl+j", "insert newline"),
++		key.WithKeys("ctrl+j", "shift+enter"),
++		key.WithHelp("shift+enter", "insert newline"),
+ 	)
+ 	return keymap{
+ 		KeyMap: km,

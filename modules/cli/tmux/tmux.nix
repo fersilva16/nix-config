@@ -283,6 +283,13 @@ mkUserModule {
           # Pass through extended keys (CSI u / kitty keyboard protocol)
           # Required for Cmd+P, Cmd+Shift+F etc. from Ghostty → tmux → nvim
           set -g extended-keys on
+          # `extended-keys on` only governs what tmux sends INWARD to panes. To
+          # receive disambiguated keys from the outer terminal, tmux must also
+          # believe that terminal supports them and request it — that is the
+          # `extkeys` feature. Ghostty (TERM=xterm-ghostty) matches the stock
+          # `xterm*` entry, which lacks extkeys, so shift+enter arrives as a
+          # bare CR and is indistinguishable from enter without this line.
+          set -as terminal-features ",xterm-ghostty:extkeys"
           set -g allow-passthrough on
 
           # Copy to system clipboard from vi copy mode

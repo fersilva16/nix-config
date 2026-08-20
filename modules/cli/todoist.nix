@@ -289,8 +289,8 @@ mkUserModule {
               fi
 
               # The one field quickadd could never carry. show-help stays on here
-              # because enter submits and ctrl+j makes a newline, which is the
-              # only binding in this form you would not already guess.
+              # because enter submits and shift+enter makes a newline, which is
+              # the only binding in this form you would not already guess.
               draw
               notes=$(gum write --header "$(pad notes)" \
                 --placeholder "context, links, the first step…" \
