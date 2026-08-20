@@ -216,9 +216,102 @@ mkUserModule {
               exit 0
               ;;
             --add)
-              text=$(gum input --placeholder "New task — natural language dates work" --header "Add to Todoist" --width 60) || exit 0
-              [ -n "$text" ] || exit 0
-              td task quickadd "$text" >/dev/null 2>&1 || true
+              # A form rather than one line. quickadd's `p1 #Project` syntax can
+              # carry due, priority and project, but nothing in it can carry a
+              # description, and the syntax only helps if you remember it. Named
+              # fields are the discoverable half; `t <text>` in a pane is still
+              # the one-line fast path, so nothing that was quick got slower.
+              #
+              # Colours are ANSI indices rather than the widget's Flexoki hex:
+              # this renders on the terminal's own background and should follow
+              # its theme, exactly like the fzf list behind it.
+              D=$(printf '\033[2m')
+              G=$(printf '\033[32m')
+              R=$(printf '\033[31m')
+              N=$(printf '\033[0m')
+              ICON=$(printf '\uF0AE')
+
+              # Shared by the live prompt and the frozen row, which is the whole
+              # trick below — it has to stay a single definition.
+              pad() { printf '%s     %-10s%s' "$D" "$1" "$N"; }
+
+              row() {
+                [ -n "$2" ] || return 0
+                printf '%s%s%s%s\n' "$(pad "$1")" "''${3:-}" "$2" "$N"
+              }
+
+              content=""; due=""; prio="none"; project=""; notes=""
+
+              # Redrawn after every answer. Deliberately ends without a trailing
+              # blank line: the next gum prompt has to land on the very line its
+              # own frozen row will occupy, so a field does not jump when it is
+              # committed and the form fills in place.
+              draw() {
+                printf '\033[2J\033[H'
+                printf '\n  %s%s  new task%s\n' "$G" "$ICON" "$N"
+                printf '  %s%s%s\n\n' "$D" "──────────────────────────────────────────────" "$N"
+                row task "$content"
+                row due "$due" "$G"
+                [ "$prio" = none ] || row priority "$prio" "$R"
+                row project "$project"
+                [ -z "$notes" ] || row notes "$(printf '%s' "$notes" | head -n1 | cut -c1-46)"
+              }
+
+              # One rule for every field: enter accepts and an empty field is a
+              # skip, esc abandons the task. Same esc as the list it opened from.
+              draw
+              content=$(gum input --prompt "$(pad task)" --no-show-help \
+                --placeholder "what needs doing" --width 0 \
+                --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+              [ -n "$content" ] || exit 0
+
+              draw
+              due=$(gum input --prompt "$(pad due)" --no-show-help \
+                --placeholder "tomorrow 9am · friday · every monday" --width 0 \
+                --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+
+              # label:value, so the list reads as words and still submits `p1`.
+              draw
+              prio=$(gum choose --header "$(pad priority)" --no-show-help \
+                --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
+                --label-delimiter ":" --selected none --height 5 \
+                "none:none" "p3 · low:p3" "p2 · medium:p2" "p1 · urgent:p1") || exit 0
+
+              # Skipped when there is nothing to choose between: a single-project
+              # account should not be asked where the task goes.
+              draw
+              pjson=$(td project list --json 2>/dev/null)
+              if [ "$(printf '%s' "$pjson" | jq -r '${unwrap} | length' 2>/dev/null || echo 0)" -gt 1 ]; then
+                project=$(printf '%s' "$pjson" | jq -r '${unwrap} | .[].name' \
+                  | gum choose --header "$(pad project)" --no-show-help \
+                      --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
+                      --height 8) || exit 0
+              fi
+
+              # The one field quickadd could never carry. show-help stays on here
+              # because enter submits and ctrl+j makes a newline, which is the
+              # only binding in this form you would not already guess.
+              draw
+              notes=$(gum write --header "$(pad notes)" \
+                --placeholder "context, links, the first step…" \
+                --prompt "     ┃ " --width 0 --height 5 \
+                --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+
+              args=("$content")
+              [ -n "$due" ] && args+=(--due "$due")
+              [ "$prio" != none ] && args+=(--priority "$prio")
+              [ -n "$project" ] && args+=(--project "$project")
+              [ -n "$notes" ] && args+=(--description "$notes")
+
+              # Loudly, not with `|| true`: a capture tool that silently drops
+              # what you just typed is worse than one that refuses to take it.
+              if ! td task add "''${args[@]}" >/dev/null 2>&1; then
+                draw
+                printf "\n  %s  could not add — try 'td auth status'%s\n" "$R" "$N"
+                sleep 2
+                exit 0
+              fi
+
               ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
               exit 0
               ;;
