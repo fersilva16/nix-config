@@ -67,6 +67,26 @@ mkUserModule {
       # overwrites a good cache with "you have nothing to do".
       wellFormed = ''type == "array" or (type == "object" and has("results"))'';
 
+      # Due today or overdue — Todoist's own "Today" view, and the only list
+      # worth having on screen all day. Overdue is in on purpose: hiding a
+      # slipped task is how it stays slipped.
+      #
+      # Filtered here rather than fetched with `td today` so one cache can serve
+      # both the taskbar count and both tabs of the picker. A second fetch for
+      # the all-tasks tab would mean a second staleness window and a visible
+      # pause on the keypress.
+      #
+      # Sliced to 10 chars because due.date is YYYY-MM-DD for a plain date but a
+      # full datetime for a task with a time on it — comparing "2026-08-24T15:00"
+      # against "2026-08-24" as strings is false, which would drop everything due
+      # later today. $today is a jq --arg, supplied by the caller as `date +%F`.
+      dueToday = "map(select(.due != null and ((.due.date | tostring)[0:10]) <= $today))";
+
+      # Applied only in the today view; the all view is the identity. Kept as one
+      # definition so the count in the taskbar and the rows in the pane can never
+      # disagree about what "today" means.
+      byView = ''(if $view == "today" then ${dueToday} else . end)'';
+
       tmux-todoist-refresh = pkgs.writeShellApplication {
         name = "tmux-todoist-refresh";
         bashOptions = [ ];
@@ -86,6 +106,11 @@ mkUserModule {
           tmp=$(mktemp) || exit 0
           trap 'rm -f "$tmp"' EXIT
 
+          # Everything, unfiltered: the cache is the shared store behind the
+          # taskbar count and both picker tabs, and `today` is a jq predicate
+          # applied at read time. Fetching `td today` here would make the
+          # all-tasks tab impossible without a second round trip.
+          #
           # ponytail: the CLI's default 300-task limit is the ceiling. --all
           # paginates, which is a slower call for a number that only has to be
           # roughly right; raise it if the count ever visibly plateaus at 300.
@@ -103,6 +128,7 @@ mkUserModule {
         runtimeInputs = with pkgs; [
           jq
           findutils
+          coreutils
         ];
         text = ''
           CACHE=${cache}
@@ -130,7 +156,10 @@ mkUserModule {
 
           [ -f "$CACHE" ] || exit 0
 
-          n=$(jq -r '${unwrap} | length' "$CACHE" 2>/dev/null) || exit 0
+          # Today only, always — the taskbar has no tab. A count that includes a
+          # task due in three weeks is a number you stop reading.
+          n=$(jq -r --arg today "$(date +%F)" \
+                '${unwrap} | ${dueToday} | length' "$CACHE" 2>/dev/null) || exit 0
           case "''${n:-}" in "" | *[!0-9]*) exit 0 ;; esac
 
           # Silent at zero, like the disk and PR widgets: an empty list is the
@@ -168,15 +197,27 @@ mkUserModule {
         ];
         text = ''
           CACHE=${cache}
+          # Which tab is showing. fzf keeps no state of its own, so the tab has
+          # to live somewhere both the toggle and the reload can read — the same
+          # trick `t` uses for its index file.
+          VIEW=''${TMPDIR:-/tmp}/tmux-todoist-view
           PATH="${brewBin}:''${PATH}"
           self="$0"
 
+          view_get() {
+            if [ -f "$VIEW" ]; then cat "$VIEW"; else echo today; fi
+          }
+
           render() {
-            jq -r '
+            # $view/$today go in as jq --args so the program itself stays in
+            # single quotes — interpolating a shell variable into it would put
+            # task text one quote away from being jq source.
+            jq -r --arg view "$(view_get)" --arg today "$(date +%F)" '
               def dim: "\u001b[2m" + . + "\u001b[0m";
               def red: "\u001b[31m" + . + "\u001b[0m";
               def grn: "\u001b[32m" + . + "\u001b[0m";
               ${unwrap}
+              | ${byView}
               | .[]
               | [ .id,
                   ( (if (.priority // 1) == 4 then ("! " | red) else "" end)
@@ -189,15 +230,23 @@ mkUserModule {
           }
 
           header_line() {
-            local n
-            n=$(jq -r '${unwrap} | length' "$CACHE" 2>/dev/null) || n=0
-            printf '%s open\n' "''${n:-0}"
-            printf 'enter open · x done · a add · r refresh · / search\n'
+            local view other n
+            view=$(view_get)
+            if [ "$view" = today ]; then other=all; else other=today; fi
+            n=$(jq -r --arg view "$view" --arg today "$(date +%F)" \
+                  '${unwrap} | ${byView} | length' "$CACHE" 2>/dev/null) || n=0
+            printf '%s %s\n' "''${n:-0}" "$view"
+            # The tab hint names where you land, not where you are.
+            printf 'tab %s · enter open · x done · a add · r refresh · / search\n' "$other"
           }
 
           case "''${1:-}" in
             --list)
               render
+              exit 0
+              ;;
+            --toggle)
+              if [ "$(view_get)" = today ]; then echo all >"$VIEW"; else echo today >"$VIEW"; fi
               exit 0
               ;;
             --header)
@@ -321,9 +370,14 @@ mkUserModule {
           # than an empty box. Later opens read whatever the widget refreshed.
           [ -f "$CACHE" ] || ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
 
+          # Every open starts on today. The view file outlives the popup, and a
+          # pane that remembers you went looking at everything last night is a
+          # pane that opens on everything tomorrow morning.
+          echo today >"$VIEW"
+
           list=$(render)
           if [ -z "$list" ]; then
-            list=$(printf '\t\033[2mnothing open\033[0m')
+            list=$(printf '\t\033[2mnothing due today\033[0m')
           fi
 
           redraw='reload('"$self"' --list)+transform-header('"$self"' --header)'
@@ -331,6 +385,10 @@ mkUserModule {
           b_done='execute-silent('"$self"' --complete {1})+'"$redraw"
           b_add='execute('"$self"' --add)+'"$redraw"
           b_refresh='execute-silent(${tmux-todoist-refresh}/bin/tmux-todoist-refresh)+'"$redraw"
+          # Deliberately left bound in search mode, unlike x/a/r: tab is not a
+          # character you can type into a query, so it costs nothing there and
+          # widening the scope mid-search is exactly when you want it.
+          b_toggle='execute-silent('"$self"' --toggle)+'"$redraw"
           b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
           b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(/)+'"$redraw"
           # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's, not bash's
@@ -350,6 +408,7 @@ mkUserModule {
             --bind "x:$b_done" \
             --bind "a:$b_add" \
             --bind "r:$b_refresh" \
+            --bind "tab:$b_toggle" \
             --bind "/:$b_search" \
             --bind 'change:clear-query' \
             --bind 'ctrl-c:abort' \
@@ -403,11 +462,29 @@ mkUserModule {
             set is_cmd 1
           end
 
-          if test (count $argv) -eq 0
+          # `t all` is the escape hatch out of the today-only default. Guarded by
+          # argc like done/rm above, so `t all hands sync` still adds a task.
+          set -l show_all 0
+          if test "$cmd" = all
+            and test (count $argv) -eq 1
+            set show_all 1
+          end
+
+          if test (count $argv) -eq 0; or test $show_all -eq 1
+            # `td today` means due-today-and-overdue. `t all` widens to every
+            # open task, which is also the only way to see the ones carrying no
+            # due date — those are invisible in the default view by definition.
+            set -l fetch td today --json --limit 300
+            set -l scope "due today"
+            if test $show_all -eq 1
+              set fetch td task list --json --limit 300
+              set scope open
+            end
+
             # Fetch and parse in two steps so a failed td is distinguishable
             # from an empty list. Piping straight into jq would report jq's
             # exit status, and an expired token would render as "nothing open".
-            set -l json (td task list --json --limit 300 2>/dev/null)
+            set -l json ($fetch 2>/dev/null)
             if test $status -ne 0
               echo "t: could not reach Todoist — try 'td auth status'" >&2
               return 1
@@ -416,7 +493,7 @@ mkUserModule {
             set -l rows (printf '%s\n' $json | jq -r '${unwrap} | .[] | [.id, .content, (.due.string // ""), (.priority // 1)] | @tsv')
 
             if test (count $rows) -eq 0
-              echo "  "(set_color green)"✓"(set_color normal)" nothing open"
+              echo "  "(set_color green)"✓"(set_color normal)" nothing $scope"
               rm -f $idfile
               return 0
             end
@@ -441,7 +518,7 @@ mkUserModule {
 
             set -l n (count $rows)
             if test $n -ge ${toString cfg.warnAt}
-              echo "  "(set_color yellow)"$n open — drop what you are not going to do: t rm <n>"(set_color normal)
+              echo "  "(set_color yellow)"$n $scope — drop what you are not going to do: t rm <n>"(set_color normal)
             end
 
           else if test $is_cmd -eq 1
