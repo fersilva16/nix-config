@@ -43,14 +43,6 @@ mkUserModule {
   name = "linear";
   casks = [ "linear" ];
 
-  parts = {
-    # Lives here rather than beside the todoist module because linear-cli is a
-    # private derivation of this let-block, and the launchd agent needs its
-    # store path. It also matches the repo rule that the module which knows how
-    # owns the glue: Linear is what knows which issues are yours.
-    todoist-mirror = import ./todoist-mirror.nix { inherit pkgs lib linear-cli; };
-  };
-
   home =
     { userCfg, ... }:
     {
