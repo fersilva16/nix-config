@@ -87,6 +87,33 @@ mkUserModule {
       # disagree about what "today" means.
       byView = ''(if $view == "today" then ${dueToday} else . end)'';
 
+      # Todoist's own Smart sort — the documented order behind its Today and
+      # Upcoming views: date and time (or the deadline, when there is no date),
+      # then priority, then deadline, then manual order, then creation time.
+      #
+      # The last two keys are unreachable and deliberately dropped: day_order and
+      # added_at are Sync-API fields that `td task list --json` does not return.
+      # The three keys above settle every real list long before it gets there.
+      #
+      # Note this is "deadline only when there is no due date", not the earlier of
+      # the two. A task due Monday with a Friday deadline is Monday's problem —
+      # due is when you meant to work on it, deadline is only when it stops being
+      # possible, and letting the deadline pull it forward would relitigate a
+      # decision already made when the date was set.
+      #
+      # Sorts raw ISO strings rather than parsing dates, because ISO-8601 already
+      # sorts lexicographically. The prefix rule then hands back the tie-break for
+      # free: "2026-08-25" < "2026-08-25T15:00", so an all-day task sits above a
+      # timed one on the same day, the way the calendar stacks them.
+      #
+      # Overdue needs no term of its own — the key ascends, so last week sorts
+      # above today by construction. Oldest slip first is both Todoist's behaviour
+      # and the only order that makes an ignored task louder rather than quieter.
+      #
+      # Undated rides the same key at "9999-12-31" instead of getting a separate
+      # is-null term: it lands last, and still sorts by priority among its own.
+      smartSort = ''sort_by([((.due.date // .deadline.date) // "9999-12-31"), (4 - (.priority // 1)), (.deadline.date // "9999-12-31")])'';
+
       tmux-todoist-refresh = pkgs.writeShellApplication {
         name = "tmux-todoist-refresh";
         bashOptions = [ ];
@@ -216,15 +243,42 @@ mkUserModule {
               def dim: "\u001b[2m" + . + "\u001b[0m";
               def red: "\u001b[31m" + . + "\u001b[0m";
               def grn: "\u001b[32m" + . + "\u001b[0m";
+              def ylw: "\u001b[33m" + . + "\u001b[0m";
+
+              # p1 and p2 only. The sort has already clustered them, so the mark
+              # is only there to say why — and a mark on most rows is not a mark.
+              def pmark:
+                if   (.priority // 1) == 4 then ("! " | red)
+                elif (.priority // 1) == 3 then ("! " | ylw)
+                else "" end;
+
+              # Red once the date is behind us. Sorting floats overdue to the top,
+              # but top-of-list and due-today read identically without a colour,
+              # and not noticing is how the task slipped in the first place.
+              #
+              # Falls back to the deadline when there is no due date, mirroring
+              # the sort key exactly — otherwise a dateless task sorts by a date
+              # the row never shows, which reads as a bug.
+              # Bound with `as` rather than piped straight into the if: a pipe
+              # would make `.` the string, and .due.date inside the condition
+              # would then be indexing a string, which is a hard jq error.
+              def datemark:
+                if .due then
+                  ("  " + ((.due.string // .due.date) | tostring)) as $s
+                  | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
+                elif .deadline then ("  by " + .deadline.date | ylw)
+                else "" end;
+
+              # Only when a due date is already on the row; otherwise datemark is
+              # already showing this exact deadline and would print it twice.
+              def dlmark:
+                if (.due and .deadline) then ("  by " + .deadline.date | dim) else "" end;
+
               ${unwrap}
               | ${byView}
+              | ${smartSort}
               | .[]
-              | [ .id,
-                  ( (if (.priority // 1) == 4 then ("! " | red) else "" end)
-                    + .content
-                    + (if .due then ("  " + ((.due.string // .due.date) | tostring) | grn) else "" end)
-                  )
-                ]
+              | [ .id, (pmark + .content + datemark + dlmark) ]
               | @tsv
             ' "$CACHE" 2>/dev/null
           }
@@ -237,7 +291,7 @@ mkUserModule {
                   '${unwrap} | ${byView} | length' "$CACHE" 2>/dev/null) || n=0
             printf '%s %s\n' "''${n:-0}" "$view"
             # The tab hint names where you land, not where you are.
-            printf 'tab %s · enter open · x done · a add · r refresh · / search\n' "$other"
+            printf 'tab %s · enter details · o web · x done · a add · r refresh · / search\n' "$other"
           }
 
           case "''${1:-}" in
@@ -256,6 +310,50 @@ mkUserModule {
             --open)
               [ -n "''${2:-}" ] || exit 0
               td task browse "id:$2" >/dev/null 2>&1 || true
+              exit 0
+              ;;
+            --show)
+              # Served out of the cache, not the network: this runs on every
+              # cursor move while the preview is open, and a round trip per
+              # keystroke would make arrowing through the list feel broken.
+              #
+              # The description is the whole point. It is the one field the row
+              # cannot show and the one that answers "what did I mean by this",
+              # which is otherwise a trip to the browser.
+              [ -n "''${2:-}" ] || exit 0
+              jq -r --arg id "$2" --arg today "$(date +%F)" '
+                def dim:  "\u001b[2m" + . + "\u001b[0m";
+                def red:  "\u001b[31m" + . + "\u001b[0m";
+                def grn:  "\u001b[32m" + . + "\u001b[0m";
+                def ylw:  "\u001b[33m" + . + "\u001b[0m";
+                def bold: "\u001b[1m" + . + "\u001b[0m";
+
+                # Same 10-column label gutter as the add form, so the two ways
+                # of looking at one task line up instead of each having a style.
+                def pad: (. + "          ")[0:10] | dim;
+                def row($k; $v): if ($v // "") == "" then empty else "  " + ($k | pad) + $v end;
+
+                ${unwrap}
+                | map(select(.id == $id))
+                | (.[0] // empty)
+                | [ "", "  " + (.content | bold), "" ]
+                  + [ row("due";
+                        (if .due then
+                           ((.due.string // .due.date) | tostring) as $s
+                           | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
+                         else "" end)),
+                      row("deadline"; (if .deadline then (.deadline.date | ylw) else "" end)),
+                      row("priority";
+                        (if   (.priority // 1) == 4 then ("p1" | red)
+                         elif (.priority // 1) == 3 then ("p2" | ylw)
+                         elif (.priority // 1) == 2 then "p3"
+                         else "" end)),
+                      row("labels"; ((.labels // []) | join(", ")))
+                    ]
+                  + (if (.description // "") == "" then []
+                     else [ "" ] + (.description | split("\n") | map("  " + .)) end)
+                | .[]
+              ' "$CACHE" 2>/dev/null
               exit 0
               ;;
             --complete)
@@ -389,8 +487,11 @@ mkUserModule {
           # character you can type into a query, so it costs nothing there and
           # widening the scope mid-search is exactly when you want it.
           b_toggle='execute-silent('"$self"' --toggle)+'"$redraw"
-          b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
-          b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(/)+'"$redraw"
+          # `o` joins x/a/r in here for the obvious reason: it is a letter, and a
+          # search for "onboarding" that opens a browser on the first keystroke
+          # is the exact failure this menu/search split exists to prevent.
+          b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(o)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
+          b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(o)+rebind(/)+'"$redraw"
           # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's, not bash's
           b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
 
@@ -404,7 +505,10 @@ mkUserModule {
             --gutter=' ' \
             --color='pointer:green,prompt:green,info:dim,header:dim' \
             --header="$(header_line)" \
-            --bind "enter:$b_open" \
+            --preview "$self --show {1}" \
+            --preview-window 'hidden,right,55%,border-left,wrap' \
+            --bind "enter:toggle-preview" \
+            --bind "o:$b_open" \
             --bind "x:$b_done" \
             --bind "a:$b_add" \
             --bind "r:$b_refresh" \
@@ -490,7 +594,11 @@ mkUserModule {
               return 1
             end
 
-            set -l rows (printf '%s\n' $json | jq -r '${unwrap} | .[] | [.id, .content, (.due.string // ""), (.priority // 1)] | @tsv')
+            # Same smartSort as the popup, from the same definition — two views
+            # of one list that disagree about order is worse than either order.
+            # The trailing field is the overdue flag: computed here because this
+            # is where $today is, and fish only has the human due string.
+            set -l rows (printf '%s\n' $json | jq -r --arg today (date +%F) '${unwrap} | ${smartSort} | .[] | [.id, .content, ((.due.string // .deadline.date) // ""), (.priority // 1), (if (.due and ((.due.date | tostring)[0:10]) < $today) then "od" else "" end)] | @tsv')
 
             if test (count $rows) -eq 0
               echo "  "(set_color green)"✓"(set_color normal)" nothing $scope"
@@ -508,10 +616,18 @@ mkUserModule {
               set -l mark "  "
               if test "$f[4]" = 4
                 set mark (set_color red)" !"(set_color normal)
+              else if test "$f[4]" = 3
+                set mark (set_color yellow)" !"(set_color normal)
               end
               set -l due ""
               if test -n "$f[3]"
-                set due "  "(set_color green)"$f[3]"(set_color normal)
+                # Red for a date already behind us, matching the popup. Sorting
+                # puts these first; without the colour first just looks arbitrary.
+                set -l c green
+                if test "$f[5]" = od
+                  set c red
+                end
+                set due "  "(set_color $c)"$f[3]"(set_color normal)
               end
               printf '%s %s%2d%s  %s%s\n' "$mark" (set_color brblack) $i (set_color normal) "$f[2]" "$due"
             end
