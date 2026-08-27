@@ -144,7 +144,7 @@ mkUser {
   "windows-app".enable = true;
   granola.enable = true;
   "wispr-flow".enable = true;
-  "cold-turkey-blocker".enable = true;
+  "cold-turkey-blocker".enable = false;
   selfcontrol.enable = true;
 
   # Networking
