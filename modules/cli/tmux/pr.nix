@@ -107,6 +107,20 @@ let
     text = ''
       CACHE=${cache}
 
+      # Local midnight, rendered as UTC: "today" is the day you are having, not
+      # the one UTC is having — a bare date would roll the counters over at
+      # 21:00 here, which is squarely inside a working evening.
+      # The inner date stamps local midnight with its offset; the outer one
+      # converts that instant to Z. Both steps are needed: `date -u -d "today
+      # 00:00:00"` reads *UTC* midnight and returns a different instant.
+      # Z rather than the offset form because GitHub accepts either, while jq
+      # only compares timestamps correctly when both sides share a shape, and
+      # submittedAt always comes back as Z.
+      # Exported because gh's --jq takes no --arg, and jq's env is the one way
+      # into that program without splicing shell into a quoted jq body.
+      PR_SINCE=$(date -u -d "$(date +%Y-%m-%dT00:00:00%:z)" +%Y-%m-%dT%H:%M:%SZ)
+      export PR_SINCE
+
       # Claim the slot before the ~1s round trip. The widget ticks every 5s and
       # decides staleness by mtime, so without touching first it would spawn a
       # fresh refresh on every tick for the whole duration of this one.
@@ -279,14 +293,41 @@ let
         rm -rf "$work"
       }
 
+      # The $-names inside the quoted bodies below are GraphQL and jq
+      # variables, not shell ones, and single quotes are exactly what keeps
+      # bash out of them.
+      # shellcheck disable=SC2016
       gh api graphql \
+        -f openedQuery="is:pr author:@me created:>=$PR_SINCE" \
+        -f reviewedQuery="is:pr reviewed-by:@me updated:>=$PR_SINCE" \
         -f query='
-          query {
+          query($openedQuery: String!, $reviewedQuery: String!) {
             review: search(query: "is:open is:pr review-requested:@me archived:false", type: ISSUE, first: 100) {
               nodes { ...pr }
             }
             mine: search(query: "is:open is:pr author:@me archived:false", type: ISSUE, first: 100) {
               nodes { ...pr }
+            }
+            # Deliberately unfiltered by state: a PR you opened and merged
+            # before lunch still happened. `mine` cannot answer this — it is
+            # is:open, and the whole point of a good day is that they close.
+            # The date lives in a variable because the query is a single-quoted
+            # nix/shell string, so nothing interpolates into it in place.
+            openedToday: search(query: $openedQuery, type: ISSUE, first: 1) {
+              issueCount
+            }
+            # GitHub has no "reviewed on" qualifier, so the search is only the
+            # candidate net: submitting a review bumps that updatedAt past
+            # local midnight, which makes updated:>= a superset of the answer.
+            # viewerLatestReview.submittedAt is the actual cut — the same field
+            # the queue above already trusts, and null while a review is still
+            # an unsubmitted draft, which correctly scores as not reviewed yet.
+            reviewedToday: search(query: $reviewedQuery, type: ISSUE, first: 100) {
+              nodes {
+                ... on PullRequest {
+                  viewerLatestReview { submittedAt }
+                }
+              }
             }
           }
           fragment pr on PullRequest {
@@ -370,9 +411,22 @@ let
           def awaiting_me:
             .viewerLatestReview == null
             or (.viewerLatestReview.state | IN("PENDING", "DISMISSED"));
-          {
+          # Lexical >=, which is a real time comparison only because both sides
+          # are fixed-width UTC Z — what PR_SINCE goes to the trouble of
+          # guaranteeing. Deliberately not fromdate: that builtin parses
+          # %Y-%m-%dT%H:%M:%SZ and nothing else, so the offset form errors out.
+          env.PR_SINCE as $since
+          | {
             review: [ .data.review.nodes[] | select(awaiting_me) | norm ],
-            mine:   [ .data.mine.nodes[]   | norm ]
+            mine:   [ .data.mine.nodes[]   | norm ],
+            today: {
+              opened: .data.openedToday.issueCount,
+              reviewed: [
+                .data.reviewedToday.nodes[]
+                | .viewerLatestReview.submittedAt
+                | select(. != null and . >= $since)
+              ] | length
+            }
           }' >"$tmp" 2>/dev/null
 
       # Only publish a well-formed, non-empty result. A network blip or an
@@ -556,6 +610,10 @@ let
       # Flexoki light theme colors (same palette as the cpu/disk widgets)
       BG="#f2f0e5"
       FG="#100f0f"
+      # Flexoki base-600. The queue is a thing to act on and the day's tallies
+      # are a thing to notice, so they must not compete: same row, half the
+      # contrast, no bold.
+      MUTED="#6f6e69"
 
       RESET="#[fg=''${FG},bg=''${BG},nobold,noitalics,nounderscore,nodim]"
 
@@ -585,15 +643,49 @@ let
 
       case "''${n:-}" in "" | *[!0-9]*) exit 0 ;; esac
 
+      # Today's tallies, written by the same refresh that filled the queue: no
+      # second poll, no second cache, and they go stale on the same 2-minute
+      # mtime check. Defaulted rather than required, because a cache written by
+      # the previous build of this widget has no .today at all and one rebuild
+      # should not blank the segment until the next refresh lands.
+      read -r opened reviewed <<<"$(jq -r '
+        [(.today.opened // 0), (.today.reviewed // 0)] | @tsv
+      ' "$CACHE" 2>/dev/null)"
+
+      case "''${opened:-}" in "" | *[!0-9]*) opened=0 ;; esac
+      case "''${reviewed:-}" in "" | *[!0-9]*) reviewed=0 ;; esac
+
       # Silent at zero, like the disk widget: an empty queue is not news, and a
       # segment that is always on screen is a segment you stop seeing. Snoozing
       # the last PR therefore clears the slot entirely, which is the point of
       # snoozing it.
-      [ "$n" -gt 0 ] || exit 0
+      #
+      # All-or-nothing, and the three numbers never hide individually: without
+      # a glyph on each one, position is the only thing saying which is which,
+      # and a lone "58 6" cannot be read as queue-plus-reviewed rather than
+      # queue-plus-opened. Hiding a zero would silently shift the survivors one
+      # slot left and quietly change what the row means. So the zeros stay as
+      # placeholders, and only an entirely empty day clears the segment.
+      if [ "$n" -eq 0 ] && [ "$opened" -eq 0 ] && [ "$reviewed" -eq 0 ]; then
+        exit 0
+      fi
 
-      # Black rather than a threshold colour: this is a thing you scan for on
-      # purpose, not an alarm that should compete with cpu and disk.
-      echo "#[fg=''${FG},bg=''${BG},bold] ''${GH} ''${n}''${RESET} "
+      # One leading and one trailing space for the whole block, single spaces
+      # inside it. Every widget here pads itself on both sides, so the gap
+      # between two widgets is always two — padding each number that way made
+      # them read as three unrelated segments, indistinguishable from todoist
+      # and cpu sitting beside them.
+      #
+      # Slash-joined rather than space-joined, which costs the same width and
+      # buys the grouping: on a row where every other widget is also an icon
+      # followed by a number, three space-separated numbers read as three
+      # widgets. 58/1/6 reads as one compound value, which is what it is.
+      #
+      # Only the queue is black and bold: it is the number you act on, and the
+      # icon marks the block as PRs so three bare numbers are not stranded next
+      # to the todoist count. The tallies stay muted, a thing to notice — the
+      # style switches at the first slash so the separators travel with them.
+      echo "#[fg=''${FG},bg=''${BG},bold] ''${GH} ''${n}#[fg=''${MUTED},bg=''${BG},nobold]/''${opened}/''${reviewed}''${RESET} "
     '';
   };
 
