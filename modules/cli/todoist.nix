@@ -37,6 +37,15 @@ mkUserModule {
     description = "Open-task count at which the tmux widget starts escalating.";
   };
 
+  extraOptions.reviewAt = lib.mkOption {
+    type = lib.types.nullOr lib.types.str;
+    default = "06:00";
+    example = "07:30";
+    description = ''
+      Local time of day, "HH:MM", for the daily start review. null disables it.
+    '';
+  };
+
   home =
     {
       cfg,
@@ -519,12 +528,135 @@ mkUserModule {
             --bind "esc:$b_esc"
         '';
       };
+
+      # The gate's only exit. Split out as its own popup rather than a bind
+      # inside the picker so prefix+T keeps its plain esc — the picker is a
+      # tool the rest of the day and only the 06:00 run should be inescapable.
+      #
+      # --default=false is the point: the answer under a reflex Enter is "no",
+      # so the gate survives exactly the autopilot it exists to interrupt.
+      tmux-todoist-review-confirm = pkgs.writeShellApplication {
+        name = "tmux-todoist-review-confirm";
+        bashOptions = [ ];
+        runtimeInputs = with pkgs; [
+          gum
+          coreutils
+        ];
+        text = ''
+          # $1 sentinel to touch when confirmed, $2 due count for the prompt.
+          gum confirm --default=false \
+            --affirmative "done" --negative "back to list" \
+            "reviewed all $2 due today?" && touch "$1"
+        '';
+      };
+
+      reviewEnabled = cfg.reviewAt != null;
+
+      # "06:00" → { Hour = 6; Minute = 0; }. toIntBase10 rather than toInt:
+      # toInt parses as JSON, where a leading zero is invalid, so "06" is an
+      # eval error — which the default value would hit on every build.
+      reviewHM = lib.splitString ":" (if reviewEnabled then cfg.reviewAt else "0:0");
+      reviewHour = lib.toIntBase10 (builtins.elemAt reviewHM 0);
+      reviewMinute = lib.toIntBase10 (builtins.elemAt reviewHM 1);
+
+      # The day's first look at the terminal opens the picker. Same popup as
+      # prefix+T — the gate is the timing, not a second UI, so the keys you
+      # already know are the keys that dismiss it.
+      #
+      # Fired by a launchd calendar agent rather than a shell or terminal hook.
+      # Ghostty here stays open for weeks, so anything hung on starting a
+      # session (the ghostty command, client-attached, fish init) fires either
+      # never or on every pane. A wall-clock trigger is the only one that lines
+      # up with "the start of the day" when the terminal itself never restarts.
+      #
+      # launchd is also the reason this needs no timezone handling of its own:
+      # StartCalendarInterval is local wall-clock and follows the system zone,
+      # so 06:00 stays 06:00 after a flight. Asleep at 6am is handled too —
+      # launchd runs the job on wake, coalescing missed intervals into one.
+      tmux-todoist-review = pkgs.writeShellApplication {
+        name = "tmux-todoist-review";
+        bashOptions = [ ];
+        runtimeInputs = with pkgs; [
+          jq
+          tmux
+          coreutils
+        ];
+        text = ''
+          STATE="''${XDG_STATE_HOME:-$HOME/.local/state}/tmux-todoist-review"
+          today=$(date +%F)
+
+          [ "$(cat "$STATE" 2>/dev/null)" = "$today" ] && exit 0
+
+          # The catch-up path runs from client-attached, which fires while the
+          # client is still registering — both the check below and display-popup
+          # would miss it. Costs a second once a day on the launchd path.
+          sleep 1
+
+          # No attached client means there is nowhere to draw. Bail BEFORE
+          # claiming the day: at 06:00 with tmux not yet running, claiming here
+          # would mark the review done and silently skip it. Leaving the marker
+          # alone hands the day to the client-attached hook instead.
+          [ -n "$(tmux list-clients -F '#{client_name}' 2>/dev/null)" ] || exit 0
+
+          # Synchronous, unlike the widget's background refresh: this runs once
+          # a day and the whole point is that the list is today's. A stale cache
+          # here would gate you on yesterday's tasks.
+          ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+
+          n=$(jq -r --arg today "$today" \
+                '${unwrap} | ${dueToday} | length' ${cache} 2>/dev/null)
+
+          # Unreadable count means the fetch failed — a dead token or no network.
+          # Leave the marker unwritten so the next trigger tries again, and never
+          # hold the terminal hostage to Todoist being reachable.
+          case "''${n:-}" in "" | *[!0-9]*) exit 0 ;; esac
+
+          # Claimed before the popup, like the refresh claims its slot: the
+          # launchd agent and the catch-up hook can land together, and only one
+          # of them should gate. The cost is that abandoning the popup still
+          # spends the day's prompt.
+          #
+          # ponytail: soft gate — esc closes it, and the count is only read
+          # once. If dismissing it on autopilot becomes the habit, loop until
+          # the due count actually drops rather than adding a nag.
+          mkdir -p "$(dirname "$STATE")"
+          echo "$today" >"$STATE"
+
+          # Silent at zero, like the widget: an empty list is the reward state,
+          # and a popup that says "nothing due" is training to dismiss popups.
+          [ "$n" -gt 0 ] || exit 0
+
+          # esc and ctrl-c close the picker but not the gate: every exit lands
+          # on a confirm, and answering anything but "done" reopens the list.
+          # That makes esc a no-op with a popup flash rather than a way out,
+          # which is the whole ask — a single reflex key cannot end this.
+          # Fixed path, not PID-suffixed: the day marker above is claimed before
+          # we get here, so only one review can ever be in this loop.
+          DONE="''${TMPDIR:-/tmp}/tmux-todoist-review-done"
+          rm -f "$DONE"
+          trap 'rm -f "$DONE"' EXIT
+
+          # Bounded so a broken gum or tmux cannot spin popups forever — that
+          # would be a real lockout, and the terminal you would fix it from is
+          # the one behind the popup. 50 deliberate "back to list" answers is
+          # far past reflex, so this only ever releases on breakage.
+          i=0
+          while [ "$i" -lt 50 ]; do
+            i=$((i + 1))
+            tmux display-popup -E -w 80% -h 60% '${tmux-todoist-pick}/bin/tmux-todoist-pick'
+            tmux display-popup -E -w 52 -h 8 \
+              "${tmux-todoist-review-confirm}/bin/tmux-todoist-review-confirm '$DONE' '$n'"
+            [ -f "$DONE" ] && break
+          done
+        '';
+      };
     in
     {
       home.packages = lib.mkIf userCfg.tmux.enable [
         tmux-todoist-refresh
         tmux-todoist-widget
         tmux-todoist-pick
+        tmux-todoist-review
       ];
 
       programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
@@ -533,6 +665,24 @@ mkUserModule {
         # phone, and on every other surface, so the key is better spent.
         # Matches the shell verb — `t` in a pane, prefix+t in tmux.
         bind-key t display-popup -E -w 80% -h 60% '${tmux-todoist-pick}/bin/tmux-todoist-pick'
+        ${lib.optionalString reviewEnabled ''
+
+          # Catch-up path only — the launchd agent above is what normally fires.
+          # This covers the window the agent cannot reach: 06:00 arriving with
+          # no tmux server (rebooted overnight, or the machine was off), where
+          # the agent bails without claiming the day. First attach after that
+          # runs the review instead.
+          #
+          # Appended rather than set: `set-hook -g` replaces the hook outright,
+          # so a plain -g would silently drop anyone else's client-attached.
+          # Backgrounded because this runs on the attach path — a synchronous
+          # fetch would stall the terminal opening.
+          #
+          # The cost of -ga is that prefix+R stacks another copy for the life of
+          # the server. Harmless by construction: every extra copy hits the
+          # date marker on its first line and exits before doing any work.
+          set-hook -ga client-attached 'run-shell -b "${tmux-todoist-review}/bin/tmux-todoist-review"'
+        ''}
       '';
 
       # 46 keeps it beside the PR count (45) and left of cpu (50): attention
@@ -683,6 +833,31 @@ mkUserModule {
             end
           end
         '';
+      };
+    }
+    # The daily trigger. Structurally absent on linux rather than mkIf'd:
+    # launchd options do not exist there at all. The systemd timer port is
+    # deferred until this repo actually has a linux host, matching ledger.
+    // forPlatform {
+      darwin.launchd.agents.tmux-todoist-review = lib.mkIf (userCfg.tmux.enable && reviewEnabled) {
+        enable = true;
+        config = {
+          ProgramArguments = [ "${tmux-todoist-review}/bin/tmux-todoist-review" ];
+          # Local wall-clock, and launchd re-derives it from the system
+          # timezone — 06:00 stays 06:00 after a flight, with no TZ
+          # handling in the script.
+          StartCalendarInterval = [
+            {
+              Hour = reviewHour;
+              Minute = reviewMinute;
+            }
+          ];
+          # A login at 3pm should not fire the morning review; the
+          # calendar interval (plus launchd's run-on-wake for a missed
+          # one) is the only thing that should start this.
+          RunAtLoad = false;
+          ProcessType = "Interactive";
+        };
       };
     };
 }
