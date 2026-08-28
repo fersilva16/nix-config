@@ -1053,8 +1053,8 @@ in
     };
 
     programs.tmux.extraConfig = ''
-      # GitHub PR triage popup. prefix+P — g/G are the group binds, s/S the
-      # session pickers, and lowercase p stays tmux's previous-window.
+      # GitHub PR triage popup. prefix+P — s/S are the session pickers, and
+      # lowercase p stays tmux's previous-window.
       bind-key P display-popup -E -w 80% -h 60% '${tmux-pr-pick}/bin/tmux-pr-pick'
     '';
   };
