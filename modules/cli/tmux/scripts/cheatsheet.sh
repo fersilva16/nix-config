@@ -73,11 +73,6 @@ trap 'rm -f "$CONTENT"' EXIT
   key "?" "search backward"
   sep
 
-  header "Multi-Monitor"
-  key "prefix g" "group session (new view)"
-  key "prefix G" "leave grouped session"
-  sep
-
   header "Remote Access"
   key "prefix M-r" "toggle remote mode"
   sep
