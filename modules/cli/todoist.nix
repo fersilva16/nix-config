@@ -55,6 +55,17 @@ mkUserModule {
     let
       cache = ''"''${TMPDIR:-/tmp}/tmux-todoist.json"'';
 
+      # Write markers, one empty file per task id: present in pending while the
+      # write is in flight, moved to failed if it never lands.
+      #
+      # A directory rather than a queue file, and that is the whole reason there
+      # is no lock anywhere below — every writer creates and removes exactly its
+      # own entry, and mashing `x` is precisely the concurrent case. A shared
+      # queue file would need one, and a lock is a thing that can be held by a
+      # process that died.
+      pending = ''"''${TMPDIR:-/tmp}/tmux-todoist-pending"'';
+      failed = ''"''${TMPDIR:-/tmp}/tmux-todoist-failed"'';
+
       # td is a homebrew binary, and writeShellApplication resets PATH to
       # runtimeInputs only — without this the widget silently finds no `td` and
       # the count never appears.
@@ -132,15 +143,18 @@ mkUserModule {
         ];
         text = ''
           CACHE=${cache}
+          PENDING=${pending}
           PATH="${brewBin}:''${PATH}"
 
           # Claim the slot before the round trip: the widget decides staleness by
           # mtime and ticks every 5s, so without this it spawns a new refresh on
           # every tick for the whole duration of this one.
           touch "$CACHE"
+          mkdir -p "$PENDING"
 
           tmp=$(mktemp) || exit 0
-          trap 'rm -f "$tmp"' EXIT
+          pend=$(mktemp) || exit 0
+          trap 'rm -f "$tmp" "$tmp.norm" "$pend"' EXIT
 
           # Everything, unfiltered: the cache is the shared store behind the
           # taskbar count and both picker tabs, and `today` is a jq predicate
@@ -152,8 +166,25 @@ mkUserModule {
           # roughly right; raise it if the count ever visibly plateaus at 300.
           td task list --json --limit 300 >"$tmp" 2>/dev/null || exit 0
 
-          if [ -s "$tmp" ] && jq -e '${wellFormed}' "$tmp" >/dev/null 2>&1; then
-            mv "$tmp" "$CACHE"
+          [ -s "$tmp" ] || exit 0
+          jq -e '${wellFormed}' "$tmp" >/dev/null 2>&1 || exit 0
+
+          # Read AFTER the fetch, deliberately: a task completed while this call
+          # was in flight is still in the answer coming back, and putting that
+          # row back on screen is the exact flicker the optimistic delete in
+          # --complete exists to remove.
+          ls -A "$PENDING" >"$pend" 2>/dev/null || true
+
+          # Normalised to a bare array on the way in, so --complete can delete a
+          # row with one map and no copy of the two-shape dance. unwrap stays
+          # where it is — every reader still has to cope with a cache written
+          # before this, and an array unwraps to itself.
+          if jq --rawfile pend "$pend" '
+                ($pend | split("\n")) as $done
+                | ${unwrap}
+                | map(select(.id | IN($done[]) | not))
+              ' "$tmp" >"$tmp.norm" 2>/dev/null; then
+            mv "$tmp.norm" "$CACHE"
           fi
         '';
       };
@@ -182,11 +213,29 @@ mkUserModule {
           # U+F0AE is invisible in every diff and survives only until some tool
           # in the chain normalises it away.
           TD=$(printf '\uF0AE')
+          # nf-fa-refresh, same escape-not-paste rule as above.
+          SYNC=$(printf '\uF021')
 
           # tmux's own 5s tick is the poll timer. Detached with stdout closed:
           # status-right captures this with $(), which would otherwise block
           # until the child exits.
           if ! find "$CACHE" -mmin -2 2>/dev/null | grep -q .; then
+            ${tmux-todoist-refresh}/bin/tmux-todoist-refresh >/dev/null 2>&1 &
+          fi
+
+          # A marker two minutes old belongs to a writer that is never coming
+          # back — a machine that slept mid-write, or a `td` that hung. The
+          # trap above covers the one death we know about, and this covers the
+          # rest: nothing else in the design ever clears a marker it did not
+          # create, so without this the icon sticks on and refresh goes on
+          # hiding a task that may never have been completed.
+          #
+          # -print before -delete so the same pass reports what it swept.
+          # Silent, deliberately: a stuck marker means the outcome is unknown,
+          # and the refresh below answers that honestly by putting the row back
+          # if the server still has it. A red ! here would be claiming a failure
+          # that may not have happened.
+          if [ -n "$(find ${pending} -type f -mmin +2 -print -delete 2>/dev/null)" ]; then
             ${tmux-todoist-refresh}/bin/tmux-todoist-refresh >/dev/null 2>&1 &
           fi
 
@@ -198,10 +247,24 @@ mkUserModule {
                 '${unwrap} | ${dueToday} | length' "$CACHE" 2>/dev/null) || exit 0
           case "''${n:-}" in "" | *[!0-9]*) exit 0 ;; esac
 
+          # A suffix on the count, not a segment of its own: this is the state
+          # OF that number, and a second segment is one more thing to parse at a
+          # glance. Failure outranks in-flight because the row a failed write
+          # removed is already back on the list, and unexplained that reads as a
+          # bug rather than as a save that did not land.
+          mark=""
+          if [ -n "$(ls -A ${failed} 2>/dev/null)" ]; then
+            mark=" #[fg=''${RED}]!"
+          elif [ -n "$(ls -A ${pending} 2>/dev/null)" ]; then
+            mark=" #[fg=''${FG},dim]''${SYNC}"
+          fi
+
           # Silent at zero, like the disk and PR widgets: an empty list is the
           # reward state, and a segment that is always on screen is a segment
-          # you stop seeing.
-          [ "$n" -gt 0 ] || exit 0
+          # you stop seeing. An unfinished write is the one exception —
+          # clearing your last task and having the save fail is exactly when
+          # the segment must not vanish.
+          [ "$n" -gt 0 ] || [ -n "$mark" ] || exit 0
 
           warn=${toString cfg.warnAt}
           if (( n < warn )); then
@@ -214,7 +277,7 @@ mkUserModule {
             color="''${RED}"
           fi
 
-          echo "#[fg=''${color},bg=''${BG},bold] ''${TD} ''${n}''${RESET} "
+          echo "#[fg=''${color},bg=''${BG},bold] ''${TD} ''${n}''${mark}''${RESET} "
         '';
       };
 
@@ -237,6 +300,8 @@ mkUserModule {
           # to live somewhere both the toggle and the reload can read — the same
           # trick `t` uses for its index file.
           VIEW=''${TMPDIR:-/tmp}/tmux-todoist-view
+          PENDING=${pending}
+          FAILED=${failed}
           PATH="${brewBin}:''${PATH}"
           self="$0"
 
@@ -531,9 +596,58 @@ mkUserModule {
               exit 0
               ;;
             --complete)
+              # Two round trips used to run inside this keypress — the write and
+              # a full re-fetch — so ten `x` in a row cost twenty, and a batch
+              # ran at the speed of the network. Now none do: the row is deleted
+              # from the cache, which is the thing the list re-renders from, and
+              # the write leaves detached behind it.
               [ -n "''${2:-}" ] || exit 0
-              td task complete "id:$2" --quiet >/dev/null 2>&1 || true
-              ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+              mkdir -p "$PENDING" "$FAILED"
+
+              # Marked pending BEFORE the cache is touched. A refresh already in
+              # flight reads this set and drops the id, so its answer — which
+              # still contains the task — cannot put the row back.
+              : >"$PENDING/$2"
+
+              tmp=$(mktemp) || exit 0
+              if jq --arg id "$2" '${unwrap} | map(select(.id != $id))' \
+                   "$CACHE" >"$tmp" 2>/dev/null; then
+                mv "$tmp" "$CACHE"
+              else
+                rm -f "$tmp"
+              fi
+
+              # Detached with both streams closed: execute-silent waits on the
+              # child's pipes, so leaving stdout open would hand the round trip
+              # straight back to the keypress it was just taken out of.
+              (
+                # This is the whole reason the write survives. tmux destroys the
+                # popup pane the moment the picker exits, which SIGHUPs its
+                # process group — and a backgrounded child is still in it. So
+                # pressing x and then esc killed the writer mid-flight, leaving
+                # the marker behind forever and the sync icon stuck on.
+                #
+                # Exactly what nohup does, inline because the body is a compound
+                # statement and nohup takes a command. SIG_IGN survives exec, so
+                # the `td` below ignores the signal too — which is the half that
+                # actually matters.
+                #
+                # An empty double-quoted string, not the usual empty single
+                # quotes: this is a nix indented string, where a pair of single
+                # quotes is the terminator.
+                trap "" HUP
+                if td task complete "id:$2" --quiet >/dev/null 2>&1; then
+                  rm -f "$PENDING/$2"
+                else
+                  # The server still has the task, so the refresh puts the row
+                  # back — that IS the recovery, and the only reason the delete
+                  # above is safe to do before the write. The marker exists so
+                  # the return reads as "did not save" instead of a ghost.
+                  touch "$FAILED/$2"
+                  rm -f "$PENDING/$2"
+                  ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+                fi
+              ) >/dev/null 2>&1 &
               exit 0
               ;;
             --reschedule)
@@ -710,6 +824,12 @@ mkUserModule {
           # Cold cache: fetch synchronously so the first open shows tasks rather
           # than an empty box. Later opens read whatever the widget refreshed.
           [ -f "$CACHE" ] || ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+
+          # The list you are about to read is the message: the task whose write
+          # failed is back on it. Cleared here rather than on a timer, because
+          # the widget's `!` should persist exactly until it has been seen, and
+          # opening the picker is what seeing it means.
+          rm -rf "$FAILED"
 
           # Every open starts on today. The view file outlives the popup, and a
           # pane that remembers you went looking at everything last night is a
