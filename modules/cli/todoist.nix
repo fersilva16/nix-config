@@ -134,6 +134,51 @@ mkUserModule {
       # is-null term: it lands last, and still sorts by priority among its own.
       smartSort = ''sort_by([((.due.date // .deadline.date) // "9999-12-31"), (4 - (.priority // 1)), (.deadline.date // "9999-12-31")])'';
 
+      # One row of the list: priority mark, content, due date, deadline. Shared
+      # by the list itself and by the copy standing in for it on the left of the
+      # detail screen, and it has to stay one definition — that pane's whole job
+      # is being the list you just came from, and a mark that vanishes or a
+      # colour that shifts when you open a task makes it a different list.
+      #
+      # Consumes $today, which every caller passes as a jq --arg.
+      rowText = ''
+        def dim: "\u001b[2m" + . + "\u001b[0m";
+        def red: "\u001b[31m" + . + "\u001b[0m";
+        def grn: "\u001b[32m" + . + "\u001b[0m";
+        def ylw: "\u001b[33m" + . + "\u001b[0m";
+
+        # p1 and p2 only. The sort has already clustered them, so the mark is
+        # only there to say why — and a mark on most rows is not a mark.
+        def pmark:
+          if   (.priority // 1) == 4 then ("! " | red)
+          elif (.priority // 1) == 3 then ("! " | ylw)
+          else "" end;
+
+        # Red once the date is behind us. Sorting floats overdue to the top, but
+        # top-of-list and due-today read identically without a colour, and not
+        # noticing is how the task slipped in the first place.
+        #
+        # Falls back to the deadline when there is no due date, mirroring the
+        # sort key exactly — otherwise a dateless task sorts by a date the row
+        # never shows, which reads as a bug.
+        # Bound with `as` rather than piped straight into the if: a pipe would
+        # make `.` the string, and .due.date inside the condition would then be
+        # indexing a string, which is a hard jq error.
+        def datemark:
+          if .due then
+            ("  " + ((.due.string // .due.date) | tostring)) as $s
+            | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
+          elif .deadline then ("  by " + .deadline.date | ylw)
+          else "" end;
+
+        # Only when a due date is already on the row; otherwise datemark is
+        # already showing this exact deadline and would print it twice.
+        def dlmark:
+          if (.due and .deadline) then ("  by " + .deadline.date | dim) else "" end;
+
+        def rowtext: pmark + .content + datemark + dlmark;
+      '';
+
       tmux-todoist-refresh = pkgs.writeShellApplication {
         name = "tmux-todoist-refresh";
         bashOptions = [ ];
@@ -330,45 +375,12 @@ mkUserModule {
             # single quotes — interpolating a shell variable into it would put
             # task text one quote away from being jq source.
             jq -r --arg view "$(view_get)" --arg today "$(date +%F)" '
-              def dim: "\u001b[2m" + . + "\u001b[0m";
-              def red: "\u001b[31m" + . + "\u001b[0m";
-              def grn: "\u001b[32m" + . + "\u001b[0m";
-              def ylw: "\u001b[33m" + . + "\u001b[0m";
-
-              # p1 and p2 only. The sort has already clustered them, so the mark
-              # is only there to say why — and a mark on most rows is not a mark.
-              def pmark:
-                if   (.priority // 1) == 4 then ("! " | red)
-                elif (.priority // 1) == 3 then ("! " | ylw)
-                else "" end;
-
-              # Red once the date is behind us. Sorting floats overdue to the top,
-              # but top-of-list and due-today read identically without a colour,
-              # and not noticing is how the task slipped in the first place.
-              #
-              # Falls back to the deadline when there is no due date, mirroring
-              # the sort key exactly — otherwise a dateless task sorts by a date
-              # the row never shows, which reads as a bug.
-              # Bound with `as` rather than piped straight into the if: a pipe
-              # would make `.` the string, and .due.date inside the condition
-              # would then be indexing a string, which is a hard jq error.
-              def datemark:
-                if .due then
-                  ("  " + ((.due.string // .due.date) | tostring)) as $s
-                  | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
-                elif .deadline then ("  by " + .deadline.date | ylw)
-                else "" end;
-
-              # Only when a due date is already on the row; otherwise datemark is
-              # already showing this exact deadline and would print it twice.
-              def dlmark:
-                if (.due and .deadline) then ("  by " + .deadline.date | dim) else "" end;
-
+              ${rowText}
               ${unwrap}
               | ${byView}
               | ${smartSort}
               | .[]
-              | [ .id, (pmark + .content + datemark + dlmark) ]
+              | [ .id, rowtext ]
               | @tsv
             ' "$CACHE" 2>/dev/null
           }
@@ -675,18 +687,26 @@ mkUserModule {
 
             --listframe)
               # The left half of the detail screen: the list you came from, left
-              # exactly where it was, with the task you opened marked. Pure
-              # context — the cursor lives in the fields on the right — so it
-              # carries no pointer of its own and every other row is dimmed.
-              # That is the whole trick: opening a task moves focus across the
-              # screen instead of replacing it.
+              # exactly as it was. Same rows from the same rowText the list
+              # itself draws — same priority marks, same due dates, same
+              # colours — because this pane is not a summary of the list, it is
+              # the list, and anything it drops makes opening a task look like
+              # it navigated somewhere else.
+              #
+              # Only the pointer changes. It is dimmed here and green on the
+              # right, so the two halves say which one is holding the cursor
+              # without either of them changing what it shows.
               #
               # Sliced to begin a few rows above the current task, because a
               # marker below the fold marks nothing.
               [ -n "''${2:-}" ] || exit 0
               jq -r --arg id "$2" --arg view "$(view_get)" --arg today "$(date +%F)" '
-                def dim: "\u001b[2m" + . + "\u001b[0m";
-                def grn: "\u001b[32m" + . + "\u001b[0m";
+                ${rowText}
+
+                # fzf draws a one-column gutter plus its pointer, so these rows
+                # carry the same two columns and line up with the live list.
+                def ptr: "\u001b[2m>\u001b[0m ";
+
                 ${unwrap}
                 | ${byView}
                 | ${smartSort}
@@ -694,9 +714,8 @@ mkUserModule {
                 | (map(select(.value.id == $id)) | (.[0].key // 0)) as $at
                 | (if $at > 3 then $at - 3 else 0 end) as $from
                 | .[$from:]
-                | map("  " + (if .value.id == $id
-                              then (.value.content | grn)
-                              else (.value.content | dim) end))
+                | map((if .value.id == $id then ptr else "  " end)
+                      + (.value | rowtext))
                 | .[]
               ' "$CACHE" 2>/dev/null
               exit 0
