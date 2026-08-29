@@ -281,10 +281,26 @@ mkUserModule {
         '';
       };
 
-      # prefix+T. Same shape as the PR picker: menu mode by default so single
-      # letters are actions, `/` switches to search and unbinds them for the
-      # duration, and every bind that changes the rows also re-renders the
-      # header so the count can never disagree with what is on screen.
+      # prefix+t. Menu mode by default so single letters are actions, `/`
+      # switches to search and unbinds them for the duration, and every bind
+      # that changes the rows also re-renders the header so the count can never
+      # disagree with what is on screen.
+      #
+      # Two screens, and deliberately only two: the list, and one task. Both are
+      # the same split, and the split never moves — the task list is always on
+      # the left, the task itself is always on the right.
+      #
+      # What enter changes is which side is live. On the list the right pane is
+      # a read-only render and the cursor is in the list; opening a task dims
+      # the list and puts the cursor in the right pane, where the same fields
+      # are now editable. Nothing is replaced and nothing slides across, so it
+      # reads as attention moving rather than as a page turning — which is why
+      # neither pane needs a key to summon it.
+      #
+      # What is gone is the separate edit form and the add wizard: three layouts
+      # with three sets of keys for what is one object, where you had to
+      # remember which page you were on before you could remember which key to
+      # press.
       tmux-todoist-pick = pkgs.writeShellApplication {
         name = "tmux-todoist-pick";
         bashOptions = [ ];
@@ -365,130 +381,7 @@ mkUserModule {
                   '${unwrap} | ${byView} | length' "$CACHE" 2>/dev/null) || n=0
             printf '%s %s\n' "''${n:-0}" "$view"
             # The tab hint names where you land, not where you are.
-            printf 'tab %s · enter details · x done · s push · e edit · a add · o web · r refresh · / search\n' "$other"
-          }
-
-          # ── shared task form ──────────────────────────────────────────────
-          # One form, two callers: --add starts empty and submits `td task add`,
-          # --edit prefills from the cache and submits `td task update`. Sharing
-          # it is the point — a second, separate edit form is exactly where the
-          # two drift into different field sets and different key rules.
-          #
-          # Colours are ANSI indices rather than the widget's Flexoki hex: this
-          # renders on the terminal's own background and should follow its
-          # theme, exactly like the fzf list behind it. Set in a function rather
-          # than at top level because --list runs on every reload keystroke and
-          # has no use for any of it.
-          form_colors() {
-            D=$(printf '\033[2m')
-            G=$(printf '\033[32m')
-            R=$(printf '\033[31m')
-            N=$(printf '\033[0m')
-            ICON=$(printf '\uF0AE')
-          }
-
-          # Shared by the live prompt and the frozen row, which is the whole
-          # trick below — it has to stay a single definition.
-          form_pad() { printf '%s     %-10s%s' "$D" "$1" "$N"; }
-
-          form_row() {
-            [ -n "$2" ] || return 0
-            printf '%s%s%s%s\n' "$(form_pad "$1")" "''${3:-}" "$2" "$N"
-          }
-
-          # Redrawn after every answer. Deliberately ends without a trailing
-          # blank line: the next gum prompt has to land on the very line its own
-          # frozen row will occupy, so a field does not jump when it is
-          # committed and the form fills in place.
-          form_draw() {
-            printf '\033[2J\033[H'
-            printf '\n  %s%s  %s%s\n' "$G" "$ICON" "''${form_title:-task}" "$N"
-            printf '  %s%s%s\n\n' "$D" "──────────────────────────────────────────────" "$N"
-            form_row task "$content"
-            form_row due "$due" "$G"
-            [ "$prio" = none ] || form_row priority "$prio" "$R"
-            form_row project "$project"
-            [ -z "$notes" ] || form_row notes "$(printf '%s' "$notes" | head -n1 | cut -c1-46)"
-          }
-
-          # Reads and writes the content/due/prio/project/notes globals, so a
-          # caller prefills simply by setting them first. Returns 1 on esc.
-          #
-          # One rule for every field: enter accepts and an empty field is a
-          # skip, esc abandons the whole form. Same esc as the list it opened
-          # from — on edit that means nothing is written, not a partial save.
-          # One function per field, so --add can run them in sequence and --edit
-          # can run exactly one. Each reads its global as the prefill and writes
-          # it back, and returns non-zero on esc.
-          ask_task() {
-            content=$(gum input --prompt "$(form_pad task)" --no-show-help \
-              --value "$content" --placeholder "what needs doing" --width 0 \
-              --cursor.foreground 2 --placeholder.foreground 245) || return 1
-            [ -n "$content" ] || return 1
-          }
-
-          ask_due() {
-            due=$(gum input --prompt "$(form_pad due)" --no-show-help \
-              --value "$due" --width 0 --placeholder "''${due_ph:-tomorrow 9am · friday · every monday}" \
-              --cursor.foreground 2 --placeholder.foreground 245) || return 1
-          }
-
-          # label:value, so the list reads as words and still submits `p1`.
-          ask_prio() {
-            prio=$(gum choose --header "$(form_pad priority)" --no-show-help \
-              --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
-              --label-delimiter ":" --selected "''${prio:-none}" --height 5 \
-              "none:none" "p3 · low:p3" "p2 · medium:p2" "p1 · urgent:p1") || return 1
-          }
-
-          # Skipped when there is nothing to choose between: a single-project
-          # account should not be asked where the task goes.
-          ask_project() {
-            local pjson
-            pjson=$(td project list --json 2>/dev/null)
-            [ "$(printf '%s' "$pjson" | jq -r '${unwrap} | length' 2>/dev/null || echo 0)" -gt 1 ] || return 0
-            project=$(printf '%s' "$pjson" | jq -r '${unwrap} | .[].name' \
-              | gum choose --header "$(form_pad project)" --no-show-help \
-                  --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
-                  --selected "$project" --height 8) || return 1
-          }
-
-          # Multi-select over the account's real labels rather than a text field
-          # with `@` syntax: --labels replaces the whole set, so a typo here does
-          # not create a new label, it silently drops every label the task had.
-          # show-help stays on, for the same reason it does on notes: multi-select
-          # toggles with `x`, not space, and nothing on screen would say so.
-          # Space silently doing nothing is the failure this line prevents.
-          ask_labels() {
-            local sel
-            sel=$(td label list --json 2>/dev/null | jq -r '${unwrap} | .[].name' \
-              | gum choose --no-limit --header "$(form_pad labels)" \
-                  --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
-                  --selected "$labels" --height 10) || return 1
-            labels=$(printf '%s' "$sel" | paste -sd, -)
-          }
-
-          # show-help stays on here because enter submits and shift+enter makes a
-          # newline, which is the only binding in this form you would not guess.
-          ask_notes() {
-            notes=$(gum write --header "$(form_pad notes)" \
-              --value "$notes" --placeholder "context, links, the first step…" \
-              --prompt "     ┃ " --width 0 --height 5 \
-              --cursor.foreground 2 --placeholder.foreground 245) || return 1
-          }
-
-          # The add path: every field in order, because a new task starts empty
-          # and there is nothing to pick between. Labels are deliberately absent
-          # — `t buy milk tomorrow p1 @errand` is the fast path for a new task,
-          # and quickadd already parses @label there. Edit has no such verb,
-          # which is exactly why its labels field exists.
-          form_run() {
-            form_title=$1
-            form_draw; ask_task || return 1
-            form_draw; ask_due || return 1
-            form_draw; ask_prio || return 1
-            form_draw; ask_project || return 1
-            form_draw; ask_notes || return 1
+            printf 'tab %s · enter edit · x done · a add · o web · r refresh · / search\n' "$other"
           }
 
           # One field per call, rather than one jq emitting TSV. The tab-split
@@ -503,6 +396,33 @@ mkUserModule {
             jq -r --arg id "$1" \
               '${unwrap} | map(select(.id == $id)) | (.[0] | '"$2"') // ""' \
               ${cache} 2>/dev/null
+          }
+
+          # Colours are ANSI indices rather than the widget's Flexoki hex: this
+          # renders on the terminal's own background and should follow its
+          # theme, exactly like the fzf list behind it. Set in a function rather
+          # than at top level because --list runs on every reload keystroke and
+          # has no use for any of it.
+          form_colors() {
+            D=$(printf '\033[2m')
+            G=$(printf '\033[32m')
+            R=$(printf '\033[31m')
+            N=$(printf '\033[0m')
+            ICON=$(printf '\uF0AE')
+          }
+
+          # The same 11-column label gutter the detail rows use, so a field
+          # being edited sits exactly where it sat while being read.
+          form_pad() { printf '%s     %-10s%s' "$D" "$1" "$N"; }
+
+          # Every editor opens on a cleared screen carrying the task's title.
+          # Without it a gum prompt draws over whatever the pane happened to
+          # contain, and one field out of context is not obviously about the
+          # task you were just looking at.
+          form_head() {
+            printf '\033[2J\033[H'
+            printf '\n  %s%s  %s%s\n' "$G" "$ICON" "''${1:-task}" "$N"
+            printf '  %s%s%s\n\n' "$D" "──────────────────────────────────────────────" "$N"
           }
 
           # Moving a due date needs two different verbs, and picking the wrong
@@ -549,50 +469,6 @@ mkUserModule {
             --open)
               [ -n "''${2:-}" ] || exit 0
               td task browse "id:$2" >/dev/null 2>&1 || true
-              exit 0
-              ;;
-            --show)
-              # Served out of the cache, not the network: this runs on every
-              # cursor move while the preview is open, and a round trip per
-              # keystroke would make arrowing through the list feel broken.
-              #
-              # The description is the whole point. It is the one field the row
-              # cannot show and the one that answers "what did I mean by this",
-              # which is otherwise a trip to the browser.
-              [ -n "''${2:-}" ] || exit 0
-              jq -r --arg id "$2" --arg today "$(date +%F)" '
-                def dim:  "\u001b[2m" + . + "\u001b[0m";
-                def red:  "\u001b[31m" + . + "\u001b[0m";
-                def grn:  "\u001b[32m" + . + "\u001b[0m";
-                def ylw:  "\u001b[33m" + . + "\u001b[0m";
-                def bold: "\u001b[1m" + . + "\u001b[0m";
-
-                # Same 10-column label gutter as the add form, so the two ways
-                # of looking at one task line up instead of each having a style.
-                def pad: (. + "          ")[0:10] | dim;
-                def row($k; $v): if ($v // "") == "" then empty else "  " + ($k | pad) + $v end;
-
-                ${unwrap}
-                | map(select(.id == $id))
-                | (.[0] // empty)
-                | [ "", "  " + (.content | bold), "" ]
-                  + [ row("due";
-                        (if .due then
-                           ((.due.string // .due.date) | tostring) as $s
-                           | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
-                         else "" end)),
-                      row("deadline"; (if .deadline then (.deadline.date | ylw) else "" end)),
-                      row("priority";
-                        (if   (.priority // 1) == 4 then ("p1" | red)
-                         elif (.priority // 1) == 3 then ("p2" | ylw)
-                         elif (.priority // 1) == 2 then "p3"
-                         else "" end)),
-                      row("labels"; ((.labels // []) | join(", ")))
-                    ]
-                  + (if (.description // "") == "" then []
-                     else [ "" ] + (.description | split("\n") | map("  " + .)) end)
-                | .[]
-              ' "$CACHE" 2>/dev/null
               exit 0
               ;;
             --complete)
@@ -650,167 +526,428 @@ mkUserModule {
               ) >/dev/null 2>&1 &
               exit 0
               ;;
-            --reschedule)
-              # The review's most common verb, so it gets one field instead of
-              # the whole form: deciding "not today" should cost one keystroke
-              # and one phrase, or it does not happen at the moment it should.
+
+            --show)
+              # The reading half, and the whole reason there is a pane on the
+              # right: the description. It is the one field a list row cannot
+              # show and the detail row truncates to its first 60 characters,
+              # which left a long note readable nowhere but the browser.
+              #
+              # Served out of the cache, not the network: this runs on every
+              # cursor move, and a round trip per keystroke would make arrowing
+              # through the list feel broken.
+              #
+              # Empty fields are skipped here, where --rows keeps them and shows
+              # a dash. Opposite rules on purpose: this pane is for reading, and
+              # a column of dashes is noise; that one is for editing, and a
+              # field you cannot see is a field you cannot select to fill in.
+              #
+              # Same 11-column gutter as --rows, so stepping from the list into
+              # the detail screen does not shift a single label sideways.
               [ -n "''${2:-}" ] || exit 0
-              form_colors
+              jq -r --arg id "$2" --arg today "$(date +%F)" '
+                def dim:  "\u001b[2m" + . + "\u001b[0m";
+                def red:  "\u001b[31m" + . + "\u001b[0m";
+                def grn:  "\u001b[32m" + . + "\u001b[0m";
+                def ylw:  "\u001b[33m" + . + "\u001b[0m";
+                def bold: "\u001b[1m" + . + "\u001b[0m";
+                def pad:  (. + "          ")[0:11] | dim;
+                def row($k; $v):
+                  if ($v // "") == "" then empty else "  " + ($k | pad) + $v end;
 
-              rec=$(form_field "$2" '((.due.isRecurring // false) | tostring)')
-
-              # A recurring task is prefilled and prompted with its resolved
-              # date, not its rule: the field is going to a verb that only
-              # accepts YYYY-MM-DD, so offering "every monday" back would be
-              # handing over text guaranteed to be rejected.
-              if [ "$rec" = true ]; then
-                cur=$(form_field "$2" '.due.date')
-                ph="YYYY-MM-DD — keeps the repeat"
-              else
-                cur=$(form_field "$2" '.due.string // .due.date')
-                ph="tomorrow · friday · next week"
-              fi
-
-              new=$(gum input --prompt "$(form_pad push)" --no-show-help \
-                --value "$cur" --width 0 --placeholder "$ph" \
-                --cursor.foreground 2 --placeholder.foreground 245) || exit 0
-              [ -n "$new" ] || exit 0
-
-              apply_due "$2" "$new" "$rec"
-              case $? in
-                0) ;;
-                2)
-                  printf "\n  %s  recurring task — use YYYY-MM-DD to keep the repeat%s\n" "$R" "$N"
-                  sleep 2
-                  exit 0
-                  ;;
-                *)
-                  printf "\n  %s  could not reschedule — try 'td auth status'%s\n" "$R" "$N"
-                  sleep 2
-                  exit 0
-                  ;;
-              esac
-              ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+                ${unwrap}
+                | map(select(.id == $id))
+                | (.[0] // empty)
+                | [ "", "  " + (.content | bold), "" ]
+                  + [ row("due";
+                        (if .due then
+                           ((.due.string // .due.date) | tostring) as $s
+                           | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
+                         else "" end)),
+                      row("deadline"; (if .deadline then (.deadline.date | ylw) else "" end)),
+                      row("priority";
+                        (if   (.priority // 1) == 4 then ("p1 · urgent" | red)
+                         elif (.priority // 1) == 3 then ("p2 · medium" | ylw)
+                         elif (.priority // 1) == 2 then "p3 · low"
+                         else "" end)),
+                      row("labels"; ((.labels // []) | join(", ")))
+                    ]
+                  + (if (.description // "") == "" then []
+                     else [ "" ] + (.description | split("\n") | map("  " + .)) end)
+                | .[]
+              ' "$CACHE" 2>/dev/null
               exit 0
               ;;
-            --edit)
+
+            --rows)
+              # The task, one field per line, in the same id-then-display TSV
+              # shape the list uses — so the detail screen is the same fzf with
+              # a different query, not a second kind of surface.
+              #
+              # Served out of the cache, like the list: pressing enter on a row
+              # you can already see should not cost a round trip.
+              #
+              # Empty fields keep their row and show a dash. A field that
+              # disappears when unset is a field you cannot select to fill in,
+              # which is the entire reason the old form had a separate menu.
+              #
+              # ponytail: no project row. `td task list --json` returns
+              # projectId and no name — the old form read .project_name, which
+              # has never existed, so its prefill was always blank. With one
+              # project the row is noise anyway, and `#project` on add still
+              # works. Bring it back, via a projectId→name lookup, if this
+              # account ever grows a second project.
+              # The description is wrapped into rows of its own rather than
+              # truncated onto the notes line. This pane is fzf's item list, and
+              # a list item does not wrap however wide the pane is — so the only
+              # way the full note is readable here is to emit it pre-broken.
+              # Every one of those rows carries the `notes` key, so enter on any
+              # line of a note edits the note, which is what pointing at it
+              # means.
               [ -n "''${2:-}" ] || exit 0
+
+              # fzf exports its own width to the children it spawns, which is
+              # the only way this side knows how wide it is. Clamped at both
+              # ends: unset on an older fzf would wrap at a negative width, and
+              # a full-screen terminal would produce lines too long to scan.
+              w=''${FZF_COLUMNS:-80}
+              case "$w" in ''' | *[!0-9]*) w=80 ;; esac
+              # Halved because this pane is one side of a 50% split, then docked
+              # for the label gutter, fzf's pointer column and the row indent —
+              # all of which sit left of the text and none of which fzf counts.
+              w=$(( w / 2 - 20 ))
+              [ "$w" -gt 72 ] && w=72
+              [ "$w" -lt 24 ] && w=24
+
+              jq -r --arg id "$2" --arg today "$(date +%F)" --argjson w "$w" '
+                def dim:  "\u001b[2m" + . + "\u001b[0m";
+                def red:  "\u001b[31m" + . + "\u001b[0m";
+                def grn:  "\u001b[32m" + . + "\u001b[0m";
+                def ylw:  "\u001b[33m" + . + "\u001b[0m";
+                def bold: "\u001b[1m" + . + "\u001b[0m";
+                def pad:  (. + "          ")[0:11] | dim;
+                def row($k; $v):
+                  [ $k, "  " + ($k | pad)
+                       + (if ($v // "") == "" then ("—" | dim) else $v end) ]
+                  | @tsv;
+                # Greedy word wrap. Folds each word onto the current line while
+                # it fits and starts a new one when it does not, so a long note
+                # breaks on spaces instead of mid-word.
+                def wrap($n):
+                  [ splits("[ \t]+") ]
+                  | map(select(length > 0))
+                  | reduce .[] as $word ([];
+                      if (length == 0) or ((.[-1] | length) + 1 + ($word | length) > $n)
+                      then . + [$word]
+                      else .[0:-1] + [ .[-1] + " " + $word ]
+                      end);
+
+                ${unwrap}
+                | map(select(.id == $id))
+                | (.[0] // empty)
+                | [ row("task"; (.content | bold)),
+                    row("due";
+                      (if .due then
+                         ((.due.string // .due.date) | tostring) as $s
+                         | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
+                       else "" end)),
+                    row("priority";
+                      (if   (.priority // 1) == 4 then ("p1 · urgent" | red)
+                       elif (.priority // 1) == 3 then ("p2 · medium" | ylw)
+                       elif (.priority // 1) == 2 then "p3 · low"
+                       else "" end)),
+                    row("labels"; ((.labels // []) | join(", ")))
+                  ]
+                + ( (.description // "")
+                    | if . == "" then [ row("notes"; "") ]
+                      else
+                        [ splits("\n") ]
+                        | map(wrap($w)) | add
+                        | to_entries
+                        | map([ "notes",
+                                "  " + ((if .key == 0 then "notes" else "" end) | pad)
+                                     + (.value | dim) ] | @tsv)
+                      end )
+                | .[]
+              ' "$CACHE" 2>/dev/null
+              exit 0
+              ;;
+
+            --listframe)
+              # The left half of the detail screen: the list you came from, left
+              # exactly where it was, with the task you opened marked. Pure
+              # context — the cursor lives in the fields on the right — so it
+              # carries no pointer of its own and every other row is dimmed.
+              # That is the whole trick: opening a task moves focus across the
+              # screen instead of replacing it.
+              #
+              # Sliced to begin a few rows above the current task, because a
+              # marker below the fold marks nothing.
+              [ -n "''${2:-}" ] || exit 0
+              jq -r --arg id "$2" --arg view "$(view_get)" --arg today "$(date +%F)" '
+                def dim: "\u001b[2m" + . + "\u001b[0m";
+                def grn: "\u001b[32m" + . + "\u001b[0m";
+                ${unwrap}
+                | ${byView}
+                | ${smartSort}
+                | to_entries
+                | (map(select(.value.id == $id)) | (.[0].key // 0)) as $at
+                | (if $at > 3 then $at - 3 else 0 end) as $from
+                | .[$from:]
+                | map("  " + (if .value.id == $id
+                              then (.value.content | grn)
+                              else (.value.content | dim) end))
+                | .[]
+              ' "$CACHE" 2>/dev/null
+              exit 0
+              ;;
+
+            --field)
+              # One field, chosen by having the cursor on it. The old form asked
+              # which field you meant from a menu at the bottom of a list you
+              # were already pointing at — this is the same edit with the
+              # question deleted.
+              fld=''${2:-}
+              id=''${3:-}
+              [ -n "$fld" ] && [ -n "$id" ] || exit 0
               form_colors
-
-              # Prefilled from the cache, not a fetch: the row you pressed `e`
-              # on is already in it, and a round trip would stall the keypress.
-              content=$(form_field "$2" '.content')
-              [ -n "$content" ] || exit 0
-              rec=$(form_field "$2" '((.due.isRecurring // false) | tostring)')
-              recurring_refused=0
-              # Recurring shows its resolved date for the same reason as the
-              # push field: the value has to be something the verb will accept.
-              if [ "$rec" = true ]; then
-                due=$(form_field "$2" '.due.date')
-                due_ph="YYYY-MM-DD — keeps the repeat"
-              else
-                due=$(form_field "$2" '.due.string // .due.date')
-                due_ph="today · tomorrow · friday · next week"
-              fi
-              project=$(form_field "$2" '.project_name')
-              notes=$(form_field "$2" '.description')
-              labels=$(form_field "$2" '((.labels // []) | join(","))')
-              prio=$(form_field "$2" '
-                if   (.priority // 1) == 4 then "p1"
-                elif (.priority // 1) == 3 then "p2"
-                elif (.priority // 1) == 2 then "p3"
-                else "none" end')
-
-              content0=$content; due0=$due; prio0=$prio
-              project0=$project; notes0=$notes; labels0=$labels
-
-              # Pick the field, then edit only that one. Walking all five to fix
-              # a date is the slow path this exists to remove — an edit is
-              # almost always one field, and the other four are already right.
-              form_title="edit task"
-              form_draw
-              case $(gum choose --header "$(form_pad edit)" --no-show-help \
-                       --cursor "  ❯  " --cursor.foreground 2 \
-                       --selected.foreground 2 --selected none --height 7 \
-                       task due priority project labels notes) in
-                task)     form_draw; ask_task     || exit 0 ;;
-                due)      form_draw; ask_due      || exit 0 ;;
-                priority) form_draw; ask_prio     || exit 0 ;;
-                project)  form_draw; ask_project  || exit 0 ;;
-                labels)   form_draw; ask_labels   || exit 0 ;;
-                notes)    form_draw; ask_notes    || exit 0 ;;
-                *) exit 0 ;;
-              esac
-
-              # Three commands because Todoist has three verbs, not because the
-              # form does. Each fires only when its own field changed, so fixing
-              # a title never touches the date or the project.
-              args=()
-              [ "$content" != "$content0" ] && args+=(--content "$content")
-              [ "$notes" != "$notes0" ] && args+=(--description "$notes")
-              if [ "$labels" != "$labels0" ]; then
-                # --labels replaces the set, so clearing every label needs its
-                # own flag rather than an empty list.
-                if [ -n "$labels" ]; then args+=(--labels "$labels"); else args+=(--no-labels); fi
-              fi
-              if [ "$prio" != "$prio0" ]; then
-                # p4 IS "no priority" in Todoist; there is no --no-priority.
-                if [ "$prio" = none ]; then args+=(--priority p4); else args+=(--priority "$prio"); fi
-              fi
-
+              rec=$(form_field "$id" '((.due.isRecurring // false) | tostring)')
+              form_head "$(form_field "$id" '.content')"
               ok=1
-              if [ ''${#args[@]} -gt 0 ]; then
-                td task update "id:$2" "''${args[@]}" >/dev/null 2>&1 || ok=0
-              fi
+              msg=""
 
-              # Same two-verb rule as --reschedule, via the same helper. A
-              # refusal (2) is reported on its own line: it means the repeat was
-              # kept and the date was not, which is not the same as a failure.
-              if [ "$due" != "$due0" ]; then
-                apply_due "$2" "$due" "$rec"
-                case $? in
-                  0) ;;
-                  2) recurring_refused=1 ;;
-                  *) ok=0 ;;
-                esac
-              fi
+              case "$fld" in
+                task)
+                  cur=$(form_field "$id" '.content')
+                  new=$(gum input --prompt "$(form_pad task)" --no-show-help \
+                    --value "$cur" --width 0 --placeholder "what needs doing" \
+                    --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+                  [ -n "$new" ] || exit 0
+                  [ "$new" = "$cur" ] && exit 0
+                  td task update "id:$id" --content "$new" >/dev/null 2>&1 || ok=0
+                  ;;
 
-              if [ -n "$project" ] && [ "$project" != "$project0" ]; then
-                td task move "id:$2" --project "$project" >/dev/null 2>&1 || ok=0
-              fi
+                due)
+                  # The four answers that cover almost every reschedule, as a
+                  # list instead of a text field. Typing "tomorrow" to mean
+                  # tomorrow is a sentence you compose to say a thing you could
+                  # have pointed at, and it is the single most common edit here.
+                  #
+                  # Every preset resolves to YYYY-MM-DD rather than passing the
+                  # word through, because that is the one form BOTH verbs above
+                  # accept — so a preset moves a recurring task and keeps its
+                  # repeat, with nothing in this branch knowing about repeats.
+                  # The resolved date is shown next to the label so the list
+                  # also answers "which day is that".
+                  #
+                  # GNU date, from coreutils in runtimeInputs. BSD date reads -d
+                  # as a daylight-saving flag and would return today for all four.
+                  pick=$(printf '%s\n' \
+                    "today        $(date +%F):$(date +%F)" \
+                    "tomorrow     $(date -d tomorrow +%F):$(date -d tomorrow +%F)" \
+                    "this weekend $(date -d saturday +%F):$(date -d saturday +%F)" \
+                    "next week    $(date -d 'next monday' +%F):$(date -d 'next monday' +%F)" \
+                    "no date:__clear__" \
+                    "custom…:__custom__" \
+                    | gum choose --header "$(form_pad due)" --no-show-help \
+                        --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
+                        --label-delimiter ":" --height 8) || exit 0
+
+                  case "$pick" in
+                    __custom__)
+                      # The escape hatch for everything the four presets do not
+                      # cover — "in 3 days", "every monday", a specific date.
+                      # A recurring task is prefilled and prompted with its
+                      # resolved date, not its rule: the field is going to a verb
+                      # that only accepts YYYY-MM-DD, so offering "every monday"
+                      # back would be handing over text guaranteed to be rejected.
+                      if [ "$rec" = true ]; then
+                        cur=$(form_field "$id" '.due.date')
+                        ph="YYYY-MM-DD — keeps the repeat"
+                      else
+                        cur=$(form_field "$id" '.due.string // .due.date')
+                        ph="friday · in 3 days · every monday"
+                      fi
+                      pick=$(gum input --prompt "$(form_pad due)" --no-show-help \
+                        --value "$cur" --width 0 --placeholder "$ph" \
+                        --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+                      [ -n "$pick" ] || exit 0
+                      ;;
+                    __clear__)
+                      # Clearing the date of a recurring task is how you delete a
+                      # repeat by accident: --no-due drops the rule with it, and
+                      # nothing on screen would say so until the task failed to
+                      # come back. Refused here; custom… can still do it.
+                      if [ "$rec" = true ]; then
+                        msg="that would drop the repeat — clear it from custom… if you mean to"
+                        ok=2
+                      fi
+                      pick=""
+                      ;;
+                  esac
+
+                  if [ "$ok" = 1 ]; then
+                    apply_due "$id" "$pick" "$rec"
+                    case $? in
+                      0) ;;
+                      2)
+                        ok=2
+                        msg="recurring task — use YYYY-MM-DD to keep the repeat"
+                        ;;
+                      *) ok=0 ;;
+                    esac
+                  fi
+                  ;;
+
+                priority)
+                  # Plain labels, no label:value split. gum matches --selected
+                  # against the LABEL, not the value behind the delimiter, so
+                  # the split form silently left the cursor on "none" no matter
+                  # what the task was — and a reflex enter then cleared the
+                  # priority of the task you opened to look at. The flag is the
+                  # label's first word instead, which needs no second list.
+                  cur=$(form_field "$id" '
+                    if   (.priority // 1) == 4 then "p1 · urgent"
+                    elif (.priority // 1) == 3 then "p2 · medium"
+                    elif (.priority // 1) == 2 then "p3 · low"
+                    else "none" end')
+                  new=$(gum choose --header "$(form_pad priority)" --no-show-help \
+                    --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
+                    --selected "$cur" --height 5 \
+                    "none" "p3 · low" "p2 · medium" "p1 · urgent") || exit 0
+                  [ "$new" = "$cur" ] && exit 0
+                  # p4 IS "no priority" in Todoist; there is no --no-priority.
+                  if [ "$new" = none ]; then
+                    td task update "id:$id" --priority p4 >/dev/null 2>&1 || ok=0
+                  else
+                    td task update "id:$id" --priority "''${new%% *}" >/dev/null 2>&1 || ok=0
+                  fi
+                  ;;
+
+                labels)
+                  # Multi-select over the account's real labels rather than a text
+                  # field with `@` syntax: --labels replaces the whole set, so a
+                  # typo here does not create a new label, it silently drops every
+                  # label the task had. show-help stays on because multi-select
+                  # toggles with `x`, not space, and nothing on screen says so.
+                  cur=$(form_field "$id" '((.labels // []) | join(","))')
+                  sel=$(td label list --json 2>/dev/null | jq -r '${unwrap} | .[].name' \
+                    | gum choose --no-limit --header "$(form_pad labels)" \
+                        --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
+                        --selected "$cur" --height 10) || exit 0
+                  new=$(printf '%s' "$sel" | paste -sd, -)
+                  [ "$new" = "$cur" ] && exit 0
+                  # --labels replaces the set, so clearing every label needs its
+                  # own flag rather than an empty list.
+                  if [ -n "$new" ]; then
+                    td task update "id:$id" --labels "$new" >/dev/null 2>&1 || ok=0
+                  else
+                    td task update "id:$id" --no-labels >/dev/null 2>&1 || ok=0
+                  fi
+                  ;;
+
+                notes)
+                  # show-help stays on here because enter submits and shift+enter
+                  # makes a newline, which is the only binding you would not guess.
+                  #
+                  # An explicit width, never 0. At 0 the textarea stops soft
+                  # wrapping and scrolls sideways to keep the cursor in view, so
+                  # opening an existing note showed its last few words and no
+                  # way to see the beginning — the text was all still there, but
+                  # editing it meant scrolling blind.
+                  cols=$(tput cols 2>/dev/null) || cols=80
+                  case "$cols" in ''' | *[!0-9]*) cols=80 ;; esac
+                  cols=$(( cols - 12 ))
+                  [ "$cols" -gt 100 ] && cols=100
+                  [ "$cols" -lt 30 ] && cols=30
+
+                  cur=$(form_field "$id" '.description')
+                  new=$(gum write --header "$(form_pad notes)" \
+                    --value "$cur" --placeholder "context, links, the first step…" \
+                    --prompt "     ┃ " --width "$cols" --height 8 \
+                    --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+                  [ "$new" = "$cur" ] && exit 0
+                  td task update "id:$id" --description "$new" >/dev/null 2>&1 || ok=0
+                  ;;
+              esac
 
               if [ "$ok" = 0 ]; then
-                form_draw
                 printf "\n  %s  could not save — try 'td auth status'%s\n" "$R" "$N"
                 sleep 2
-              elif [ "$recurring_refused" = 1 ]; then
-                form_draw
-                printf "\n  %s  saved, but the date needs YYYY-MM-DD to keep the repeat%s\n" "$R" "$N"
+              elif [ "$ok" = 2 ]; then
+                printf "\n  %s  %s%s\n" "$R" "$msg" "$N"
                 sleep 2
               fi
+
+              # ponytail: synchronous full refresh, so the row you just changed
+              # is right when --rows re-reads the cache. That is a second round
+              # trip on top of the write; patch the single row from `td task
+              # view --json` instead if the pause after an edit ever grates.
               ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
               exit 0
               ;;
-            --add)
-              # A form rather than one line. quickadd's `p1 #Project` syntax can
-              # carry due, priority and project, but nothing in it can carry a
-              # description, and the syntax only helps if you remember it. Named
-              # fields are the discoverable half; `t <text>` in a pane is still
-              # the one-line fast path, so nothing that was quick got slower.
-              form_colors
-              content=""; due=""; prio="none"; project=""; notes=""
-              form_run "new task" || exit 0
 
-              args=("$content")
-              [ -n "$due" ] && args+=(--due "$due")
-              [ "$prio" != none ] && args+=(--priority "$prio")
-              [ -n "$project" ] && args+=(--project "$project")
-              [ -n "$notes" ] && args+=(--description "$notes")
+            --detail)
+              # One task, in the right-hand pane the task was already occupying.
+              # The preview moves to the left and becomes the dimmed list, so
+              # the two halves keep their meaning and only the live one changes
+              # sides: the rows you were reading are now the rows you edit, and
+              # the cursor is already on the field you moved it to.
+              #
+              # The same fzf as the list — same delimiter, same with-nth, same
+              # reload-after-write — because a second screen that behaves
+              # differently is a second screen to learn. reload keeps the cursor
+              # where it was, so editing `due` leaves you on `due`.
+              #
+              # --no-input because a handful of rows need no search, which keeps
+              # every letter free to be an action without the menu/search dance.
+              [ -n "''${2:-}" ] || exit 0
+              id=$2
+              # refresh-preview as well as reload: the left half re-reads the
+              # cache on its own, but the pane on the right is a separate child
+              # process fzf will not re-run unless told, and a stale right half
+              # beside a freshly edited left half is worse than no pane at all.
+              d_edit='execute('"$self"' --field {1} '"$id"')+reload('"$self"' --rows '"$id"')+refresh-preview'
+              $self --rows "$id" | fzf \
+                --ansi --no-sort --layout=reverse --cycle \
+                --delimiter='\t' --with-nth=2 \
+                --disabled --no-input --info=hidden \
+                --pointer='>' --gutter=' ' \
+                --color='pointer:green,header:dim,preview-border:238' \
+                --header 'enter edit · x done · o web · esc back' \
+                --header-first \
+                --preview "$self --listframe $id" \
+                --preview-window 'left,50%,border-right' \
+                --bind "enter:$d_edit" \
+                --bind "x:execute-silent($self --complete $id)+abort" \
+                --bind "o:execute-silent($self --open $id)" \
+                --bind 'esc:abort' \
+                --bind 'ctrl-c:abort' >/dev/null
+              exit 0
+              ;;
+
+            --add)
+              # One field, because Todoist's own quick-add syntax carries the
+              # rest and the server does the parsing: `tomorrow`, `p1`,
+              # `#project`, `@label` and `//notes` all come out as real fields.
+              # Verified against the live API, not assumed — `@label` only binds
+              # to a label that already exists, and stays in the text otherwise.
+              #
+              # This used to be five prompts in a row, which is four more
+              # decisions than capture can afford. Anything the syntax does not
+              # cover is a field on the detail screen, one keypress away, and
+              # that is the same screen as everything else.
+              form_colors
+              form_head "new task"
+              printf '  %s   today · tomorrow · friday · p1–p4 · #project · @label · //notes%s\n\n' "$D" "$N"
+              text=$(gum input --prompt "$(form_pad task)" --no-show-help --width 0 \
+                --placeholder "buy oat milk tomorrow p1 @errand //the oat one" \
+                --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+              [ -n "$text" ] || exit 0
 
               # Loudly, not with `|| true`: a capture tool that silently drops
               # what you just typed is worse than one that refuses to take it.
-              if ! td task add "''${args[@]}" >/dev/null 2>&1; then
-                form_draw
+              if ! td task quickadd "$text" >/dev/null 2>&1; then
                 printf "\n  %s  could not add — try 'td auth status'%s\n" "$R" "$N"
                 sleep 2
                 exit 0
@@ -844,12 +981,11 @@ mkUserModule {
           redraw='reload('"$self"' --list)+transform-header('"$self"' --header)'
           b_open='execute-silent('"$self"' --open {1})'
           b_done='execute-silent('"$self"' --complete {1})+'"$redraw"
-          b_add='execute('"$self"' --add)+'"$redraw"
-          # execute, not execute-silent: both open a gum prompt and need the
-          # terminal handed over. execute-silent would run them blind, with the
+          # execute, not execute-silent: both take over the terminal for a gum
+          # prompt or a nested fzf. execute-silent would run them blind, with the
           # cursor hidden and keystrokes going nowhere.
-          b_edit='execute('"$self"' --edit {1})+'"$redraw"
-          b_resched='execute('"$self"' --reschedule {1})+'"$redraw"
+          b_add='execute('"$self"' --add)+'"$redraw"
+          b_detail='execute('"$self"' --detail {1})+'"$redraw"
           b_refresh='execute-silent(${tmux-todoist-refresh}/bin/tmux-todoist-refresh)+'"$redraw"
           # Deliberately left bound in search mode, unlike x/a/r: tab is not a
           # character you can type into a query, so it costs nothing there and
@@ -858,8 +994,8 @@ mkUserModule {
           # `o` joins x/a/r in here for the obvious reason: it is a letter, and a
           # search for "onboarding" that opens a browser on the first keystroke
           # is the exact failure this menu/search split exists to prevent.
-          b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(o)+unbind(s)+unbind(e)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
-          b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(o)+rebind(s)+rebind(e)+rebind(/)+'"$redraw"
+          b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(o)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
+          b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(o)+rebind(/)+'"$redraw"
           # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's, not bash's
           b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
 
@@ -871,15 +1007,13 @@ mkUserModule {
             --info=inline-right \
             --pointer='>' \
             --gutter=' ' \
-            --color='pointer:green,prompt:green,info:dim,header:dim' \
+            --color='pointer:green,prompt:green,info:dim,header:dim,preview-border:238' \
             --header="$(header_line)" \
             --preview "$self --show {1}" \
-            --preview-window 'hidden,right,55%,border-left,wrap' \
-            --bind "enter:toggle-preview" \
+            --preview-window 'right,50%,border-left,wrap' \
+            --bind "enter:$b_detail" \
             --bind "o:$b_open" \
             --bind "x:$b_done" \
-            --bind "s:$b_resched" \
-            --bind "e:$b_edit" \
             --bind "a:$b_add" \
             --bind "r:$b_refresh" \
             --bind "tab:$b_toggle" \
