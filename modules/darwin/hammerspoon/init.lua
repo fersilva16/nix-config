@@ -189,27 +189,26 @@ local function warpToApp(bundleID, screen, tries)
   end
 end
 
--- Hyper + T → Open a new Ghostty window in the ALREADY-RUNNING instance.
--- This used to shell out to `open -na Ghostty`, but -n means "new instance":
--- every press forked another Ghostty process, so AltTab filled with duplicate
--- windows that no amount of quitting one window would clear. The File → New
--- Window menu item is the supported way to add a window here — ghostty's own
--- `+new-window` action is GTK-only and exits with "not supported on this
--- platform" on macOS.
+-- Hyper + T → Todoist triage popup (mnemonic: Tasks). Same picker as `t` in a
+-- pane and prefix+t in tmux, so the reflex is one key everywhere. This used to
+-- open a new Ghostty window; hyper+space already reaches the terminal, so the
+-- key was spent on a thing that never got pressed. Ghostty is surfaced because
+-- the popup renders inside the tmux client, which has to be visible to matter.
+-- The popup command runs with the tmux SERVER's environment, which has no
+-- ~/.nix-profile/bin — a bare `tmux-todoist-pick` is not found, and -E closes
+-- the popup the instant it exits. Hence the full path (the in-tmux binding
+-- uses the nix store path for the same reason; this file can't interpolate).
+-- ponytail: no fallback when tmux isn't running; add one if that ever happens.
 local tCode = hs.keycodes.map["t"]
 if tCode then
   keyCodeNames[tCode] = "t"
   hyperActionsByKeyCode[tCode] = function()
-    local ghostty = hs.application.get("com.mitchellh.ghostty")
-    if ghostty then
-      -- Activate first: selectMenuItem drives the AX menu bar, which is only
-      -- reliably populated for the frontmost app.
-      ghostty:activate()
-      ghostty:selectMenuItem({ "File", "New Window" })
-    else
-      hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
-    end
+    hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
     warpToApp("com.mitchellh.ghostty")
+    hs.task.new("/bin/sh", nil, {
+      "-l", "-c",
+      'tmux display-popup -E -w 80% -h 60% "$HOME/.nix-profile/bin/tmux-todoist-pick"',
+    }):start()
   end
 end
 
