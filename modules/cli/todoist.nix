@@ -361,6 +361,13 @@ mkUserModule {
           # to live somewhere both the toggle and the reload can read — the same
           # trick `t` uses for its index file.
           VIEW=''${TMPDIR:-/tmp}/tmux-todoist-view
+          # The last completed id, for ctrl-z. One slot rather than a stack:
+          # undo is for the `x` you regret half a second later, and the second
+          # level back has never been the one you wanted.
+          #
+          # ponytail: single slot. Make it an append-only log and pop the tail
+          # if undoing further than one completion ever actually comes up.
+          UNDO=''${TMPDIR:-/tmp}/tmux-todoist-undo
           PENDING=${pending}
           FAILED=${failed}
           PATH="${brewBin}:''${PATH}"
@@ -393,7 +400,12 @@ mkUserModule {
                   '${unwrap} | ${byView} | length' "$CACHE" 2>/dev/null) || n=0
             printf '%s %s\n' "''${n:-0}" "$view"
             # The tab hint names where you land, not where you are.
-            printf 'tab %s · enter edit · x done · a add · o web · r refresh · / search\n' "$other"
+            printf 'tab %s · enter edit · x done · a add · o web · r refresh · / search' "$other"
+            # Only once there is something to put back — silent otherwise, like
+            # the widget at zero. A key on the hint line all day is a key you
+            # stop reading, and this one is only ever live just after an `x`.
+            [ -s "$UNDO" ] && printf ' · ^z undo'
+            printf '\n'
           }
 
           # One field per call, rather than one jq emitting TSV. The tab-split
@@ -497,6 +509,11 @@ mkUserModule {
               # still contains the task — cannot put the row back.
               : >"$PENDING/$2"
 
+              # Recorded now, not when the write lands: the row leaves the list
+              # on the next line, so ctrl-z has to work from the moment it
+              # disappears rather than from whenever the network agrees.
+              echo "$2" >"$UNDO"
+
               tmp=$(mktemp) || exit 0
               if jq --arg id "$2" '${unwrap} | map(select(.id != $id))' \
                    "$CACHE" >"$tmp" 2>/dev/null; then
@@ -536,6 +553,35 @@ mkUserModule {
                   ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
                 fi
               ) >/dev/null 2>&1 &
+              exit 0
+              ;;
+
+            --undo)
+              # Puts back the last `x`. Synchronous, unlike the completion it
+              # reverses: undo is a deliberate keypress and never a mashed one,
+              # so it can afford the round trip that the batch case could not.
+              #
+              # Failure leaves the marker, so ctrl-z retries. Success clears it,
+              # so a second ctrl-z is a no-op rather than reopening something
+              # older that you never asked back.
+              id=$(cat "$UNDO" 2>/dev/null)
+              [ -n "$id" ] || exit 0
+
+              # The completion's own write may still be in flight, and refresh
+              # drops every id in this set — which would delete the row it is
+              # about to fetch back. Safe to clear from here: every writer only
+              # ever removes its own marker, so there is nothing to race for.
+              #
+              # ponytail: still racy in the few hundred ms where uncomplete can
+              # reach the server before complete does. Wait for the marker to
+              # clear first if an undo that close behind the `x` ever misfires.
+              rm -f "$PENDING/$id"
+
+              td task uncomplete "id:$id" >/dev/null 2>&1 && rm -f "$UNDO"
+
+              # The list is the message, exactly like the failed-write path: the
+              # row comes back or it does not, and nothing has to say which.
+              ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
               exit 0
               ;;
 
@@ -1000,6 +1046,16 @@ mkUserModule {
           redraw='reload('"$self"' --list)+transform-header('"$self"' --header)'
           b_open='execute-silent('"$self"' --open {1})'
           b_done='execute-silent('"$self"' --complete {1})+'"$redraw"
+          # Takes no {1}: undo is about the row that is no longer under the
+          # cursor, so reading the cursor here would put back whatever happens
+          # to have scrolled into its place.
+          #
+          # ctrl-z, and so left bound in search mode for the same reason tab is:
+          # it is not a character you can type into a query. Safe despite the
+          # shell meaning because fzf runs the terminal raw, which clears ISIG —
+          # this arrives as a keystroke, never as the SIGTSTP that would suspend
+          # the picker out from under the popup.
+          b_undo='execute-silent('"$self"' --undo)+'"$redraw"
           # execute, not execute-silent: both take over the terminal for a gum
           # prompt or a nested fzf. execute-silent would run them blind, with the
           # cursor hidden and keystrokes going nowhere.
@@ -1033,6 +1089,7 @@ mkUserModule {
             --bind "enter:$b_detail" \
             --bind "o:$b_open" \
             --bind "x:$b_done" \
+            --bind "ctrl-z:$b_undo" \
             --bind "a:$b_add" \
             --bind "r:$b_refresh" \
             --bind "tab:$b_toggle" \
