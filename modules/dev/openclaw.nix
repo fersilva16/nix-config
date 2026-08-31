@@ -11,9 +11,7 @@ let
   # Applying the overlay to OUR nixpkgs instead (the obvious move) rebuilds
   # openclaw against our nodejs_22 = 22.22.2 — one patch below the >=22.22.3
   # floor openclaw enforces at startup — so the gateway exits 1 and launchd
-  # crash-loops it. Their pin carries nodejs_22 = 22.23.1 deliberately. It also
-  # costs the binary cache: garnix publishes builds made against their pin, so
-  # rebuilding against ours misses every substitute.
+  # crash-loops it. Their pin carries nodejs_22 = 22.23.1 deliberately.
   openclawPkgs = import inputs.nix-openclaw.inputs.nixpkgs {
     inherit system;
     overlays = [ inputs.nix-openclaw.overlays.default ];
@@ -42,16 +40,13 @@ mkUserModule {
       })
     ];
 
-    # Pre-built openclaw. The flake declares this cache in its own nixConfig,
-    # but flake nixConfig does not apply to inputs — without it here, every
-    # rebuild compiles a pnpm workspace with native addons (sharp, node-pty)
-    # from source. Upstream publishes packages.aarch64-darwin.openclaw here.
-    nix.settings = {
-      extra-substituters = [ "https://cache.garnix.io" ];
-      extra-trusted-public-keys = [
-        "cache.garnix.io:CTFPyKSLcx5RMJKfLo5EEPUObbA78b0YQ2DTCJXqr9g="
-      ];
-    };
+    # No binary cache for openclaw: it built on garnix, and garnix shut its
+    # hosted service down on 2026-07-15 (open-sourced as garnix-io/garnix-ci),
+    # then dropped cache.garnix.io from DNS on 2026-08-17. Declaring a dead
+    # substituter only bought ~4s of retry backoff per nix run. So every hash
+    # bump now compiles a pnpm workspace with native addons (sharp, node-pty)
+    # from source. nix-openclaw's own nixConfig still points at the dead host,
+    # but flake nixConfig does not apply to inputs, so it costs us nothing.
   };
 
   home = {
