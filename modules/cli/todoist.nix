@@ -491,8 +491,17 @@ mkUserModule {
               exit 0
               ;;
             --open)
-              [ -n "''${2:-}" ] || exit 0
-              td task browse "id:$2" >/dev/null 2>&1 || true
+              # With an id (from the detail screen) the browser lands on that
+              # task. Without one (from the list) it lands on the tab you are
+              # looking at — the web `o` reaches for is the same list, not the
+              # one row the cursor happens to be parked on.
+              if [ -n "''${2:-}" ]; then
+                td task browse "id:$2" >/dev/null 2>&1 || true
+              elif [ "$(view_get)" = today ]; then
+                /usr/bin/open https://app.todoist.com/app/today
+              else
+                /usr/bin/open https://app.todoist.com/app/inbox
+              fi
               exit 0
               ;;
             --complete)
@@ -1044,7 +1053,7 @@ mkUserModule {
           fi
 
           redraw='reload('"$self"' --list)+transform-header('"$self"' --header)'
-          b_open='execute-silent('"$self"' --open {1})'
+          b_open='execute-silent('"$self"' --open)'
           b_done='execute-silent('"$self"' --complete {1})+'"$redraw"
           # Takes no {1}: undo is about the row that is no longer under the
           # cursor, so reading the cursor here would put back whatever happens
