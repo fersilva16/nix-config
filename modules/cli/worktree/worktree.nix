@@ -174,10 +174,19 @@ let
       if git -C "$main_root" show-ref --verify --quiet "refs/heads/$branch"; then
         git -C "$main_root" worktree add "$wt_path" "$branch" || fail "worktree add"
       else
-        # No local branch. Now the remote's answer actually matters: without a
-        # fetch we'd miss a branch pushed from another machine and fork a
-        # second one with the same name.
-        git -C "$main_root" fetch origin || true
+        # No local branch, so the remote's answer decides — but read from the
+        # refs/remotes we already have rather than fetching for them.
+        #
+        # The fetch used to live here and it was the single biggest cost in
+        # `wt`: 2839ms idle and the reason the whole build ranged 9-37s, since
+        # the checkout itself is a steady ~5s. It moved to wt-pool-fill, which
+        # runs detached after every `wt`. Narrowing it was measured and does not
+        # help — a single-branch ls-remote is 2434ms against 2839ms for the lot,
+        # because round-trip time dominates. Only removing it does.
+        #
+        # The trade: refs/remotes are as fresh as your last `wt` here, so a
+        # branch pushed from another machine since then is invisible and you
+        # would fork a second one with the same name.
         if git -C "$main_root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
           git -C "$main_root" worktree add --track -b "$branch" "$wt_path" "origin/$branch" || fail "worktree add"
         else
@@ -189,6 +198,172 @@ let
       fi
 
       echo "=== $(date): done ==="
+    '';
+  };
+
+  # Claim a pre-built worktree from the pool instead of checking out 41882
+  # files again. Exits 0 when it hands back a ready worktree at $wt_path, and 1
+  # when the caller should build one the slow way — so every path through this
+  # is optional and a missing or broken pool just costs what it always cost.
+  #
+  # Measured on monobloco:
+  #   build from scratch                        4778ms
+  #   claim: git worktree move                    28ms
+  #   claim: git checkout -b (slot at base)      375ms
+  #
+  # Staleness turned out not to matter, which is why nothing here refreshes
+  # slots on a timer: git only writes the diff, so a slot 200 commits and 2891
+  # files behind still claims in 738ms. Age is a disk concern, not a speed one,
+  # and wt-pool-fill handles it.
+  wt-claim = pkgs.writeShellApplication {
+    name = "wt-claim";
+    runtimeInputs = [
+      pkgs.git
+      pkgs.direnv
+      pkgs.git-lfs
+    ];
+    text = ''
+      # usage: wt-claim <main_root> <wt_path> <branch> <base_branch>
+      main_root="$1"
+      wt_path="$2"
+      branch="$3"
+      base_branch="$4"
+
+      pool="''${wt_path%/*}/.pool"
+      name="''${wt_path##*/}"
+      log="''${wt_path%/*}/.$name.log"
+
+      [ -d "$pool" ] || exit 1
+
+      for slot in "$pool"/*/; do
+        slot="''${slot%/}"
+        # Unexpanded glob when the pool is empty.
+        [ -d "$slot" ] || continue
+        # `.git` is a file in a linked worktree; a bare directory is a slot
+        # whose build died half way and is not safe to hand out.
+        [ -e "$slot/.git" ] || continue
+
+        # Never claim a slot something has touched — those changes would ride
+        # along into your new worktree and look like your own work.
+        [ -n "$(git --no-optional-locks -C "$slot" status --porcelain 2>/dev/null)" ] && continue
+
+        # The rename *is* the claim, and it is atomic. Two concurrent `wt`s
+        # cannot both win: the loser's move fails, it falls through this loop
+        # and builds normally. That is the whole concurrency story — no lock.
+        git -C "$main_root" worktree move "$slot" "$wt_path" >>"$log" 2>&1 || continue
+
+        {
+          echo "=== $(date): claimed $slot -> $wt_path on $branch ==="
+
+          # Same branch resolution as a fresh build, minus the fetch. The
+          # refs/remotes we read here are kept warm by wt-pool-fill, which
+          # fetches in the background after every wt — that is what keeps a
+          # network round trip off this path.
+          if git -C "$main_root" show-ref --verify --quiet "refs/heads/$branch"; then
+            git -C "$wt_path" checkout "$branch"
+          elif git -C "$main_root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+            git -C "$wt_path" checkout -b "$branch" --track "origin/$branch"
+          else
+            git -C "$wt_path" checkout -b "$branch" "$base_branch"
+          fi
+        } >>"$log" 2>&1 || {
+          # Claimed but unusable. Returning 1 alone would strand a worktree at
+          # $wt_path on the wrong branch, and the caller would trust it because
+          # .git exists — so tear it down and let the slow path build clean.
+          git -C "$main_root" worktree remove --force "$wt_path" >>"$log" 2>&1 || true
+          rm -rf "''${wt_path:?}"
+          exit 1
+        }
+
+        direnv allow "$wt_path" >>"$log" 2>&1 || true
+        exit 0
+      done
+
+      exit 1
+    '';
+  };
+
+  # Keeps the pool stocked and does the one network round trip, both off the
+  # critical path: `wt` fires this detached after it has already switched you.
+  #
+  # Filling on use rather than on a schedule is deliberate — a repo you never
+  # `wt` in never gets a slot, so the disk cost follows what you actually work
+  # on. The first `wt` in a repo pays full price and leaves a slot behind; every
+  # one after it claims in ~400ms.
+  wt-pool-fill = pkgs.writeShellApplication {
+    name = "wt-pool-fill";
+    runtimeInputs = [
+      pkgs.git
+      pkgs.git-lfs
+    ];
+    text = ''
+      # usage: wt-pool-fill <main_root>
+      main_root="$1"
+
+      wd="$(dirname "$main_root")/$(basename "$main_root").worktrees"
+      pool="$wd/.pool"
+      target=1
+      max_age_days=14
+      registry="''${XDG_STATE_HOME:-$HOME/.local/state}/wt/pools"
+
+      mkdir -p "$pool"
+      exec >>"$pool/.fill.log" 2>&1
+      echo "=== $(date): fill $pool ==="
+
+      # Stamp first: this is "when was this repo last worked in", and the prune
+      # below reads it. Touching it here means any `wt` counts as activity.
+      touch "$pool/.last-used"
+
+      mkdir -p "''${registry%/*}"
+      grep -qxF "$pool" "$registry" 2>/dev/null || echo "$pool" >>"$registry"
+
+      # Prune every pool we know of, not just this one. Without this a repo you
+      # stop touching keeps its slot (1.1G on monobloco) forever, because the
+      # only thing that ever runs is `wt`, and you are by definition not running
+      # it there. Doing it from whichever repo you *are* in costs nothing.
+      if [ -f "$registry" ]; then
+        # Snapshot before iterating: the loop rewrites the registry, and
+        # reading a file while rewriting it is how entries go missing.
+        mapfile -t pools < "$registry"
+        kept=()
+        for p in ''${pools[@]+"''${pools[@]}"}; do
+          [ -n "$p" ] || continue
+          # Pool directory gone (repo deleted or moved): drop the entry.
+          [ -d "$p" ] || continue
+          kept+=("$p")
+          [ "$p" = "$pool" ] && continue
+          # A stamp older than the window — or missing entirely — is stale.
+          [ -n "$(find "$p/.last-used" -mtime "-$max_age_days" 2>/dev/null)" ] && continue
+
+          echo "pruning stale pool $p"
+          root="''${p%.worktrees/.pool}"
+          for s in "$p"/*/; do
+            [ -d "$s" ] || continue
+            git -C "$root" worktree remove --force "''${s%/}" 2>/dev/null || true
+            rm -rf "''${s%/}"
+          done
+          git -C "$root" worktree prune 2>/dev/null || true
+        done
+        printf '%s\n' ''${kept[@]+"''${kept[@]}"} > "$registry"
+      fi
+
+      # The deferred round trip. `wt` no longer fetches, so this is the only
+      # thing keeping refs/remotes fresh — which means your remote view is as
+      # current as your last `wt` in this repo.
+      git -C "$main_root" fetch origin || true
+
+      count=$(find "$pool" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+      [ "$count" -ge "$target" ] && { echo "pool has $count, target $target"; exit 0; }
+
+      # Park slots at whatever the main worktree is on, since that is what `wt`
+      # branches from. Detached, so the pool never shows up in `git branch`.
+      base=$(git -C "$main_root" rev-parse HEAD)
+      while [ "$count" -lt "$target" ]; do
+        slot="$pool/slot-$(date +%s)-$-$count"
+        git -C "$main_root" worktree add --detach "$slot" "$base" || break
+        count=$((count + 1))
+      done
+      echo "=== $(date): pool now $count ==="
     '';
   };
 
@@ -411,9 +586,20 @@ mkUserModule {
             return 0
           end
 
+          # Try the pool before anything else. A claim is ~400ms against 4778ms
+          # to build, which is cheap enough to do synchronously right here —
+          # and doing it synchronously is the point: the session below then
+          # starts in a worktree that is already real, so wt-enter has nothing
+          # to build and you get a prompt immediately rather than watching a
+          # checkout. An empty or unusable pool just exits 1 and costs nothing.
+          if test $is_new -eq 1
+            ${wt-claim}/bin/wt-claim "$main_root" "$wt_path" "$branch" "$base_branch"
+          end
+
           # tmux needs the -c to exist to start a pane there, and `git worktree
           # add` is happy to take over an empty directory, so this costs
           # nothing and lets the session be created before the checkout is.
+          # A claim will have created it already; this covers the miss.
           mkdir -p "$wt_path"
 
           # WT_SYNC is for callers that touch the worktree the instant `wt`
@@ -448,6 +634,12 @@ mkUserModule {
           end
 
           command tmux switch-client -t "=$session_name"
+
+          # Restock and fetch, detached, after you have already been switched.
+          # Unconditional: it is also what keeps refs/remotes warm for the next
+          # `wt`, prunes pools for repos you have stopped using, and rebuilds a
+          # slot this run just consumed.
+          command tmux run-shell -b "'${wt-pool-fill}/bin/wt-pool-fill' '$main_root'"
         '';
 
         wtmv = ''
