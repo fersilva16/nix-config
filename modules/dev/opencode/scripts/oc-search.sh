@@ -133,23 +133,51 @@ build_list() {
 }
 
 # Preview rows arrive stamped ␟<role>␟ by SQL; turn that into a coloured
-# gutter bar on *every* line, plus a label wherever the speaker changes. The bar
-# has to repeat per line because grep -C1 slices a message into fragments — a
-# label alone gets filtered out of the exact view you needed it in.
+# gutter bar on *every* line, plus a label wherever the speaker changes.
+#
+# The wrapping is ours rather than fzf's. fzf draws continuation lines knowing
+# nothing about the gutter, so a wrapped paragraph lost its bar halfway down and
+# read as though the speaker had changed mid-sentence. Wrapping here means every
+# physical line carries the bar. FZF_PREVIEW_COLUMNS is what fzf exports for
+# exactly this; fzf's own wrap stays on as the backstop for a single word too
+# long to break (a URL, a base64 blob).
 #
 # The stamp is a printable glyph rather than a control byte because sqlite's CLI
 # renders char(1) as the two literal characters "^A" — a \001 sentinel never
 # survives the pipe, and "^A" itself turns up in these transcripts for real.
 role_lines() {
-  awk -v s="␟" -v u="${YEL}▌${RST} " -v a="${DIM}│${RST} " -v y="${DIM}┊${RST} " \
+  awk -v s="␟" -v w="$((${FZF_PREVIEW_COLUMNS:-80} - 2))" -v r="${RST}" \
+    -v u="${YEL}▌${RST} " -v a="${DIM}│${RST} " -v y="${DIM}┊${RST} " \
     -v ul="${YEL}▌ you${RST}" -v al="${DIM}│ opencode${RST}" -v yl="${DIM}┊ system${RST}" '
+    # Columns actually occupied: grep --color has already injected escapes by
+    # this point and they take up no width. The class is [A-Za-z], not just m,
+    # because GNU grep also emits \033[K after every colour change.
+    function strip(t) { gsub(/\033\[[0-9;]*[A-Za-z]/, "", t); return t }
+    function vlen(t) { return length(strip(t)) }
+    function emit(line, pfx,   ind, out, n, i, arr) {
+      if (vlen(line) <= w) { print pfx line r; return }
+      match(line, /^[ \t]*/)
+      ind = substr(line, 1, RLENGTH)
+      n = split(substr(line, RLENGTH + 1), arr, " ")
+      out = ind
+      for (i = 1; i <= n; i++) {
+        if (out == ind) out = out arr[i]
+        else if (vlen(out) + 1 + vlen(arr[i]) <= w) out = out " " arr[i]
+        else { print pfx out r; out = ind arr[i] }
+      }
+      print pfx out r
+    }
     {
-      n = length(s)
-      if (substr($0, 1, n) == s) {
-        rest = substr($0, n + 1)
+      # grep -C1 group separator: a blank line reads better than "--", and
+      # clearing the speaker makes the next block re-announce itself.
+      if (strip($0) == "--") { print ""; last = ""; next }
+
+      slen = length(s)
+      if (substr($0, 1, slen) == s) {
+        rest = substr($0, slen + 1)
         i = index(rest, s)
         role = substr(rest, 1, i - 1)
-        $0 = substr(rest, i + n)
+        $0 = substr(rest, i + slen)
         if (role != last) {
           if (last != "") print ""
           print (role == "user") ? ul : (role == "system") ? yl : al
@@ -157,7 +185,7 @@ role_lines() {
         }
         pfx = (role == "user") ? u : (role == "system") ? y : a
       }
-      print pfx $0
+      emit($0, pfx)
     }'
 }
 
@@ -230,8 +258,8 @@ case "${1:-}" in
                      AND json_extract(p.data,'\$.type') IN ('text','reasoning')
                      AND p.data LIKE '%$qesc%'
                    ORDER BY p.time_created LIMIT 40" 2>/dev/null |
-      role_lines |
-      grep -i -F --color=always -C1 -- "$pq" 2>/dev/null | head -200 || true
+      grep -i -F --color=always -C1 -- "$pq" 2>/dev/null |
+      role_lines | head -200 || true
   else
     # No grep active: the opening exchange is the cheapest answer to "what was
     # this session even about", which the title often does not settle. Harness
