@@ -41,6 +41,15 @@ active_ids() {
   tmux list-panes -a -F '#{@oc-sid}' 2>/dev/null | grep -v '^$' | sort -u || true
 }
 
+# tmux session whose working dir is $1, empty if none. Matching on
+# session_path rather than deriving a name from the path, because the two
+# disagree: monobloco's main checkout lives in a session called "telepatia".
+# Only tmux knows the real mapping.
+sess_for() {
+  tmux list-sessions -F "#{session_path}${TAB}#{session_name}" 2>/dev/null |
+    awk -F'\t' -v d="$1" '$1 == d {print $2; exit}' || true
+}
+
 # scope name → SQL predicate over `session s`
 scope_pred() {
   case "$1" in
@@ -123,6 +132,35 @@ build_list() {
   done <<<"$rows"
 }
 
+# Preview rows arrive stamped ␟<role>␟ by SQL; turn that into a coloured
+# gutter bar on *every* line, plus a label wherever the speaker changes. The bar
+# has to repeat per line because grep -C1 slices a message into fragments — a
+# label alone gets filtered out of the exact view you needed it in.
+#
+# The stamp is a printable glyph rather than a control byte because sqlite's CLI
+# renders char(1) as the two literal characters "^A" — a \001 sentinel never
+# survives the pipe, and "^A" itself turns up in these transcripts for real.
+role_lines() {
+  awk -v s="␟" -v u="${YEL}▌${RST} " -v a="${DIM}│${RST} " -v y="${DIM}┊${RST} " \
+    -v ul="${YEL}▌ you${RST}" -v al="${DIM}│ opencode${RST}" -v yl="${DIM}┊ system${RST}" '
+    {
+      n = length(s)
+      if (substr($0, 1, n) == s) {
+        rest = substr($0, n + 1)
+        i = index(rest, s)
+        role = substr(rest, 1, i - 1)
+        $0 = substr(rest, i + n)
+        if (role != last) {
+          if (last != "") print ""
+          print (role == "user") ? ul : (role == "system") ? yl : al
+          last = role
+        }
+        pfx = (role == "user") ? u : (role == "system") ? y : a
+      }
+      print pfx $0
+    }'
+}
+
 header_for() {
   local scope="$1" q label
   q=$(read_query)
@@ -173,21 +211,40 @@ case "${1:-}" in
   [ -z "$sid" ] && exit 0
   sesc=${sid//\'/\'\'}
   pq=$(read_query)
+  # Harness-injected turns are stored with role=user, so a naive label credits
+  # background-task notices and todo nags to "you" — the exact confusion the
+  # gutter is there to remove. The synthetic flag catches a third of them, the
+  # literal opener catches the rest.
+  # `IS`/coalesce, not `=`: an absent synthetic key yields NULL, and `NOT NULL`
+  # is NULL, so the plain form filtered out every row and blanked the pane.
+  noise="(json_extract(p.data,'\$.synthetic') IS 1
+          OR coalesce(json_extract(p.data,'\$.text'), '') LIKE '<system-reminder>%')"
+  rolesql="CASE WHEN json_extract(m.data,'\$.role') = 'user' AND $noise
+                THEN 'system' ELSE json_extract(m.data,'\$.role') END"
+  sel="SELECT '␟' || $rolesql || '␟' || coalesce(json_extract(p.data,'\$.text'), '')
+       FROM part p JOIN message m ON m.id = p.message_id"
   if [ -n "$pq" ]; then
     qesc=${pq//\'/\'\'}
-    sqlite3 "$DB" "SELECT json_extract(data,'\$.text') FROM part
-                   WHERE session_id = '$sesc'
-                     AND json_extract(data,'\$.type') IN ('text','reasoning')
-                     AND data LIKE '%$qesc%'
-                   ORDER BY time_created LIMIT 40" 2>/dev/null |
+    sqlite3 "$DB" "$sel
+                   WHERE p.session_id = '$sesc'
+                     AND json_extract(p.data,'\$.type') IN ('text','reasoning')
+                     AND p.data LIKE '%$qesc%'
+                   ORDER BY p.time_created LIMIT 40" 2>/dev/null |
+      role_lines |
       grep -i -F --color=always -C1 -- "$pq" 2>/dev/null | head -200 || true
   else
     # No grep active: the opening exchange is the cheapest answer to "what was
-    # this session even about", which the title often does not settle.
-    sqlite3 "$DB" "SELECT json_extract(data,'\$.text') FROM part
-                   WHERE session_id = '$sesc'
-                     AND json_extract(data,'\$.type') = 'text'
-                   ORDER BY time_created LIMIT 8" 2>/dev/null | head -200 || true
+    # this session even about", which the title often does not settle. Harness
+    # turns are dropped from *this* view only — a background-task notice answers
+    # nothing and runs long enough to eat the whole 8-part budget on its own.
+    # The grep branch keeps them: there you asked for a literal string, and a
+    # view that hides matching hits is worse than a noisy one.
+    sqlite3 "$DB" "$sel
+                   WHERE p.session_id = '$sesc'
+                     AND json_extract(p.data,'\$.type') = 'text'
+                     AND NOT $noise
+                   ORDER BY p.time_created LIMIT 8" 2>/dev/null |
+      role_lines | head -200 || true
   fi
   exit 0
   ;;
@@ -216,9 +273,32 @@ case "${1:-}" in
       root=${dir%%.worktrees/*}
       if [ "$root" != "$dir" ] && [ -d "$root" ]; then dir="$root"; else dir="$HOME"; fi
     fi
-    # ponytail: opens in the *current* tmux session. Cross-repo hits land in
-    # the wrong session's window list; route through `wt` if that grates.
-    tmux new-window -c "$dir" "opencode --session $sid"
+    # File the window under the session that owns $dir, not under whichever
+    # session you happened to press prefix+n in — a cross-repo hit landing in
+    # the wrong window list is a thing you then have to go find again.
+    sess=$(sess_for "$dir")
+    if [ -n "$sess" ]; then
+      tmux new-window -t "=$sess" -c "$dir" "opencode --session $sid"
+    elif [ "$dir" = "$HOME" ]; then
+      # The give-up path above: no repo left, so no session worth inventing.
+      tmux new-window -c "$dir" "opencode --session $sid"
+      exit 0
+    else
+      # Nothing open for it yet. Name it the way wt does — "<parent>/<worktree>"
+      # under .worktrees, bare "<repo>" otherwise — so this is the session wt
+      # would later reuse, not a duplicate sitting beside it.
+      # -P -F echoes the name tmux actually used, which differs from the one
+      # asked for when it holds a "." or ":" (both are rewritten to "_").
+      root=${dir%%.worktrees/*}
+      sess=$(basename "$dir")
+      if [ "$root" != "$dir" ]; then
+        parent=$(sess_for "$root")
+        sess="${parent:-$(basename "$root")}/$sess"
+      fi
+      sess=$(tmux new-session -d -P -F '#{session_name}' \
+        -s "$sess" -c "$dir" "opencode --session $sid")
+    fi
+    tmux switch-client -t "=$sess"
   fi
   exit 0
   ;;
@@ -244,6 +324,7 @@ printf '%s\n' "$list" | fzf \
   --header="$(header_for active)" \
   --preview "$self --preview {1}" \
   --preview-window 'right:52%:wrap:border-left' \
+  --preview-wrap-sign '  ' \
   --bind 'ctrl-p:toggle-preview' \
   --bind "tab:transform:$self --cycle" \
   --bind "ctrl-g:transform:$self --grep {q}" \
