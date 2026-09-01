@@ -102,13 +102,23 @@ _: {
             set src_session (command tmux display-message -p '#{session_name}')
           end
 
-          # Worktree + tmux session, including switching to it.  Gate on the
-          # directory rather than wt's status: wt ends on switch-client, so it
-          # reports failure when no client is attached even though the
-          # worktree is fine — and the move only needs the directory.
-          wt $name $branch
-          if not test -d "$wt_path"
-            echo "wtoc: worktree '$name' was not created"
+          # Worktree + tmux session, including switching to it.
+          #
+          # WT_SYNC because wt builds in the background by default: it creates
+          # the directory up front so the new tmux session can start inside it,
+          # then checks out detached.  Moving a session into that tree before
+          # the checkout lands points it at an empty directory — and with -c,
+          # patches one.  WT_SYNC waits for the checkout only, so .setup still
+          # runs in the background and this never blocks on `pnpm i`.
+          echo "wtoc: preparing worktree '$name'…"
+          WT_SYNC=1 wt $name $branch
+
+          # Gate on .git — a *file* in a linked worktree — rather than on wt's
+          # status or on the directory.  The directory now always exists, and
+          # wt ends on tmux, so it reports failure when no client is attached
+          # even though the worktree is fine.
+          if not test -e "$wt_path/.git"
+            echo "wtoc: worktree '$name' was not created — see $wt_dir/.$name.log"
             return 1
           end
 
