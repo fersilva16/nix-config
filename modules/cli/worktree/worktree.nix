@@ -92,6 +92,193 @@ let
         | cut -f2-
     '';
   };
+
+  # Everything slow about making a worktree — fetch, checkout, .setup — in one
+  # script, so `wt` can hand it to `tmux run-shell -b` and return. The caller
+  # has already switched you into the new session by then; none of this ever
+  # touches your shell, your history, or your scrollback.
+  #
+  # Output goes to a log rather than the terminal because run-shell has no
+  # terminal: with -b it's detached, and anything it prints would otherwise be
+  # dumped into view mode over whatever session you're looking at.
+  wt-create = pkgs.writeShellApplication {
+    name = "wt-create";
+    runtimeInputs = [
+      pkgs.git
+      pkgs.direnv
+      # run-shell inherits the tmux server's PATH — roughly tmux + /usr/bin +
+      # /bin, no ~/.nix-profile — so an LFS repo checked out from here can't
+      # find git-lfs for its post-checkout hook and warns on every create.
+      # (The filters themselves are configured as absolute store paths, so
+      # content is unaffected; this is about the hook and its bookkeeping.)
+      pkgs.git-lfs
+    ];
+    text = ''
+      # usage: wt-create <main_root> <wt_path> <branch> <base_branch>
+      #
+      # Checkout only. .setup deliberately does not run here — it needs a login
+      # shell and a direnv-loaded environment, and the honest way to get both
+      # is a real tmux window, which wt-enter opens. Reproducing that
+      # environment by hand from a run-shell context meant stacking `sh -l -c`
+      # around `direnv exec` and still missing /usr/local/bin.
+      main_root="$1"
+      wt_path="$2"
+      branch="$3"
+      base_branch="$4"
+
+      name="''${wt_path##*/}"
+      # Beside .setup, never inside the worktree: a file in there would be an
+      # untracked change and would light up the `*` marker in every picker.
+      log="''${wt_path%/*}/.$name.log"
+
+      # tmux is deliberately not in runtimeInputs. run-shell inherits the tmux
+      # server's PATH, so a bare `tmux` is guaranteed to be the same binary as
+      # the running server — pinning our own could mean a protocol mismatch.
+      # (wtrm's background cleanup already relies on this.)
+      fail() {
+        tmux display-message "wt: $name — $1 failed, see $log" 2>/dev/null || true
+        exit 1
+      }
+
+      # Keep the terminal when there is one. wt-enter runs this in the pane you
+      # are staring at, the checkout can take 37s on monobloco depending on how
+      # much the fetch has to pull, and git only draws its "Updating files"
+      # progress onto a tty — teeing would silence it, since a pipe reads as
+      # non-interactive. Silence for half a minute looks hung.
+      #
+      # With no tty (tmux run-shell -b) everything goes to the log instead,
+      # which is also what stops run-shell dumping git output in view mode over
+      # whatever unrelated session happens to be attached. Append, because a
+      # retry and the two-phase sync path both run this twice; the date header
+      # separates the runs.
+      [ -t 1 ] || exec >>"$log" 2>&1
+      echo "=== $(date): $wt_path on $branch (from $base_branch) ==="
+
+      # Idempotent, which is what lets `wt` split this into a synchronous
+      # checkout followed by a background setup: the second call finds the
+      # worktree already registered and falls straight through to .setup.
+      if [ -e "$wt_path/.git" ]; then
+        echo "worktree already present, skipping add"
+      else
+
+      # Use existing branch (local, then remote), else create it from base.
+      #
+      # The local check goes first so it can answer without the network.
+      # `git fetch origin` costs ~2.7s against a big repo and the only thing it
+      # feeds is the refs/remotes lookup below — so it's pure latency once a
+      # local branch has already matched, which is every time you re-create a
+      # worktree you deleted.
+      #
+      # Each `add` targets a directory `wt` already created, so it can start
+      # the session there. git takes over an empty dir happily.
+      if git -C "$main_root" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$main_root" worktree add "$wt_path" "$branch" || fail "worktree add"
+      else
+        # No local branch. Now the remote's answer actually matters: without a
+        # fetch we'd miss a branch pushed from another machine and fork a
+        # second one with the same name.
+        git -C "$main_root" fetch origin || true
+        if git -C "$main_root" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+          git -C "$main_root" worktree add --track -b "$branch" "$wt_path" "origin/$branch" || fail "worktree add"
+        else
+          git -C "$main_root" worktree add -b "$branch" "$wt_path" "$base_branch" || fail "worktree add"
+        fi
+      fi
+
+      direnv allow "$wt_path" || true
+      fi
+
+      echo "=== $(date): done ==="
+    '';
+  };
+
+  # The new session's first process. It builds the worktree and then *becomes*
+  # your shell in it, which is what lets `wt` switch you over instantly without
+  # ever handing you a prompt in a directory that isn't a worktree yet.
+  #
+  # The alternative shapes both cost something this doesn't:
+  #   - build first, then switch: your old shell blocks ~9s on monobloco, and
+  #     the switch lands whenever it finishes — the surprise jump.
+  #   - switch first, prompt immediately: the prompt is live in a bare
+  #     directory for those 9s, where git and anything you type see nothing.
+  # Here the wait is in the session you are going to work in, and it is visibly
+  # a wait rather than a lie.
+  wt-enter = pkgs.writeShellApplication {
+    name = "wt-enter";
+    runtimeInputs = [ wt-create ];
+    text = ''
+      # usage: wt-enter <main_root> <wt_path> <branch> <base_branch> <session> [setup_file]
+      main_root="$1"
+      wt_path="$2"
+      branch="$3"
+      base_branch="$4"
+      session="$5"
+      setup_file="''${6:-}"
+
+      name="''${wt_path##*/}"
+
+      # default-*command*, not default-shell. This config deliberately pins
+      # default-shell to /bin/sh because that is the wrapper tmux execs for
+      # run-shell, if-shell and display-popup -E; reading it here lands you in
+      # macOS bash instead of fish. default-command is what tmux actually runs
+      # for a new interactive pane, login flag included — taking it verbatim
+      # means these panes stay identical to every other pane for free.
+      cmd="$(tmux show-options -gv default-command 2>/dev/null || true)"
+      # Login shell in the fallback too: overriding a pane's command opts out
+      # of the login shell tmux would otherwise give it, and the tmux server's
+      # own PATH is barely more than /usr/bin.
+      [ -n "$cmd" ] || cmd="''${SHELL:-/bin/sh} -l"
+
+      if [ ! -e "$wt_path/.git" ]; then
+        printf 'wt: building %s…\n' "$name"
+        if wt-create "$main_root" "$wt_path" "$branch" "$base_branch"; then
+          # Wipe screen + scrollback, so what you land on is a clean prompt
+          # rather than build noise. ANSI rather than `clear`, which would be
+          # one more thing to find on that thin PATH.
+          printf '\033[H\033[2J\033[3J'
+        else
+          # No log reference: wt-create writes to this terminal when it has
+          # one, so git's own error is already on screen above.
+          printf '\nwt: build failed — see the error above.\n\n'
+          exec sh -c "exec $cmd"
+        fi
+      fi
+
+      # .setup gets its own detached window rather than a run-shell job, and
+      # the window is the point: tmux starts it as a login shell in the
+      # worktree, so path_helper contributes /usr/local/bin (where OrbStack's
+      # docker symlink lives) and direnv loads the dev shell on its first
+      # prompt. That is exactly the environment a .setup author tested against.
+      # Handing the same script to run-shell instead means reconstructing both
+      # halves by hand, which is how `make setup` ended up dying on
+      # _check-docker while the identical script worked when run manually.
+      #
+      # -d so it never steals focus; you land on window 0 either way.
+      if [ -n "$setup_file" ] && [ -f "$setup_file" ]; then
+        win=$(tmux new-window -d -t "=$session:" -n wt-setup -c "$wt_path" \
+                -P -F '#{window_id}' 2>/dev/null || true)
+        if [ -n "$win" ]; then
+          # fish `; and exit`: the window closes itself when setup succeeds and
+          # stays open, error on screen, when it doesn't. Verified against
+          # remain-on-exit=off, which is the global default here.
+          #
+          # `sh -e` because plain sh reports only the last line's status, and
+          # these scripts are several independent commands — without it a setup
+          # that dies on line 1 still looks like it worked, and the window
+          # would helpfully close over the evidence.
+          #
+          # The leading space is load-bearing: fish omits space-prefixed
+          # commands from history, and fish history is global, so without it
+          # every `wt` would leave this line in the history of every shell.
+          tmux send-keys -t "$win" " sh -e '$setup_file'; and exit" Enter
+        fi
+      fi
+
+      # `exec` inside too, so sh replaces itself rather than lingering as a
+      # parent of your shell.
+      exec sh -c "exec $cmd"
+    '';
+  };
 in
 mkUserModule {
   name = "worktree";
@@ -171,21 +358,20 @@ mkUserModule {
 
           set wt_path "$wt_base/$repo_name.worktrees/$name"
 
-          if set -q TMUX
-            # Use root session name (strip /suffix if called from a worktree session)
-            set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
-            set session_name "$parent_session/$name"
-
-            # Session already exists: just switch
-            if command tmux has-session -t "=$session_name" 2>/dev/null
-              command tmux switch-client -t "=$session_name"
-              return 0
-            end
-          end
-
-          # Create worktree if dir doesn't exist
+          # `.git` — a *file* in a linked worktree — not the directory, which
+          # `wt` now creates itself before the checkout so the new session can
+          # start inside it. On `test -d` an empty dir left by a failed run
+          # would read as "already there" and wedge you in a broken session.
           set -l is_new 0
-          if not test -d "$wt_path"
+          not test -e "$wt_path/.git"; and set is_new 1
+
+          set -l setup_file "$wt_base/$repo_name.worktrees/.setup"
+          test -f "$setup_file"; or set setup_file ""
+
+          # Resolve the branch up front. These are local and instant, and they
+          # have to fail *before* a session exists — an error is useless once
+          # we've switched away from the shell that would print it.
+          if test $is_new -eq 1
             set base_branch (git rev-parse --abbrev-ref HEAD 2>/dev/null)
             if test -z "$base_branch" -o "$base_branch" = "HEAD"
               echo "wt: detached HEAD — checkout a branch first"
@@ -196,49 +382,72 @@ mkUserModule {
             # wt.prefix so it can't collide with other people's PRs. An
             # explicit branch arg is used verbatim.
             test -z "$branch"; and set branch (_wt_prefix)"$name"
-
-            # Use existing branch (local, then remote), else create it from current.
-            #
-            # The local check goes first so it can answer without the network.
-            # `git fetch origin` costs ~2.7s against a big repo and the only
-            # thing it feeds is the refs/remotes lookup below — so it's pure
-            # latency once a local branch has already matched, which is every
-            # time you re-create a worktree you deleted.
-            if git show-ref --verify --quiet "refs/heads/$branch"
-              git worktree add "$wt_path" "$branch"
-            else
-              # No local branch. Now the remote's answer actually matters:
-              # without a fetch we'd miss a branch pushed from another machine
-              # and fork a second one with the same name.
-              git fetch origin 2>/dev/null
-              if git show-ref --verify --quiet "refs/remotes/origin/$branch"
-                git worktree add --track -b "$branch" "$wt_path" "origin/$branch"
-              else
-                git worktree add -b "$branch" "$wt_path" "$base_branch"
-              end
-            end
-            or begin; echo "wt: failed to create worktree"; return 1; end
-            echo "Created worktree at $wt_path (from $base_branch)"
-            direnv allow "$wt_path" 2>/dev/null
-            set is_new 1
           end
 
-          # Create tmux session and switch
-          if set -q TMUX
-            command tmux new-session -d -s "$session_name" -c "$wt_path"
-
-            # Run setup script for new worktrees
-            if test $is_new -eq 1
-              set -l setup_file "$wt_base/$repo_name.worktrees/.setup"
-              if test -f "$setup_file"
-                command tmux send-keys -t "=$session_name" "sh '$setup_file'" Enter
-              end
+          if not set -q TMUX
+            # Nothing to background onto without tmux, so just do it and say
+            # where the output went.
+            test $is_new -eq 1; and begin
+              mkdir -p "$wt_path"
+              echo "wt: building $name (log: $wt_base/$repo_name.worktrees/.$name.log)"
+              ${wt-create}/bin/wt-create "$main_root" "$wt_path" "$branch" "$base_branch" "$setup_file"
+              or return 1
             end
-
-            command tmux switch-client -t "=$session_name"
-          else
             echo "Not in tmux — run: cd $wt_path && opencode"
+            return 0
           end
+
+          # Use root session name (strip /suffix if called from a worktree session)
+          set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
+          set session_name "$parent_session/$name"
+
+          # Nothing to build: just switch. The is_new check is load-bearing now
+          # that the session is created *before* the worktree — on has-session
+          # alone, one failed `git worktree add` would leave a session that
+          # `wt $name` switches into forever, never retrying. Falling through
+          # instead re-runs the creation into the session that's already there.
+          if test $is_new -eq 0; and command tmux has-session -t "=$session_name" 2>/dev/null
+            command tmux switch-client -t "=$session_name"
+            return 0
+          end
+
+          # tmux needs the -c to exist to start a pane there, and `git worktree
+          # add` is happy to take over an empty directory, so this costs
+          # nothing and lets the session be created before the checkout is.
+          mkdir -p "$wt_path"
+
+          # WT_SYNC is for callers that touch the worktree the instant `wt`
+          # returns — wtoc moves an opencode session into it, and with -c
+          # patches it. Building here, before the session exists, both gives
+          # them a finished worktree and keeps this from racing the identical
+          # build wt-enter would start. wt-create is idempotent, so wt-enter
+          # then finds it done and goes straight to the prompt.
+          #
+          # The setup file is deliberately empty: WT_SYNC waits for the
+          # checkout, never for `pnpm i`.
+          if test $is_new -eq 1; and set -q WT_SYNC
+            ${wt-create}/bin/wt-create "$main_root" "$wt_path" "$branch" "$base_branch"
+            or return 1
+          end
+
+          # Only hand wt-enter a setup file for a worktree we're creating —
+          # otherwise merely reopening a session would re-run `pnpm i`.
+          set -l enter_setup ""
+          test $is_new -eq 1; and set enter_setup "$setup_file"
+
+          if command tmux has-session -t "=$session_name" 2>/dev/null
+            # Session outlived its worktree (a failed build, or wtrm racing).
+            # There's no pane command to hand the build to, so detach it —
+            # checkout only, since .setup needs a window wt-enter would have
+            # opened. Rare enough to leave: `wtrm` then `wt` re-runs it fully.
+            test $is_new -eq 1; and command tmux run-shell -b \
+              "'${wt-create}/bin/wt-create' '$main_root' '$wt_path' '$branch' '$base_branch'"
+          else
+            command tmux new-session -d -s "$session_name" -c "$wt_path" \
+              "'${wt-enter}/bin/wt-enter' '$main_root' '$wt_path' '$branch' '$base_branch' '$session_name' '$enter_setup'"
+          end
+
+          command tmux switch-client -t "=$session_name"
         '';
 
         wtmv = ''

@@ -61,6 +61,23 @@ mkUserModule {
               # macOS race fix. We pin pkgs.git above, currently 2.53.
               fsmonitor = true;
             };
+
+            checkout = {
+              # Spread the working-tree write across cores instead of one.
+              # 0 means "one worker per logical CPU" (14 here).
+              #
+              # Measured on monobloco, 41882 files, `git worktree add`:
+              #   default (serial)   5969ms
+              #   workers = 0        4119ms   1.45x
+              #
+              # Not the 14x the core count suggests, because checkout is
+              # dominated by filesystem writes rather than by the CPU cost of
+              # inflating blobs — but it is free, it applies to every clone,
+              # switch and worktree add, and 1.8s is 1.8s. git only engages
+              # the parallel path above checkout.thresholdForParallelism
+              # (default 100 files), so small checkouts are untouched.
+              workers = 0;
+            };
           };
         };
 
