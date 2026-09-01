@@ -14,6 +14,7 @@ let
   opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       ./patches/cursor-style-and-blink.patch
+      ./patches/edit-tool-dollar-substitution.patch
       ./patches/generate-remove-prettier.patch
       ./patches/relax-bun-version-check.patch
     ];
