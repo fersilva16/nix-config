@@ -1,0 +1,71 @@
+Stop the edit tool from mangling `$` sequences in `newString`.
+
+`String.prototype.replace` and `.replaceAll` treat a *string* replacement
+as a pattern, not as literal text.  Even when the search argument is a
+plain string (no regex involved), the replacement is still scanned for
+`$` substitutions:
+
+    $$   inserts a literal `$`          (so `$$` collapses to `$`)
+    $&   inserts the matched substring
+    $`   inserts the text before the match
+    $'   inserts the text after the match
+
+Both edit tools passed the model-supplied `newString` straight in as that
+replacement, so any of those sequences was silently rewritten on write.
+The file ended up with content the model never asked for, no error was
+raised, and the tool reported success — the corruption only surfaced later
+when someone read the file back.
+
+`$$` collapsing to `$` is the common case (shell scripts, Makefiles, jq
+programs, LaTeX, Perl/PHP sigils, `$$` for PID).  `$&` and `` $` `` are
+rarer but far worse: they inject unrelated file content into the middle of
+the edit.
+
+The fix is to pass a *function* replacement.  Per the spec, when the
+replacement is a function its return value is inserted verbatim — the `$`
+scanning only applies to string replacements — so `() => newString` is an
+exact-insert with no other behavioural change.
+
+Two call sites, both reachable depending on which edit tool is registered:
+
+  * packages/core/src/tool/edit.ts — affects BOTH the `replaceAll: true`
+    and the single-replacement path, so ordinary one-shot edits corrupt.
+  * packages/opencode/src/tool/edit.ts — only the `replaceAll: true` path;
+    the single path already builds the result with substring concatenation
+    and was never affected.
+
+Still present on upstream `dev` as of 1.18.10 (7902e04).  Drop this patch
+once upstream inserts the replacement literally.
+
+diff --git a/packages/core/src/tool/edit.ts b/packages/core/src/tool/edit.ts
+--- a/packages/core/src/tool/edit.ts
++++ b/packages/core/src/tool/edit.ts
+@@ -176,10 +176,12 @@ const layer = Layer.effectDiscard(
+                   })
+                 }
+ 
++                // Function replacement: a string one is scanned for dollar-sign
++                // patterns and silently corrupts newString. A function inserts verbatim.
+                 const replaced =
+                   input.replaceAll === true
+-                    ? source.text.replaceAll(oldString, newString)
+-                    : source.text.replace(oldString, newString)
++                    ? source.text.replaceAll(oldString, () => newString)
++                    : source.text.replace(oldString, () => newString)
+                 const counts = diffLines(source.text, replaced).reduce(
+                   (result, item) => ({
+                     additions: result.additions + (item.added ? (item.count ?? 0) : 0),
+diff --git a/packages/opencode/src/tool/edit.ts b/packages/opencode/src/tool/edit.ts
+--- a/packages/opencode/src/tool/edit.ts
++++ b/packages/opencode/src/tool/edit.ts
+@@ -712,7 +712,9 @@ export function replace(content: string, oldString: string, newString: string, r
+         )
+       }
+       if (replaceAll) {
+-        return content.replaceAll(search, newString)
++        // Function replacement: a string one is scanned for dollar-sign
++        // patterns and silently corrupts newString. A function inserts verbatim.
++        return content.replaceAll(search, () => newString)
+       }
+       const lastIndex = content.lastIndexOf(search)
+       if (index !== lastIndex) continue
