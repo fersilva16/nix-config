@@ -31,19 +31,62 @@ mkUserModule {
     darwin.homebrew.brews = [ "todoist-cli" ];
   };
 
-  extraOptions.warnAt = lib.mkOption {
-    type = lib.types.int;
-    default = 15;
-    description = "Open-task count at which the tmux widget starts escalating.";
-  };
+  extraOptions = {
+    warnAt = lib.mkOption {
+      type = lib.types.int;
+      default = 15;
+      description = "Open-task count at which the tmux widget starts escalating.";
+    };
 
-  extraOptions.reviewAt = lib.mkOption {
-    type = lib.types.nullOr lib.types.str;
-    default = "06:00";
-    example = "07:30";
-    description = ''
-      Local time of day, "HH:MM", for the daily start review. null disables it.
-    '';
+    reviewAt = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = "06:00";
+      example = "07:30";
+      description = ''
+        Local time of day, "HH:MM", for the daily start review. null disables it.
+      '';
+    };
+
+    # The ambient half. The tmux widget puts a count where you already are; this
+    # puts the rows there, on a monitor, above everything, on every Space — the
+    # surface that needs neither a keypress nor a visible terminal to work.
+    #
+    # Needs hammerspoon: it is drawn by an hs.canvas dropped into the extras
+    # loader, and there is no second implementation for a machine without it.
+    panel = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Always-visible Todoist panel docked to a screen edge.";
+      };
+
+      width = lib.mkOption {
+        type = lib.types.int;
+        default = 300;
+        description = "Panel width in points.";
+      };
+
+      maxTasks = lib.mkOption {
+        type = lib.types.int;
+        default = 12;
+        description = ''
+          Rows to draw before collapsing the rest into a "+N more" line. The cap
+          is what keeps the list shorter than the screen — a panel that runs off
+          the bottom hides the overdue rows the sort worked to put at the top.
+        '';
+      };
+
+      screen = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        example = "DELL U2720Q";
+        description = ''
+          Which monitor to dock to, as an hs.screen.find pattern (name, UUID, or
+          id). null uses the primary screen. An unattached screen falls back to
+          primary rather than taking the panel away.
+        '';
+      };
+    };
   };
 
   home =
@@ -1132,6 +1175,64 @@ mkUserModule {
 
       reviewEnabled = cfg.reviewAt != null;
 
+      # Both halves required: the panel IS an hs.canvas, so without hammerspoon
+      # there is nothing to draw it and the option would silently do nothing.
+      panelEnabled = cfg.panel.enable && userCfg.hammerspoon.enable;
+
+      # The rows behind the ambient panel. Reads the same cache as the widget
+      # and reuses the same today/sort definitions verbatim — a panel that
+      # disagreed with the count in the tmux bar about what is due today would
+      # make both of them untrustworthy.
+      todoist-panel-data = pkgs.writeShellApplication {
+        name = "todoist-panel-data";
+        bashOptions = [ ];
+        runtimeInputs = with pkgs; [
+          jq
+          findutils
+          gnugrep
+          coreutils
+        ];
+        text = ''
+          CACHE=${cache}
+
+          # The widget's 5s tick is what normally keeps this cache warm, and the
+          # whole point of the panel is working on a machine with no terminal
+          # open. Same 2-minute staleness rule as the widget, so the two
+          # surfaces cannot disagree about how old the list they draw is.
+          #
+          # Detached: the Hammerspoon side is on its own timer and re-reads
+          # shortly, so blocking on the round trip here would only delay the
+          # rows it already has.
+          if ! find "$CACHE" -mmin -2 2>/dev/null | grep -q .; then
+            ${tmux-todoist-refresh}/bin/tmux-todoist-refresh >/dev/null 2>&1 &
+          fi
+
+          [ -f "$CACHE" ] || exit 0
+
+          # state<TAB>text. The state NAMES a colour rather than carrying one,
+          # so every judgement about what is urgent stays here beside the sort
+          # that ordered it, and the Lua stays purely presentational.
+          #
+          # dueToday guarantees .due is non-null, so the overdue comparison
+          # cannot index a null. Same 10-char slice as everywhere else: due.date
+          # is a bare date for an all-day task and a full datetime for a timed
+          # one, and comparing those as strings is how a task due later today
+          # gets dropped.
+          jq -r --arg today "$(date +%F)" '
+            ${unwrap}
+            | ${dueToday}
+            | ${smartSort}
+            | .[]
+            | [ (if   ((.due.date | tostring)[0:10]) < $today then "overdue"
+                 elif (.priority // 1) == 4 then "urgent"
+                 elif (.priority // 1) == 3 then "medium"
+                 else "normal" end),
+                ((if (.priority // 1) >= 3 then "! " else "" end) + .content) ]
+            | @tsv
+          ' "$CACHE" 2>/dev/null
+        '';
+      };
+
       # "06:00" → { Hour = 6; Minute = 0; }. toIntBase10 rather than toInt:
       # toInt parses as JSON, where a leading zero is invalid, so "06" is an
       # eval error — which the default value would hit on every build.
@@ -1232,12 +1333,37 @@ mkUserModule {
       };
     in
     {
-      home.packages = lib.mkIf userCfg.tmux.enable [
-        tmux-todoist-refresh
-        tmux-todoist-widget
-        tmux-todoist-pick
-        tmux-todoist-review
-      ];
+      home.packages =
+        lib.optionals userCfg.tmux.enable [
+          tmux-todoist-refresh
+          tmux-todoist-widget
+          tmux-todoist-pick
+          tmux-todoist-review
+        ]
+        # On the profile rather than referenced by store path, because the Lua
+        # that calls it is installed with `source =` and cannot interpolate one
+        # — the same reason init.lua spells out ~/.nix-profile/bin for the
+        # popup.
+        ++ lib.optionals panelEnabled [ todoist-panel-data ];
+
+      # Outbound integration, per the repo rule: todoist is the module that
+      # knows what a task is, so it reaches into hammerspoon rather than the
+      # other way round. init.lua's extras loader picks the file up on its next
+      # reload, and hammerspoon stays unaware that todoist exists.
+      home.file.".hammerspoon/extras/todoist-panel.lua" = lib.mkIf panelEnabled {
+        # Prepended rather than templated through the body: the .lua stays valid
+        # on its own — it falls back to these same defaults when the prelude is
+        # absent — so nvim, luac and a bare `hs.dofile` can all still read the
+        # file in place.
+        text = ''
+          _G.__todoistPanelCfg = {
+            width = ${toString cfg.panel.width},
+            maxTasks = ${toString cfg.panel.maxTasks},
+            screen = ${if cfg.panel.screen == null then "nil" else ''"${cfg.panel.screen}"''},
+          }
+        ''
+        + builtins.readFile ./todoist-panel.lua;
+      };
 
       programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
         # Todoist triage popup. This deliberately overrides tmux's default

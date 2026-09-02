@@ -322,17 +322,133 @@ end
 -- Instant window ops — no slide animation.
 hs.window.animationDuration = 0
 
--- Hyper + F → Maximize the focused window on its current screen.
+-- Screen-edge reservations, claimed by extras (see the extras loader at the
+-- bottom). Each entry is { screen = <uuid>, edge = "left"|"right", size = <pt> },
+-- and the window ops below subtract them, so an extra that parks a panel on an
+-- edge does not get maximized over.
+--
+-- This is as far as reservation can go on macOS. There is NO public API for a
+-- third-party app to shrink everyone's usable area the way the Dock does —
+-- NSScreen.visibleFrame is read-only and Dock-private. The honest alternatives
+-- are a tiling WM that owns layout (yabai's external_bar), or an hs.window.filter
+-- that shoves intruding windows back out. The latter was measured and rejected:
+-- windowMoved is internally debounced by 0.5s, so windows visibly jump half a
+-- second after you drop them, and the filter has a long tail of beachball
+-- reports. Honouring the reservation in OUR OWN ops is instant and cannot fight
+-- the user — the cost is that a window dragged there by hand stays there.
+_G.__hsReserved = {}
+
+-- Extras can claim a Hyper key by keyCode here. Checked AFTER the built-in
+-- actions, so init.lua's own bindings always win and an extra cannot silently
+-- steal one.
+_G.__hsHyperExtras = {}
+
+-- The frame a window may actually occupy: the usable area (already excluding
+-- menu bar and Dock) minus every edge an extra has claimed on this screen.
+-- Copied into a plain table rather than mutated in place: screen:frame() hands
+-- back an hs.geometry object, and this code has no business depending on
+-- whether assigning to its .w is supported. setFrame takes a plain rect.
+local function usableFrame(screen)
+  local g = screen:frame()
+  local f = { x = g.x, y = g.y, w = g.w, h = g.h }
+  local uuid = screen:getUUID()
+  for _, r in pairs(_G.__hsReserved) do
+    if r.screen == uuid and r.size > 0 then
+      if r.edge == "right" then
+        f.w = f.w - r.size
+      elseif r.edge == "left" then
+        f.x = f.x + r.size
+        f.w = f.w - r.size
+      end
+    end
+  end
+  return f
+end
+
+-- Shrink-then-shift, so a window bigger than the bounds ends up inside them
+-- rather than merely nudged. Used when a window lands on a screen whose usable
+-- area is smaller than the one it came from.
+local function clampTo(g, b)
+  local f = { x = g.x, y = g.y, w = g.w, h = g.h }
+  if f.w > b.w then
+    f.w = b.w
+  end
+  if f.h > b.h then
+    f.h = b.h
+  end
+  if f.x < b.x then
+    f.x = b.x
+  end
+  if f.y < b.y then
+    f.y = b.y
+  end
+  if f.x + f.w > b.x + b.w then
+    f.x = b.x + b.w - f.w
+  end
+  if f.y + f.h > b.y + b.h then
+    f.y = b.y + b.h - f.h
+  end
+  return f
+end
+
+-- Tolerance rather than equality: apps round their frames, and a few refuse the
+-- exact size they were given, so a maximized window is rarely pixel-identical to
+-- the frame it was maximized to.
+local RECLAIM_TOLERANCE = 8
+
+local function nearlyEquals(a, b)
+  return math.abs(a.x - b.x) <= RECLAIM_TOLERANCE
+    and math.abs(a.y - b.y) <= RECLAIM_TOLERANCE
+    and math.abs(a.w - b.w) <= RECLAIM_TOLERANCE
+    and math.abs(a.h - b.h) <= RECLAIM_TOLERANCE
+end
+
+-- Published for extras that need to size themselves against a claimed edge.
+_G.__hsUsableFrame = usableFrame
+
+-- Called by an extra straight after it adds or drops a claim, with the usable
+-- frame as it was BEFORE the change. Windows that were filling the old area are
+-- grown or shrunk into the new one; anything the user deliberately sized is
+-- left exactly where it is, which is why this matches on the old frame instead
+-- of just re-maximizing everything.
+--
+-- macOS-native fullscreen windows are skipped: they live in their own Space and
+-- reframing one means yanking it out of that Space, which is not what toggling
+-- a side panel should do.
+_G.__hsReclaim = function(screen, oldFrame)
+  local target = usableFrame(screen)
+  for _, w in ipairs(hs.window.visibleWindows()) do
+    local okWin, err = pcall(function()
+      if
+        w:screen() == screen
+        and w:isStandard()
+        and not w:isFullScreen()
+        and nearlyEquals(w:frame(), oldFrame)
+      then
+        w:setFrame(target, 0)
+      end
+    end)
+    if not okWin then
+      log("ERROR", "reclaim: " .. tostring(err))
+    end
+  end
+end
+
+-- Hyper + F → Maximize the focused window on its current screen, up to any
+-- edge an extra has reserved. setFrame rather than :maximize(), which always
+-- takes the whole frame and would paint over a claimed strip.
 local fCode = hs.keycodes.map["f"]
 if fCode then
   keyCodeNames[fCode] = "f"
   hyperActionsByKeyCode[fCode] = function()
     local win = hs.window.focusedWindow()
-    if win then win:maximize() end
+    if win then win:setFrame(usableFrame(win:screen()), 0) end
   end
 end
 
--- Hyper + \ → Throw the focused window to the next screen (keeps its size).
+-- Hyper + \ → Throw the focused window to the next screen (keeps its size,
+-- clamped into that screen's usable area — the destination may be smaller, or
+-- may be the one carrying a reserved edge).
 local backslashCode = hs.keycodes.map["\\"]
 if backslashCode then
   keyCodeNames[backslashCode] = "\\"
@@ -340,6 +456,7 @@ if backslashCode then
     local win = hs.window.focusedWindow()
     if win then
       win:moveToScreen(win:screen():next())
+      win:setFrame(clampTo(win:frame(), usableFrame(win:screen())), 0)
       warpTo(win:screen(), hs.geometry.rectMidPoint(win:frame()))
     end
   end
@@ -443,7 +560,10 @@ local function f18Callback(event)
   -- Actions are deferred to the next run-loop iteration so the eventtap
   -- callback returns immediately. macOS silently disables CGEventTaps
   -- whose callbacks exceed ~300ms; hs.execute() can easily hit that.
-  local action = hyperActionsByKeyCode[keyCode]
+  -- Built-ins first, then anything an extra claimed. Merged into one local so
+  -- the deferral, autorepeat guard and pcall below cover both identically —
+  -- a broken extra must not be able to wedge the eventtap.
+  local action = hyperActionsByKeyCode[keyCode] or _G.__hsHyperExtras[keyCode]
   if action then
     hyperUsedAsModifier = true
     if event:getProperty(hs.eventtap.event.properties.keyboardEventAutorepeat) ~= 0 then
