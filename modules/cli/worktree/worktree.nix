@@ -240,12 +240,20 @@ let
         # Unexpanded glob when the pool is empty.
         [ -d "$slot" ] || continue
         # `.git` is a file in a linked worktree; a bare directory is a slot
-        # whose build died half way and is not safe to hand out.
+        # whose build died half way and is not safe to hand out. This is the
+        # only validation left here because it is a stat — everything else
+        # costs real time on this path.
         [ -e "$slot/.git" ] || continue
 
-        # Never claim a slot something has touched — those changes would ride
-        # along into your new worktree and look like your own work.
-        [ -n "$(git --no-optional-locks -C "$slot" status --porcelain 2>/dev/null)" ] && continue
+        # The "has anything touched this slot" check deliberately lives in
+        # wt-pool-fill instead, which runs detached. It is a `git status` over
+        # 41882 files and measured 350-855ms — a third of the whole claim —
+        # and no variant is cheaper, because the cost is the index refresh
+        # rather than the untracked walk (`-uno` came out *slower*, at 760ms).
+        # Nothing but the pool code touches these directories, so validating
+        # when stocking rather than when claiming buys back that time without
+        # changing the outcome; the only window it opens is something dirtying
+        # a slot between a fill and the next claim.
 
         # The rename *is* the claim, and it is atomic. Two concurrent `wt`s
         # cannot both win: the loser's move fails, it falls through this loop
@@ -295,6 +303,7 @@ let
     runtimeInputs = [
       pkgs.git
       pkgs.git-lfs
+      pkgs.direnv
     ];
     text = ''
       # usage: wt-pool-fill <main_root>
@@ -352,6 +361,24 @@ let
       # current as your last `wt` in this repo.
       git -C "$main_root" fetch origin || true
 
+      # Validate what is already parked, here rather than in wt-claim. This is
+      # the `git status` that used to sit on the claim path costing 350-855ms;
+      # detached, its cost is nobody's problem. A slot anything has written to
+      # is destroyed rather than handed over, because those changes would ride
+      # into your new worktree and read as your own work.
+      for s in "$pool"/*/; do
+        [ -d "$s" ] || continue
+        s="''${s%/}"
+        if [ -e "$s/.git" ] &&
+           [ -z "$(git --no-optional-locks -C "$s" status --porcelain 2>/dev/null)" ]; then
+          continue
+        fi
+        echo "discarding unusable slot $s"
+        git -C "$main_root" worktree remove --force "$s" 2>/dev/null || true
+        rm -rf "$s"
+      done
+      git -C "$main_root" worktree prune 2>/dev/null || true
+
       count=$(find "$pool" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
       [ "$count" -ge "$target" ] && { echo "pool has $count, target $target"; exit 0; }
 
@@ -359,8 +386,34 @@ let
       # branches from. Detached, so the pool never shows up in `git branch`.
       base=$(git -C "$main_root" rev-parse HEAD)
       while [ "$count" -lt "$target" ]; do
-        slot="$pool/slot-$(date +%s)-$-$count"
+        # Nanoseconds rather than seconds+PID: unique without needing a `$`
+        # that has to survive Nix string escaping to mean what it says.
+        slot="$pool/slot-$(date +%s%N)-$count"
         git -C "$main_root" worktree add --detach "$slot" "$base" || break
+
+        # Warm the dev shell while we are already off the critical path. A
+        # fresh worktree has no .direnv, so the first prompt after a claim
+        # built the nix profile from scratch — 713ms cold against 274-407ms
+        # warm, and the largest remaining cost between claiming and being able
+        # to type.
+        #
+        # .direnv is gitignored, so this survives both the `worktree move` and
+        # the `checkout -b` and does not make the slot read as dirty. A branch
+        # that changes shell.nix re-evaluates on claim anyway, which is
+        # correct; the warm cache pays off when the dev shell is unchanged,
+        # which is the common case.
+        # Through a login shell, for the same reason .setup needs one: this
+        # runs under tmux run-shell, whose PATH is roughly tmux + /usr/bin, and
+        # the .envrc says `use nix`. Without it direnv cannot find nix, fails
+        # in ~20ms instead of building anything, and the slot ships cold — the
+        # first attempt at this warmed nothing at all and said nothing, because
+        # both calls are `|| true`.
+        login_shell="''${SHELL:-/bin/sh}"
+        [ -x "$login_shell" ] || login_shell=/bin/sh
+        "$login_shell" -l -c "direnv allow '$slot' && direnv exec '$slot' true" \
+          >/dev/null 2>&1 || echo "warn: could not warm .direnv for $slot"
+        [ -d "$slot/.direnv" ] || echo "warn: $slot still has no .direnv"
+
         count=$((count + 1))
       done
       echo "=== $(date): pool now $count ==="
