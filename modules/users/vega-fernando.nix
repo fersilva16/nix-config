@@ -19,7 +19,10 @@ mkUser {
   ripgrep.enable = true;
   chrome-cli.enable = true;
   readwise.enable = true;
-  todoist.enable = true;
+  todoist = {
+    enable = true;
+    panel.enable = true;
+  };
 
   # Dev tools
   git.enable = true;
