@@ -1,7 +1,7 @@
 { pkgs }:
 let
   jsonFormat = pkgs.formats.json { };
-  plugin = "oh-my-openagent@4.18.1";
+  plugin = "oh-my-openagent@4.19.4";
 in
 {
   default = true;

@@ -13,7 +13,6 @@ let
   # Real opencode binary with patches applied
   opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
-      ./patches/cursor-style-and-blink.patch
       ./patches/edit-tool-dollar-substitution.patch
       ./patches/generate-remove-prettier.patch
       ./patches/relax-bun-version-check.patch
@@ -53,15 +52,17 @@ mkUserModule {
         package = lib.mkDefault opencode-unwrapped;
         tui = {
           theme = "flexoki";
-          cursor_style = "line";
-          cursor_blink = true;
+          cursor = {
+            style = "line";
+            blinking = true;
+          };
         };
         settings = {
           # Disable worktree snapshot/diff tracking: on large monorepos it
           # re-reads every file + the full git index in a loop, pinning CPU
           # (anomalyco/opencode#30086). Costs the file-revert/undo feature.
           snapshot = false;
-          plugin = [ "@rama_nigg/open-cursor@2.4.5" ];
+          plugin = [ "@rama_nigg/open-cursor@2.5.8" ];
           provider = {
             cursor-acp = {
               name = "Cursor ACP";
