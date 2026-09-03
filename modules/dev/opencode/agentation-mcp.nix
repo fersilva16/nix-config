@@ -17,13 +17,13 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "agentation-mcp";
-  version = "3.0.2-unstable-2026-03-25";
+  version = "3.0.2-unstable-2026-06-07";
 
   src = fetchFromGitHub {
     owner = "benjitaylor";
     repo = "agentation";
-    rev = "7dc5d65378fa901e6eead81d4e2bb62950d49f0b";
-    hash = "sha256-qddLnszOYdZZrmtSPoFzh5KTL5Z3n+yXl4C7Hcai7w8=";
+    rev = "8158a97c10c37e577b0a6e2d3175d143918216cd";
+    hash = "sha256-5F9r/zsw9cXkR85KlMuIpP1BbpYwU+nEuAyah/P/IBY=";
   };
 
   sourceRoot = "${finalAttrs.src.name}/mcp";
