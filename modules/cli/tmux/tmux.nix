@@ -224,9 +224,11 @@ mkUserModule {
 
         Create your own windows, panes, and sessions freely — dev servers, log
         tails, anything long-running or interactive that would block your shell.
-        Name every session `agents/<name>`, always detached:
-        `tmux new-session -d -s agents/<name>` (you are already inside tmux, so
-        an attached `new-session` errors).
+        Name every session `agents/<name>`, always detached, running POSIX sh:
+        `tmux new-session -d -s agents/<name> '/bin/sh -l'` (you are already
+        inside tmux, so an attached `new-session` errors). Windows you add to
+        an `agents/*` session get sh too, so everything you run in one is
+        POSIX, never fish.
 
         Sessions named `agents/*` are yours: use and kill them freely, including
         leftovers from earlier runs. Every other session is mine — never kill,
@@ -255,6 +257,17 @@ mkUserModule {
           # for fast popup/run-shell jobs — see the shell option above). Pane
           # creation is rare, so the extra sh -c wrapper is irrelevant.
           set -g default-command "${pkgs.fish}/bin/fish -l"
+
+          # ...except agent sessions, which get POSIX sh: agents write
+          # bash-flavoured commands, and their send-keys lines would otherwise
+          # pile up in the fish history I share across every pane. Login sh
+          # (-l) because the tmux server's PATH is only tmux + /usr/bin —
+          # /etc/profile is what pulls the nix profile in. The hook fires after
+          # the session's first pane already started, so the AGENTS.md snippet
+          # above spells the command out for that one; every later window in
+          # the session picks it up from here. Index 10 because the
+          # session-picker part owns session-created[20].
+          set-hook -g 'session-created[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\""'
 
           set -g renumber-windows on
 
