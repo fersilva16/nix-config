@@ -62,7 +62,7 @@ mkUserModule {
           # re-reads every file + the full git index in a loop, pinning CPU
           # (anomalyco/opencode#30086). Costs the file-revert/undo feature.
           snapshot = false;
-          plugin = [ "@rama_nigg/open-cursor@2.4.5" ];
+          plugin = [ "@rama_nigg/open-cursor@2.5.8" ];
           provider = {
             cursor-acp = {
               name = "Cursor ACP";
