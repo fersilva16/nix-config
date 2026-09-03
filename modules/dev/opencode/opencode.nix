@@ -13,7 +13,6 @@ let
   # Real opencode binary with patches applied
   opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
-      ./patches/cursor-style-and-blink.patch
       ./patches/edit-tool-dollar-substitution.patch
       ./patches/generate-remove-prettier.patch
       ./patches/relax-bun-version-check.patch
@@ -53,8 +52,10 @@ mkUserModule {
         package = lib.mkDefault opencode-unwrapped;
         tui = {
           theme = "flexoki";
-          cursor_style = "line";
-          cursor_blink = true;
+          cursor = {
+            style = "line";
+            blinking = true;
+          };
         };
         settings = {
           # Disable worktree snapshot/diff tracking: on large monorepos it
