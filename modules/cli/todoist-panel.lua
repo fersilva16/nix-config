@@ -9,10 +9,20 @@
 -- you can click is a panel you fiddle with instead of working, and the whole
 -- point of an ambient surface is that it costs nothing to ignore.
 --
--- Rows come from todoist-panel-data, which reads the SAME cache and the same
--- today/sort/priority definitions as the tmux widget. One definition, two
+-- Rows come from every *-panel-data on the profile, concatenated. That glob is
+-- the whole plugin protocol: a module with something worth seeing all day
+-- installs an executable with that suffix and prints state<TAB>text. Todoist
+-- ships todoist-panel-data, linear ships linear-panel-data, and neither has to
+-- know the other exists — except that todoist is not a guest here. This file
+-- IS its panel, so its section always leads; everything else follows behind
+-- it, separated by a blank line per section.
+--
+-- Each producer prints its OWN header as a head row, because each one owns the
+-- definition its count is of — todoist-panel-data reads the SAME cache and the
+-- same today/sort/priority definitions as the tmux widget. One definition, two
 -- surfaces: a panel that disagreed with the count in the bar about what is due
--- today would make both of them untrustworthy.
+-- today would make both of them untrustworthy, and a single total summed here
+-- would start doing exactly that the moment a second producer appeared.
 --
 -- Loaded by init.lua's extras loader; see modules/cli/todoist.nix for the
 -- home-manager drop and the _G.__todoistPanelCfg prelude it prepends.
@@ -35,7 +45,28 @@ local EVERY = cfg.refresh or 60
 
 -- Same reason init.lua spells out the path for tmux-todoist-pick: this file is
 -- installed with `source =`, so nix cannot interpolate a store path into it.
-local DATA = os.getenv("HOME") .. "/.nix-profile/bin/todoist-panel-data"
+--
+-- /bin/sh because the glob IS the extension point for GUESTS: any other module
+-- with something worth seeing all day drops its own *-panel-data on the
+-- profile and shows up here without this file ever learning its name. Todoist
+-- itself is not a guest — it owns this panel (installed by modules/cli/
+-- todoist.nix) — so it runs first, named directly, and everyone else follows
+-- in glob order.
+--
+-- The expansion lives inside the -c script rather than in this table because
+-- hs.task hands arguments to the executable verbatim, never through a shell.
+local DATA = "/bin/sh"
+local DATA_ARGS = {
+  "-c",
+  [[
+b="$HOME/.nix-profile/bin"
+[ -x "$b/todoist-panel-data" ] && "$b/todoist-panel-data"
+for f in "$b"/*-panel-data; do
+  [ "$f" = "$b/todoist-panel-data" ] && continue
+  [ -x "$f" ] && "$f"
+done
+]],
+}
 
 -- Flexoki Light — the palette the tmux widgets already use, and the theme
 -- Ghostty is set to. The point is that this reads as one more pane of the
@@ -61,11 +92,6 @@ local COLORS = {
 -- why this did not read as a terminal — nothing lined up down the left edge.
 local FONT = { name = "CaskaydiaCove Nerd Font", size = 12 }
 
--- nf-fa-tasks, the same glyph the tmux widget prints, written as bytes rather
--- than pasted in: a bare U+F0AE is invisible in every diff and survives only
--- until some tool in the chain normalises it away. UTF-8 is EF 82 AE.
-local ICON = "\239\130\174"
-
 -- Tuned to the 12pt monospace above, so rows sit at terminal line spacing
 -- rather than UI-list spacing.
 local ROW_H = 17
@@ -73,12 +99,10 @@ local HEAD_H = 20
 local PAD = 12
 
 local panel = nil
--- The rows actually drawn, capped by rowBudget, plus the "+N more" line.
+-- The rows actually drawn, capped by rowBudget, plus the "+N more" line. The
+-- producers' head rows are in here too and cost a slot each, because a section
+-- heading occupies a line on screen like anything else.
 local rows = {}
--- Everything due, including what did not fit. The header counts THIS: a panel
--- reading 13 while the tmux widget reads 20 makes both numbers worthless, and
--- an ADHD-facing count that understates the day is the one failure that matters.
-local total = 0
 
 -- Both tables belong to init.lua, which resets them on every load; the fallback
 -- is so this file still loads standalone (its own test does exactly that).
@@ -179,25 +203,26 @@ end
 -- ---------------------------------------------------------------------------
 
 local function styled()
-  -- Icon then count, the same shape and the same glyph as the tmux status
-  -- widget, so the number you glance at is in the same language on both.
-  local out = hs.styledtext.new(
-    string.format("%s  %d today\n", ICON, total),
-    { font = FONT, color = COLORS.head }
-  )
+  -- No header of its own. Every line here came from a producer, including the
+  -- head rows that name each section and carry its count.
+  --
   -- The reward state still has to fill the pane. Silence was right when this
   -- was a floating box that could just vanish; now that it holds a reserved
   -- strip, drawing nothing would leave a tall empty column that looks broken.
-  if total == 0 then
-    return out .. hs.styledtext.new("nothing due", { font = FONT, color = COLORS.head })
+  -- Reached only when NO producer said anything at all — a producer with an
+  -- empty list still prints its own header, and todoist prints "nothing due"
+  -- beneath it.
+  if #rows == 0 then
+    return hs.styledtext.new("nothing due", { font = FONT, color = COLORS.head })
   end
 
+  local out
   for _, row in ipairs(rows) do
-    out = out
-      .. hs.styledtext.new(row.text .. "\n", {
-        font = FONT,
-        color = COLORS[row.state] or COLORS.normal,
-      })
+    local piece = hs.styledtext.new(row.text .. "\n", {
+      font = FONT,
+      color = COLORS[row.state] or COLORS.normal,
+    })
+    out = out and out .. piece or piece
   end
   return out
 end
@@ -298,25 +323,36 @@ local function refresh()
   end
   retain.job = hs.task.new(DATA, function(_, stdout, _)
     rows = {}
-    total = 0
     local budget = rowBudget()
+    -- A count rather than the rows themselves, tallied as they overflow: the
+    -- alternative is subtracting #rows afterwards, which stops being true the
+    -- moment the "+N more" row below is appended to that same table.
+    local hidden = 0
+    local function want(row)
+      if #rows < budget then
+        rows[#rows + 1] = row
+      else
+        hidden = hidden + 1
+      end
+    end
     for line in (stdout or ""):gmatch("[^\n]+") do
       local state, text = line:match("^([^\t]*)\t(.*)$")
       if state then
-        total = total + 1
-        if #rows < budget then
-          rows[#rows + 1] = { state = state, text = text }
+        -- A head row after the first is the next producer's section starting:
+        -- give it a blank line first so two producers read as two lists, not
+        -- one. Routed through want() like any row — a short screen must still
+        -- count it in "+N more" rather than silently overrunning the frame.
+        if state == "head" and #rows > 0 then
+          want({ state = "blank", text = "" })
         end
+        want({ state = state, text = text })
       end
     end
-    -- A count rather than the rows themselves. Computed before the row is
-    -- appended, because appending changes #rows.
-    local hidden = total - #rows
     if hidden > 0 then
       rows[#rows + 1] = { state = "head", text = string.format("+%d more", hidden) }
     end
     render()
-  end)
+  end, DATA_ARGS)
   retain.job:start()
 end
 

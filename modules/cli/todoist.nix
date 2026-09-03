@@ -1209,6 +1209,22 @@ mkUserModule {
 
           [ -f "$CACHE" ] || exit 0
 
+          today=$(date +%F)
+
+          # The panel's header row, emitted by the producer rather than counted
+          # in the Lua. The panel concatenates every *-panel-data on the profile
+          # now, so a header the Lua summed itself would silently start counting
+          # linear issues as things "due today" and drift from the tmux widget.
+          # The count belongs where the today/sort definitions are.
+          n=$(jq -r --arg today "$today" '${unwrap} | ${dueToday} | length' "$CACHE" 2>/dev/null)
+          case "''${n:-}" in "" | *[!0-9]*) n=0 ;; esac
+          printf 'head\t%s  %s today\n' "$(printf '\uF0AE')" "$n"
+
+          # The reward state, also from here: at zero there are no rows to draw
+          # and a section that renders as a bare "0 today" reads like a failed
+          # fetch rather than a clear day.
+          [ "$n" -gt 0 ] || { printf 'head\tnothing due\n'; exit 0; }
+
           # state<TAB>text. The state NAMES a colour rather than carrying one,
           # so every judgement about what is urgent stays here beside the sort
           # that ordered it, and the Lua stays purely presentational.
@@ -1218,7 +1234,7 @@ mkUserModule {
           # is a bare date for an all-day task and a full datetime for a timed
           # one, and comparing those as strings is how a task due later today
           # gets dropped.
-          jq -r --arg today "$(date +%F)" '
+          jq -r --arg today "$today" '
             ${unwrap}
             | ${dueToday}
             | ${smartSort}
