@@ -22,13 +22,13 @@ let
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "figma-developer-mcp";
-  version = "0.11.0";
+  version = "0.13.2";
 
   src = fetchFromGitHub {
     owner = "GLips";
     repo = "Figma-Context-MCP";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-VX7CyYIrHCkl/e6LoUYqXdpxLWhjRBLrWL6Azn8Lwzs=";
+    hash = "sha256-Deh3Mrqrm0k5WjjUd3KEECLb6qRALq1VRcQ7YQbfO0k=";
   };
 
   nativeBuildInputs = [
