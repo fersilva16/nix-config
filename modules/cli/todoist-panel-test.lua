@@ -216,13 +216,6 @@ local function lastFrame()
   return calls.frames[#calls.frames]
 end
 
--- The count out of the header line, rather than the whole string: these checks
--- are about the NUMBER, and pinning the surrounding text made every cosmetic
--- change to the header look like a counting bug.
-local function headerCount()
-  return tonumber(captured[1].s:match("(%d+)"))
-end
-
 local function rowsOf(n, state)
   local t = {}
   for i = 1, n do
@@ -253,15 +246,16 @@ local WIDTH = cfg.width or 300
 local MAX = cfg.maxTasks or 12
 
 -- The panel is full-height now, so its frame says nothing about how many rows
--- it drew. Everything below counts STYLED RUNS instead: one for the header,
--- then one per row (plus the "+N more" line when it overflows). That is the
--- thing actually worth asserting, and it does not move when padding does.
+-- it drew. Everything below counts STYLED RUNS instead: one per row it was
+-- handed, head rows included, plus the "+N more" line when it overflows. That
+-- is the thing actually worth asserting, and it does not move when padding
+-- does.
 local function drawnRows()
-  return #captured - 1
+  return #captured
 end
 
 local function rowText(i)
-  return captured[i + 1].s
+  return captured[i].s
 end
 
 -- ---------------------------------------------------------------------------
@@ -289,9 +283,19 @@ check("docks flush to the right edge, below the menu bar", function()
   assert(drawnRows() == 7, "should draw 7 rows, drew " .. drawnRows())
 end)
 
-check("header counts the rows on screen", function()
-  load_with(rowsOf(7))
-  assert(headerCount() == 7, "bad header: " .. tostring(captured[1].s))
+-- The count moved into the producers, because each one owns the definition its
+-- number is of: todoist-panel-data reads the same cache and the same today/sort
+-- rules as the tmux widget, so the two cannot disagree. A total summed here
+-- would have started counting linear issues as things "due today" the moment a
+-- second producer appeared. What this file still has to guarantee is that the
+-- panel passes head rows through untouched instead of recomputing them.
+check("producer head rows are drawn verbatim, not recomputed", function()
+  load_with("head\t\239\130\174  20 today\nnormal\ttask 1\n")
+  assert(rowText(1):find("20 today", 1, true), "head row should survive intact: " .. rowText(1))
+  -- U+F0AE nf-fa-tasks, as UTF-8 bytes: the glyph the tmux widget prints, and
+  -- the reason head rows must reach the canvas byte-for-byte.
+  assert(rowText(1):find("\239\130\174", 1, true), "the tasks glyph should survive the parse")
+  assert(drawnRows() == 2, "head row plus its task, drew " .. drawnRows())
 end)
 
 check("emptying the list keeps the pane and says so", function()
@@ -299,7 +303,6 @@ check("emptying the list keeps the pane and says so", function()
   tick("")
   assert(calls.hide == 0, "an expanded pane must not vanish; the strip is still reserved")
   assert(calls.show == 1, "it should redraw")
-  assert(headerCount() == 0, "header should read 0")
   assert(text():find("nothing due", 1, true), "should say the list is clear")
 end)
 
@@ -311,22 +314,34 @@ check("tasks coming back re-show it without a reload", function()
   assert(drawnRows() == 2, "should draw the 2 new rows, drew " .. drawnRows())
 end)
 
-check("cold start with nothing due still draws the pane", function()
+-- Reached only when NO producer said anything at all: every producer prints its
+-- own head row unconditionally, so this is the failed-fetch / nothing-installed
+-- case, and the reserved strip still must not be left looking broken.
+check("cold start with no producer output still draws the pane", function()
   load_with("")
   assert(calls.show == 1, "the reserved strip must not be left empty")
-  assert(headerCount() == 0 and text():find("nothing due", 1, true), "should show the clear state")
+  assert(text():find("nothing due", 1, true), "should show the clear state")
 end)
 
--- The header must count everything DUE, not everything DRAWN. A panel reading
--- "TODAY · 13" beside a tmux widget reading 20 makes both numbers worthless,
--- and undercounting the day is the specific way this surface would fail its job.
-check("header counts hidden rows too, so it matches the tmux widget", function()
+-- One pane, one row budget, however many producers. The failure this rules out
+-- is each section getting its own cap and the total running off the bottom of
+-- the screen, where the rows cannot be read and are not counted either.
+check("two producers share one pane, one budget and one +N more", function()
   withScreen(4000, function()
-    load_with(rowsOf(MAX + 8))
-    assert(
-      headerCount() == MAX + 8,
-      "header must show the true total, got " .. captured[1].s
+    load_with(
+      "head\tlinear  2 active\nnormal\tENG-1  a\nnormal\tENG-2  b\n"
+        .. "head\t\239\130\174  20 today\n"
+        .. rowsOf(MAX)
     )
+    local t = text()
+    assert(t:find("linear  2 active", 1, true), "the linear section should be drawn")
+    assert(t:find("20 today", 1, true), "the todoist section should be drawn")
+    assert(drawnRows() == MAX + 1, "budget is shared across sections, drew " .. drawnRows())
+    assert(t:find("%+5 more"), "overflow across both sections must be counted, got:\n" .. t)
+    -- The separator itself: a blank line, costing a budget slot like any row,
+    -- between the last linear row and the second section's head.
+    assert(rowText(4) == "\n", "row 4 should be the blank separator, got " .. rowText(4))
+    assert(rowText(5):find("20 today", 1, true), "row 5 should be the todoist head, got " .. rowText(5))
   end)
 end)
 
@@ -384,7 +399,7 @@ end
 
 check("state routes to a colour; overdue and urgent are red", function()
   load_with("overdue\tslipped\nurgent\tp1\nmedium\tp2\nnormal\tplain\n")
-  local overdue, urgent, medium, normal = captured[2], captured[3], captured[4], captured[5]
+  local overdue, urgent, medium, normal = captured[1], captured[2], captured[3], captured[4]
   assert(isRed(overdue.color), "overdue should be red")
   assert(isRed(urgent.color), "urgent should be red")
   assert(isAmber(medium.color), "medium should be amber")
@@ -393,7 +408,7 @@ end)
 
 check("every row colour is legible on the panel background", function()
   load_with("overdue\ta\nurgent\tb\nmedium\tc\nnormal\td\n")
-  for i = 2, 5 do
+  for i = 1, 4 do
     local c = captured[i].color
     -- Flexoki paper is ~0.93 luminance; anything near it vanishes.
     assert(
@@ -406,7 +421,7 @@ end)
 check("an unrecognised state falls back to the normal colour", function()
   load_with("banana\tsomething\n")
   assert(calls.show == 1, "should still render")
-  assert(captured[2].color ~= nil, "should not render colourless")
+  assert(captured[1].color ~= nil, "should not render colourless")
 end)
 
 check("task text containing spaces and non-ascii survives the split", function()
@@ -416,7 +431,8 @@ end)
 
 check("blank and malformed lines are skipped, not drawn", function()
   load_with("normal\tgood\n\nnotabhere\n\nmedium\talso good\n")
-  assert(headerCount() == 2, "only well-formed rows count: " .. captured[1].s)
+  assert(drawnRows() == 2, "only well-formed rows should be drawn, drew " .. drawnRows())
+  assert(not text():find("notabhere", 1, true), "a line with no tab is not a row")
 end)
 
 check("long-lived objects are retained against GC", function()
@@ -521,9 +537,9 @@ end)
 
 check("every line uses the terminal's own monospace font", function()
   load_with(rowsOf(2))
-  -- Header + 2 rows. Without this the loop below runs zero times and passes
-  -- while proving nothing, which is exactly how it first "passed".
-  assert(#captured == 3, "expected 3 styled runs, got " .. #captured)
+  -- Without this the loop below runs zero times and passes while proving
+  -- nothing, which is exactly how it first "passed".
+  assert(#captured == 2, "expected 2 styled runs, got " .. #captured)
   for i = 1, #captured do
     local f = captured[i].font
     assert(f and f.name, "line " .. i .. " has no font set")
@@ -532,12 +548,6 @@ check("every line uses the terminal's own monospace font", function()
       "line " .. i .. " should use Ghostty's font, got " .. f.name
     )
   end
-end)
-
-check("header carries the same nerd-font glyph as the tmux widget", function()
-  load_with(rowsOf(2))
-  -- U+F0AE nf-fa-tasks, as UTF-8 bytes.
-  assert(captured[1].s:find("\239\130\174", 1, true), "header should print the tasks glyph")
 end)
 
 -- ---------------------------------------------------------------------------

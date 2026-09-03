@@ -38,6 +38,98 @@ let
       mainProgram = "linear-cli";
     };
   };
+
+  # The linear section of the ambient panel. That panel runs every
+  # *-panel-data on the profile and concatenates them, so appearing in it is
+  # only a matter of printing state<TAB>text — this module reaches into the
+  # surface, per the repo rule, and the todoist module that owns it stays
+  # unaware linear exists.
+  #
+  # In Progress / In Review / Todo only. Backlog is the majority of what is
+  # assigned to me and none of it is actionable today; an always-on panel that
+  # lists it trains you to stop reading the panel.
+  linear-panel-data = pkgs.writeShellApplication {
+    name = "linear-panel-data";
+    bashOptions = [ ];
+    runtimeInputs = [
+      linear-cli
+      pkgs.coreutils
+      pkgs.findutils
+      pkgs.gnugrep
+      pkgs.jq
+    ];
+    text = ''
+      CACHE="''${TMPDIR:-/tmp}/linear-panel.tsv"
+
+      # Detached refresh behind a cache, the same shape as todoist-panel-data:
+      # the panel is on its own 60s timer and re-reads shortly, so blocking on
+      # the Linear round trip here would only delay the rows it already has.
+      # Five minutes rather than todoist's two — an issue's state moves on a
+      # meeting's timescale, not a checkbox's.
+      if ! find "$CACHE" -mmin -5 2>/dev/null | grep -q .; then
+        (
+          tmp=$(mktemp) || exit 0
+          trap 'rm -f "$tmp"' EXIT
+
+          # Raw GraphQL rather than `i list`, and NOT for elegance: `i list`
+          # fetches ONE page and applies --filter to it client-side, so any
+          # issue past that page is invisible no matter what you filter for.
+          # That silently hid three Todos whose only crime was being old. The
+          # cure is a server-side filter, which is `--all` (every page, every
+          # refresh) or this — one request that returns only what is wanted.
+          #
+          # `viewer` is the authenticated user, so this also drops the separate
+          # whoami round trip and the display-name matching that --assignee
+          # needed.
+          #
+          # Filtering on state.TYPE, not state.name: type is Linear's own
+          # semantic grouping, so "started" is In Progress + In Review and
+          # "unstarted" is Todo, whatever a given team renamed its columns to.
+          # Matching English names would break on the first team that says
+          # "Doing" — and would have to be kept in sync by hand forever.
+          out=$(linear-cli api query '{ viewer { assignedIssues(first: 50, filter: { state: { type: { in: ["started","unstarted"] } } }) { nodes { identifier title priority state { name type } } } } }' \
+            --output json --no-pager --quiet 2>/dev/null \
+            | jq -r '
+                # Hard failure rather than an empty list: a GraphQL error also
+                # parses as "no issues", and writing that to the cache would
+                # replace a good list with a confident "0 active".
+                if (.data.viewer.assignedIssues.nodes | type) != "array" then
+                  error("no viewer in response")
+                else . end
+                | .data.viewer.assignedIssues.nodes
+                # Started before unstarted, then priority, then identifier for a
+                # stable order. Linear priority is 0=none 1=urgent..4=low, so the
+                # unset 0 has to be remapped to sort last instead of first.
+                | sort_by(
+                    (if .state.type == "started" then 0 else 1 end),
+                    (if (.priority // 0) == 0 then 5 else .priority end),
+                    .identifier
+                  )
+                | ["head", "linear  \(length) active"],
+                  (.[] | [ (if   .priority == 1 then "urgent"
+                            elif .priority == 2 then "medium"
+                            else "normal" end),
+                           "\(.identifier)  \(.title)" ])
+                | @tsv
+              ' 2>/dev/null)
+
+          # Empty means the fetch or the parse failed — the head row is
+          # unconditional, so even a day with nothing active produces output.
+          # Leaving the old cache in place keeps the last known list on screen
+          # instead of blanking the section on one bad network moment.
+          [ -n "$out" ] || exit 0
+
+          # Written aside and moved into place, like tmux-todoist-refresh: the
+          # panel reads this file on a timer and a half-written one would draw
+          # as a truncated list rather than as an error.
+          printf '%s\n' "$out" >"$tmp" && mv "$tmp" "$CACHE"
+        ) &
+      fi
+
+      [ -f "$CACHE" ] || exit 0
+      cat "$CACHE"
+    '';
+  };
 in
 mkUserModule {
   name = "linear";
@@ -45,13 +137,22 @@ mkUserModule {
 
   home =
     { userCfg, ... }:
+    let
+      # All three, because the surface is assembled from all three: todoist
+      # drops the panel Lua, hammerspoon draws it, and only then is there
+      # anything to run this producer.
+      panelEnabled = userCfg.todoist.enable && userCfg.todoist.panel.enable && userCfg.hammerspoon.enable;
+    in
     {
       home.packages = [
         linear-cli
         pkgs.gum
         pkgs.jq
         pkgs.pngpaste
-      ];
+      ]
+      # On the profile rather than referenced by store path: the panel discovers
+      # its producers by globbing ~/.nix-profile/bin/*-panel-data.
+      ++ lib.optionals panelEnabled [ linear-panel-data ];
 
       # Fish shell integration: lin CLI wrapper and helper functions
       programs.fish = lib.mkIf userCfg.fish.enable {
