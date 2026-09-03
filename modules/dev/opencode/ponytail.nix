@@ -16,8 +16,8 @@ let
   ponytail-src = pkgs.fetchFromGitHub {
     owner = "DietrichGebert";
     repo = "ponytail";
-    rev = "adad50d9b393926b2dd5ed7225dcb1848b9df408";
-    hash = "sha256-Q6vlkbTfBFrNFTxEwYeMe5ciOe6QdULegvExwT//gJs=";
+    rev = "2ed6c52c9d7e5e56942508591085fd45dea277d3";
+    hash = "sha256-bGdXvzhWPwGdz3T2Yh2h6lf+3PBRFAfdBxP5pESmCHI=";
   };
 
   # Slash commands (`.opencode/command/*.md`) and trigger-activated skills
