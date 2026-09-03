@@ -9,8 +9,8 @@ let
     src = pkgs.fetchFromGitHub {
       owner = "ex-machina-co";
       repo = "opencode-anthropic-auth";
-      rev = "v1.8.1";
-      hash = "sha256-ScWQEEiwHQPt6MVzm3YKlC04/8eZ6HO5ZwOtqx84p0M=";
+      rev = "v1.8.3";
+      hash = "sha256-HbrQ+hPP2PRO0eUAZclYU8VrGZtrJtx1T7iE+IeRORw=";
     };
     patches = [ ./patches/anthropic-auth-fix-token-url.patch ];
   };
