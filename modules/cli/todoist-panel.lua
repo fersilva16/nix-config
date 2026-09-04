@@ -39,7 +39,6 @@ local retain = _G.__todoistPanelRetain
 
 local cfg = _G.__todoistPanelCfg or {}
 local WIDTH = cfg.width or 300
-local MAX = cfg.maxTasks or 12
 local SCREEN = cfg.screen
 local EVERY = cfg.refresh or 60
 
@@ -146,9 +145,15 @@ local function reserve()
     or nil
 end
 
--- How many rows fit on the target screen. maxTasks is the ceiling, but a short
--- screen outranks it: a row drawn past the bottom edge is a row that is not
--- there, and it has to be counted in "+N more" rather than silently lost.
+-- How many rows fit on the target screen — the ONLY bound. A row drawn past the
+-- bottom edge is a row that is not there, so it has to be counted in "+N more"
+-- rather than silently lost.
+--
+-- There used to be a maxTasks option capping this further, and it was the thing
+-- collapsing rows into "+N more" on a screen with room for forty more. A second
+-- smaller cap cannot make the list safer than the screen bound already does; it
+-- can only hide work. An ambient panel earns its strip by showing everything
+-- that fits, so the strip is the limit.
 --
 -- One rule instead of two. Clamping the panel HEIGHT to the screen was the
 -- obvious alternative and is worse — it produces a box the right size with rows
@@ -160,15 +165,15 @@ end
 -- fifty, and this way the height is provably <= the screen by construction.
 local function rowBudget()
   local screen = targetScreen()
+  -- No display attached at all: render() draws nothing either way, so bound
+  -- nothing rather than inventing a number and reporting rows as hidden. The
+  -- next tick, with a screen, computes a real budget.
   if not screen then
-    return MAX
+    return math.huge
   end
   local fits = math.floor((screen:frame().h - (PAD * 2) - HEAD_H) / ROW_H) - 1
   if fits < 1 then
     fits = 1
-  end
-  if fits > MAX then
-    fits = MAX
   end
   return fits
 end
@@ -245,8 +250,23 @@ local function render()
     -- canJoinAllSpaces so switching Spaces does not take the list away;
     -- stationary so Mission Control leaves it where it is.
     panel:behavior({ "canJoinAllSpaces", "stationary" })
-    -- No mouseCallback anywhere in this file, which is what keeps the canvas
-    -- click-through: hs.canvas sets ignoresMouseEvents until one is registered.
+    -- Swallow clicks. hs.canvas leaves ignoresMouseEvents on until a
+    -- mouseCallback is registered, so without these two lines a click aimed at
+    -- the panel lands on the Finder desktop behind it and sends every window
+    -- away. Nothing is lost by absorbing it: the panel holds a RESERVED strip,
+    -- so the desktop is the only thing back there.
+    --
+    -- The callback is deliberately empty. Read-only is the design (see the top
+    -- of this file) — this stops the misfire, it does not add a surface to
+    -- fiddle with. Making ROWS clickable is a different change: every row is
+    -- one line inside a single text element, so each would have to become its
+    -- own canvas element with its own frame before a click could name one.
+    --
+    -- clickActivating(false) is the half that keeps this invisible: it defaults
+    -- to TRUE, and left alone a stray click would pull Hammerspoon to the front
+    -- and steal focus from whatever is being typed in.
+    panel:clickActivating(false)
+    panel:mouseCallback(function() end)
     -- Square, not rounded. Rounded corners read as a floating widget; this is
     -- a pane sitting in its own strip, and terminals do not have rounded panes.
     panel[1] = {

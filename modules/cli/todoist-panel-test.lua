@@ -48,6 +48,12 @@ local canvas = setmetatable({}, {
         return s
       end
     end
+    if k == "mouseCallback" or k == "clickActivating" then
+      return function(s, v)
+        calls[k] = v
+        return s
+      end
+    end
     if k == "frame" then
       return function(s, f)
         if f then
@@ -224,10 +230,10 @@ local function rowsOf(n, state)
   return table.concat(t, "\n")
 end
 
--- Drives the SCREEN rather than overriding maxTasks. The installed file carries
--- a nix-generated `_G.__todoistPanelCfg` prelude that reassigns maxTasks on
--- every load, so a test that set it would pass locally against the bare source
--- and prove nothing about the file actually shipped.
+-- Drives the SCREEN, which is the panel's only row bound. The installed file
+-- carries a nix-generated `_G.__todoistPanelCfg` prelude that reassigns config
+-- on every load, so a test that set config directly would pass locally against
+-- the bare source and prove nothing about the file actually shipped.
 local function withScreen(h, fn)
   local saved = SCREEN
   SCREEN = { x = 0, y = 25, w = 1440, h = h }
@@ -243,7 +249,6 @@ end
 load_with(rowsOf(1))
 local cfg = _G.__todoistPanelCfg or {}
 local WIDTH = cfg.width or 300
-local MAX = cfg.maxTasks or 12
 
 -- The panel is full-height now, so its frame says nothing about how many rows
 -- it drew. Everything below counts STYLED RUNS instead: one per row it was
@@ -256,6 +261,14 @@ end
 
 local function rowText(i)
   return captured[i].s
+end
+
+-- The row budget the panel computes for whatever SCREEN is in effect, MEASURED
+-- by overflowing it rather than recomputed from the row height. A copy of the
+-- formula here would keep agreeing with itself after the panel's changed.
+local function budget()
+  load_with(rowsOf(500))
+  return drawnRows() - 1
 end
 
 -- ---------------------------------------------------------------------------
@@ -328,15 +341,16 @@ end)
 -- the screen, where the rows cannot be read and are not counted either.
 check("two producers share one pane, one budget and one +N more", function()
   withScreen(4000, function()
+    local fits = budget()
     load_with(
       "head\tlinear  2 active\nnormal\tENG-1  a\nnormal\tENG-2  b\n"
         .. "head\t\239\130\174  20 today\n"
-        .. rowsOf(MAX)
+        .. rowsOf(fits)
     )
     local t = text()
     assert(t:find("linear  2 active", 1, true), "the linear section should be drawn")
     assert(t:find("20 today", 1, true), "the todoist section should be drawn")
-    assert(drawnRows() == MAX + 1, "budget is shared across sections, drew " .. drawnRows())
+    assert(drawnRows() == fits + 1, "budget is shared across sections, drew " .. drawnRows())
     assert(t:find("%+5 more"), "overflow across both sections must be counted, got:\n" .. t)
     -- The separator itself: a blank line, costing a budget slot like any row,
     -- between the last linear row and the second section's head.
@@ -346,42 +360,54 @@ check("two producers share one pane, one budget and one +N more", function()
 end)
 
 check("overflow collapses into a +N more row", function()
-  load_with(rowsOf(MAX + 8))
+  local fits = budget()
+  load_with(rowsOf(fits + 8))
   local t = text()
   assert(t:find("%+8 more"), "expected '+8 more', got:\n" .. t)
-  assert(t:find("task " .. MAX, 1, true), "row " .. MAX .. " should be present")
-  assert(not t:find("task " .. (MAX + 1), 1, true), "row " .. (MAX + 1) .. " should be capped out")
-  assert(drawnRows() == MAX + 1, "should draw maxTasks rows plus the +N line, drew " .. drawnRows())
+  assert(t:find("task " .. fits .. "\n", 1, true), "row " .. fits .. " should be present")
+  assert(
+    not t:find("task " .. (fits + 1) .. "\n", 1, true),
+    "row " .. (fits + 1) .. " should be capped out"
+  )
+  assert(drawnRows() == fits + 1, "should draw the budget plus the +N line, drew " .. drawnRows())
 end)
 
--- The regression these two exist for: at the default maxTasks the panel is far
--- shorter than any normal screen, so a broken bound stays invisible until
--- someone raises the option or docks to a small display.
-check("a screen too short for maxTasks rows still fits, and says so", function()
+-- The regression these two exist for: the screen is now the ONLY bound, so a
+-- broken height computation shows up nowhere except as rows painted past the
+-- bottom edge, where they cannot be read and are not counted either.
+check("a screen too short for the list still fits, and says so", function()
+  local tall
+  withScreen(4000, function()
+    tall = budget()
+  end)
   withScreen(200, function()
     load_with(rowsOf(500))
     local f = lastFrame()
     assert(f.h == 200, "panel should still be exactly full height, got " .. f.h)
     -- Stated as a comparison against the roomy case rather than against a row
     -- height copied from the panel: if the budget ignored screen height, this
-    -- short pane would draw the same maxTasks rows as a 4000pt one and run them
-    -- straight off the bottom, where they cannot be read.
+    -- short pane would draw the same rows as a 4000pt one and run them straight
+    -- off the bottom, where they cannot be read.
     assert(
-      drawnRows() < MAX + 1,
+      drawnRows() < tall + 1,
       "a 200pt pane drew " .. drawnRows() .. " rows, same as a tall one -- they overflow"
     )
     assert(text():find("%+%d+ more"), "rows dropped for space must still be counted")
   end)
 end)
 
-check("a screen with room to spare is bounded by maxTasks", function()
-  withScreen(4000, function()
-    load_with(rowsOf(500))
-    assert(
-      drawnRows() == MAX + 1,
-      "should stop at maxTasks(" .. MAX .. ") + the +N row, drew " .. drawnRows()
-    )
+-- The other half, and the one the "+1 more on a half-empty screen" bug lived
+-- in: a taller screen has to actually USE the room. A fixed cap on top of the
+-- screen bound passes the check above and still fails this one.
+check("a taller screen draws more rows, so no fixed cap outranks it", function()
+  local short, tall
+  withScreen(400, function()
+    short = budget()
   end)
+  withScreen(4000, function()
+    tall = budget()
+  end)
+  assert(tall > short, "4000pt drew " .. tall .. " rows, 400pt drew " .. short .. " -- capped")
 end)
 
 -- Relationships, not thresholds: "red is redder than it is green" survives a
@@ -533,6 +559,23 @@ check("background is solid and square, not a translucent rounded widget", functi
     "background must be opaque, got alpha " .. tostring(bg.fillColor.alpha)
   )
   assert(bg.roundedRectRadii == nil, "a terminal pane has square corners")
+end)
+
+-- Locks a two-line fix that looks like dead code. The empty callback IS the
+-- mechanism: hs.canvas keeps ignoresMouseEvents on until one is registered, so
+-- deleting it as pointless puts the click back on the Finder desktop and sends
+-- every window away again.
+check("clicks are swallowed, not passed through to the desktop", function()
+  load_with(rowsOf(3))
+  assert(
+    type(calls.mouseCallback) == "function",
+    "a registered mouseCallback is what clears ignoresMouseEvents; got "
+      .. type(calls.mouseCallback)
+  )
+  assert(
+    calls.clickActivating == false,
+    "clickActivating defaults to TRUE -- unset, a stray click pulls Hammerspoon to the front"
+  )
 end)
 
 check("every line uses the terminal's own monospace font", function()
