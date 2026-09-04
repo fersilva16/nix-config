@@ -39,7 +39,6 @@ local retain = _G.__todoistPanelRetain
 
 local cfg = _G.__todoistPanelCfg or {}
 local WIDTH = cfg.width or 300
-local MAX = cfg.maxTasks or 12
 local SCREEN = cfg.screen
 local EVERY = cfg.refresh or 60
 
@@ -146,9 +145,15 @@ local function reserve()
     or nil
 end
 
--- How many rows fit on the target screen. maxTasks is the ceiling, but a short
--- screen outranks it: a row drawn past the bottom edge is a row that is not
--- there, and it has to be counted in "+N more" rather than silently lost.
+-- How many rows fit on the target screen — the ONLY bound. A row drawn past the
+-- bottom edge is a row that is not there, so it has to be counted in "+N more"
+-- rather than silently lost.
+--
+-- There used to be a maxTasks option capping this further, and it was the thing
+-- collapsing rows into "+N more" on a screen with room for forty more. A second
+-- smaller cap cannot make the list safer than the screen bound already does; it
+-- can only hide work. An ambient panel earns its strip by showing everything
+-- that fits, so the strip is the limit.
 --
 -- One rule instead of two. Clamping the panel HEIGHT to the screen was the
 -- obvious alternative and is worse — it produces a box the right size with rows
@@ -160,15 +165,15 @@ end
 -- fifty, and this way the height is provably <= the screen by construction.
 local function rowBudget()
   local screen = targetScreen()
+  -- No display attached at all: render() draws nothing either way, so bound
+  -- nothing rather than inventing a number and reporting rows as hidden. The
+  -- next tick, with a screen, computes a real budget.
   if not screen then
-    return MAX
+    return math.huge
   end
   local fits = math.floor((screen:frame().h - (PAD * 2) - HEAD_H) / ROW_H) - 1
   if fits < 1 then
     fits = 1
-  end
-  if fits > MAX then
-    fits = MAX
   end
   return fits
 end

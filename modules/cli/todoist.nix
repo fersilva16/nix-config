@@ -66,16 +66,6 @@ mkUserModule {
         description = "Panel width in points.";
       };
 
-      maxTasks = lib.mkOption {
-        type = lib.types.int;
-        default = 12;
-        description = ''
-          Rows to draw before collapsing the rest into a "+N more" line. The cap
-          is what keeps the list shorter than the screen — a panel that runs off
-          the bottom hides the overdue rows the sort worked to put at the top.
-        '';
-      };
-
       screen = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -1428,7 +1418,6 @@ mkUserModule {
         text = ''
           _G.__todoistPanelCfg = {
             width = ${toString cfg.panel.width},
-            maxTasks = ${toString cfg.panel.maxTasks},
             screen = ${if cfg.panel.screen == null then "nil" else ''"${cfg.panel.screen}"''},
           }
         ''
