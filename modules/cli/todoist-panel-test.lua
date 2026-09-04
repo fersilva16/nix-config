@@ -48,6 +48,12 @@ local canvas = setmetatable({}, {
         return s
       end
     end
+    if k == "mouseCallback" or k == "clickActivating" then
+      return function(s, v)
+        calls[k] = v
+        return s
+      end
+    end
     if k == "frame" then
       return function(s, f)
         if f then
@@ -553,6 +559,23 @@ check("background is solid and square, not a translucent rounded widget", functi
     "background must be opaque, got alpha " .. tostring(bg.fillColor.alpha)
   )
   assert(bg.roundedRectRadii == nil, "a terminal pane has square corners")
+end)
+
+-- Locks a two-line fix that looks like dead code. The empty callback IS the
+-- mechanism: hs.canvas keeps ignoresMouseEvents on until one is registered, so
+-- deleting it as pointless puts the click back on the Finder desktop and sends
+-- every window away again.
+check("clicks are swallowed, not passed through to the desktop", function()
+  load_with(rowsOf(3))
+  assert(
+    type(calls.mouseCallback) == "function",
+    "a registered mouseCallback is what clears ignoresMouseEvents; got "
+      .. type(calls.mouseCallback)
+  )
+  assert(
+    calls.clickActivating == false,
+    "clickActivating defaults to TRUE -- unset, a stray click pulls Hammerspoon to the front"
+  )
 end)
 
 check("every line uses the terminal's own monospace font", function()

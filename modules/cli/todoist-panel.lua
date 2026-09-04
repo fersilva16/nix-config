@@ -250,8 +250,23 @@ local function render()
     -- canJoinAllSpaces so switching Spaces does not take the list away;
     -- stationary so Mission Control leaves it where it is.
     panel:behavior({ "canJoinAllSpaces", "stationary" })
-    -- No mouseCallback anywhere in this file, which is what keeps the canvas
-    -- click-through: hs.canvas sets ignoresMouseEvents until one is registered.
+    -- Swallow clicks. hs.canvas leaves ignoresMouseEvents on until a
+    -- mouseCallback is registered, so without these two lines a click aimed at
+    -- the panel lands on the Finder desktop behind it and sends every window
+    -- away. Nothing is lost by absorbing it: the panel holds a RESERVED strip,
+    -- so the desktop is the only thing back there.
+    --
+    -- The callback is deliberately empty. Read-only is the design (see the top
+    -- of this file) — this stops the misfire, it does not add a surface to
+    -- fiddle with. Making ROWS clickable is a different change: every row is
+    -- one line inside a single text element, so each would have to become its
+    -- own canvas element with its own frame before a click could name one.
+    --
+    -- clickActivating(false) is the half that keeps this invisible: it defaults
+    -- to TRUE, and left alone a stray click would pull Hammerspoon to the front
+    -- and steal focus from whatever is being typed in.
+    panel:clickActivating(false)
+    panel:mouseCallback(function() end)
     -- Square, not rounded. Rounded corners read as a floating widget; this is
     -- a pane sitting in its own strip, and terminals do not have rounded panes.
     panel[1] = {
