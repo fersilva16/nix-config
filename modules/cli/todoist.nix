@@ -520,6 +520,37 @@ mkUserModule {
             td task update "id:$1" --due "$2" >/dev/null 2>&1
           }
 
+          # The four answers that cover almost every date, as a list instead of
+          # a text field. Typing "tomorrow" to mean tomorrow is a sentence you
+          # compose to say a thing you could have pointed at, and it is the
+          # single most common edit here.
+          #
+          # Every preset resolves to YYYY-MM-DD rather than passing the word
+          # through, because that is the one form every verb below accepts — so
+          # a preset keeps a repeat alive on due, and on deadline it is the only
+          # form the API takes at all. The resolved date is shown next to the
+          # label so the list also answers "which day is that".
+          #
+          # Shared by both date fields on purpose: they ask the same question
+          # about different columns, and one row apart is a bad place to learn a
+          # second interaction. $2 names the clear option, which is the only
+          # word that differs.
+          #
+          # GNU date, from coreutils in runtimeInputs. BSD date reads -d as a
+          # daylight-saving flag and would return today for all four.
+          date_presets() {
+            printf '%s\n' \
+              "today        $(date +%F):$(date +%F)" \
+              "tomorrow     $(date -d tomorrow +%F):$(date -d tomorrow +%F)" \
+              "this weekend $(date -d saturday +%F):$(date -d saturday +%F)" \
+              "next week    $(date -d 'next monday' +%F):$(date -d 'next monday' +%F)" \
+              "$2:__clear__" \
+              "custom…:__custom__" \
+              | gum choose --header "$(form_pad "$1")" --no-show-help \
+                  --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
+                  --label-delimiter ":" --height 8
+          }
+
           case "''${1:-}" in
             --list)
               render
@@ -761,6 +792,7 @@ mkUserModule {
                          ((.due.string // .due.date) | tostring) as $s
                          | (if ((.due.date | tostring)[0:10]) < $today then ($s | red) else ($s | grn) end)
                        else "" end)),
+                    row("deadline"; (if .deadline then (.deadline.date | ylw) else "" end)),
                     row("priority";
                       (if   (.priority // 1) == 4 then ("p1 · urgent" | red)
                        elif (.priority // 1) == 3 then ("p2 · medium" | ylw)
@@ -845,30 +877,11 @@ mkUserModule {
                   ;;
 
                 due)
-                  # The four answers that cover almost every reschedule, as a
-                  # list instead of a text field. Typing "tomorrow" to mean
-                  # tomorrow is a sentence you compose to say a thing you could
-                  # have pointed at, and it is the single most common edit here.
-                  #
-                  # Every preset resolves to YYYY-MM-DD rather than passing the
-                  # word through, because that is the one form BOTH verbs above
-                  # accept — so a preset moves a recurring task and keeps its
-                  # repeat, with nothing in this branch knowing about repeats.
-                  # The resolved date is shown next to the label so the list
-                  # also answers "which day is that".
-                  #
-                  # GNU date, from coreutils in runtimeInputs. BSD date reads -d
-                  # as a daylight-saving flag and would return today for all four.
-                  pick=$(printf '%s\n' \
-                    "today        $(date +%F):$(date +%F)" \
-                    "tomorrow     $(date -d tomorrow +%F):$(date -d tomorrow +%F)" \
-                    "this weekend $(date -d saturday +%F):$(date -d saturday +%F)" \
-                    "next week    $(date -d 'next monday' +%F):$(date -d 'next monday' +%F)" \
-                    "no date:__clear__" \
-                    "custom…:__custom__" \
-                    | gum choose --header "$(form_pad due)" --no-show-help \
-                        --cursor "  ❯  " --cursor.foreground 2 --selected.foreground 2 \
-                        --label-delimiter ":" --height 8) || exit 0
+                  # A preset here moves a recurring task and keeps its repeat,
+                  # because every one of them resolves to the YYYY-MM-DD that
+                  # both verbs in apply_due accept — so nothing in this branch
+                  # has to know about repeats.
+                  pick=$(date_presets due "no date") || exit 0
 
                   case "$pick" in
                     __custom__)
@@ -913,6 +926,47 @@ mkUserModule {
                         ;;
                       *) ok=0 ;;
                     esac
+                  fi
+                  ;;
+
+                deadline)
+                  # When the task stops being possible, as opposed to the day
+                  # you meant to work on it. Same picker as due, one row up.
+                  #
+                  # No recurring case: a deadline carries no repeat rule, so
+                  # clearing it destroys nothing and --no-deadline is the whole
+                  # of it — none of the apply_due machinery applies here.
+                  pick=$(date_presets deadline "no deadline") || exit 0
+
+                  case "$pick" in
+                    __custom__)
+                      # ISO or nothing. Measured against the live API, not the
+                      # --due branch's rules: `--deadline friday` and
+                      # `--deadline "in 3 days"` both come back HTTP 400, so the
+                      # prose that due takes happily is refused here rather than
+                      # sent off to fail as an unexplained "could not save".
+                      cur=$(form_field "$id" '.deadline.date')
+                      pick=$(gum input --prompt "$(form_pad deadline)" --no-show-help \
+                        --value "$cur" --width 0 --placeholder "YYYY-MM-DD" \
+                        --cursor.foreground 2 --placeholder.foreground 245) || exit 0
+                      [ -n "$pick" ] || exit 0
+                      case "$pick" in
+                        [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
+                        *)
+                          ok=2
+                          msg="deadlines take YYYY-MM-DD only"
+                          ;;
+                      esac
+                      ;;
+                    __clear__) pick="" ;;
+                  esac
+
+                  if [ "$ok" = 1 ]; then
+                    if [ -n "$pick" ]; then
+                      td task update "id:$id" --deadline "$pick" >/dev/null 2>&1 || ok=0
+                    else
+                      td task update "id:$id" --no-deadline >/dev/null 2>&1 || ok=0
+                    fi
                   fi
                   ;;
 
