@@ -1,0 +1,56 @@
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -28147,6 +28147,10 @@
+   const modelName = extractModelName2(model).toLowerCase();
+   return modelName.includes("gpt-5.6") || modelName.includes("gpt-5-6");
+ }
++function isGpt6Model(model) {
++  const modelName = extractModelName2(model).toLowerCase();
++  return modelName.includes("gpt-6");
++}
+ 
+ // packages/omo-opencode/src/tools/delegate-task/openai-categories.ts
+ var ULTRABRAIN_CATEGORY_PROMPT_APPEND = `<Category_Context>
+@@ -107385,6 +107389,8 @@
+ function getNativeSisyphusGptVariant(model) {
+   if (isGpt5_5Model(model.modelID))
+     return "medium";
++  if (isGpt6Model(model.modelID))
++    return "high";
+   const chain = AGENT_MODEL_REQUIREMENTS["sisyphus"]?.fallbackChain ?? [];
+   const exactMatch = chain.find((entry) => entry.providers.includes(model.providerID) && entry.model === model.modelID);
+   if (exactMatch?.variant !== undefined) {
+@@ -107398,13 +107404,13 @@
+       const rawAgent = input.agent ?? getSessionAgent(input.sessionID) ?? "";
+       const agentKey = getAgentConfigKey(rawAgent);
+       const modelID = input.model?.modelID;
+-      if (agentKey === "sisyphus" && input.model && modelID && isGptNativeSisyphusModel(modelID) && output?.message && output.message.variant === undefined) {
++      if (agentKey === "sisyphus" && input.model && modelID && (isGptNativeSisyphusModel(modelID) || isGpt6Model(modelID)) && output?.message && output.message.variant === undefined) {
+         const variant = getNativeSisyphusGptVariant(input.model);
+         if (variant !== undefined) {
+           output.message.variant = variant;
+         }
+       }
+-      if (agentKey === "sisyphus" && modelID && isGptModel(modelID) && !isGptNativeSisyphusModel(modelID)) {
++      if (agentKey === "sisyphus" && modelID && isGptModel(modelID) && !isGptNativeSisyphusModel(modelID) && !isGpt6Model(modelID)) {
+         showToast(ctx, input.sessionID);
+         input.agent = resolveRegisteredAgentName("hephaestus") ?? "hephaestus";
+         if (output?.message) {
+@@ -156515,7 +156521,7 @@
+     return "kimi-k2-7";
+   if (isKimiK2Model(model))
+     return "kimi-k2-6";
+-  if (isGpt5_5Model(model) || isGpt5_6Model(model))
++  if (isGpt5_5Model(model) || isGpt5_6Model(model) || isGpt6Model(model))
+     return "gpt-5-5";
+   if (isGptNativeSisyphusModel(model))
+     return "gpt-5-4";
+@@ -160878,7 +160884,7 @@
+   if (model && isKimiK2Model(model))
+     return "kimi-k2";
+   if (model && isGptModel(model)) {
+-    if (isGpt5_5Model(model) || isGpt5_6Model(model))
++    if (isGpt5_5Model(model) || isGpt5_6Model(model) || isGpt6Model(model))
+       return "gpt-5-5";
+     const lower = model.toLowerCase();
+     if (lower.includes("gpt-5.4") || lower.includes("gpt-5-4"))
