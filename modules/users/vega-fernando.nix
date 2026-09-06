@@ -41,6 +41,7 @@ mkUser {
   doppler.enable = true;
   claude.enable = true;
   "claude-code".enable = true;
+  codex.enable = true;
   opencode = {
     enable = true;
     server.autoAttach = false;
@@ -48,6 +49,7 @@ mkUser {
   openclaw.enable = true;
   playwright-cli.enable = true;
   opencode-manager.enable = true;
+  antiburn.enable = true;
   # rtk.enable = true;
   ollama.enable = true;
   # hermes.enable = true;
