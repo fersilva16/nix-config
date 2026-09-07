@@ -7,7 +7,14 @@ mkUser {
   # Shell & CLI
   atuin.enable = true;
   bat.enable = true;
-  ssh.enable = true;
+  ssh = {
+    enable = true;
+    # 1Password "SSH Key" — the auth key, distinct from the "SSH Signing Key"
+    # that modules/security/1password.nix hands to git.
+    authorizedKeys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBF9AdnNjLReo7Z2U0gifKkH3FR4str9pMvBbAcCzaj"
+    ];
+  };
   fish.enable = true;
   starship.enable = true;
   direnv.enable = true;
@@ -39,6 +46,9 @@ mkUser {
 
   # Chat
   discord.enable = true;
+
+  # Networking
+  tailscale.enable = true;
 
   # Security
   "1password".enable = true;
