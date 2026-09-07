@@ -311,6 +311,12 @@ mkUserModule {
           # Reload config with prefix + R
           bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
 
+          # Reach a nested tmux: prefix twice. `polaris` attaches polaris's tmux
+          # from inside this one, and both ends run this same config, so without
+          # this every C-Space is eaten by the outer server and the inner one is
+          # uncontrollable.
+          bind-key C-Space send-prefix
+
           # New windows open at nearest git root; panes inherit current directory.
           # prefix+c reuses an idle window at that root if one exists (see
           # tmux-new-window); prefix+C always creates, mirroring the s/S split.
