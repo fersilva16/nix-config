@@ -59,18 +59,23 @@ let
 in
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "antiburn";
-  version = "0.3.3";
+  version = "0.4.0";
 
   src = fetchFromGitHub {
     owner = "antiburn";
     repo = "antiburn";
-    rev = "250b62733a6abeaa93ac6e76b0a0e958d2cf607b";
-    hash = "sha256-ZSroz7K9ReiWa/qbsSu2dGKXgSS1Xpeb+6A9leLhIew=";
+    rev = "fc5921447a8f030e525b2a95cf0568a3f25f99a4";
+    hash = "sha256-a63FNfD6X6b29TcUbB3qvquRW10v6mlmSaSYpn1STuQ=";
   };
 
   # Not passed to fetchPnpmDeps or cargoLock below: both read the unpatched
-  # src, and this patch only touches Rust, so neither hash moves.
-  patches = [ ./sqlite-connection-reuse.patch ];
+  # src, and these patches only touch Rust, so neither hash moves. Order
+  # matters — cluster-join-order.patch is cut against the tree
+  # sqlite-connection-reuse.patch leaves behind.
+  patches = [
+    ./sqlite-connection-reuse.patch
+    ./cluster-join-order.patch
+  ];
 
   # Only the desktop app is needed to produce the frontend bundle. The
   # workspace root's devDependencies are lint/CI tooling (secretlint, and an
@@ -97,7 +102,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
         ;
       pnpm = pnpm_11;
       fetcherVersion = 3;
-      hash = "sha256-yfN8xdqSGmd5HUPLdocuW7L/GTjhJx4g8BhajYtdOlY=";
+      hash = "sha256-OuZZ0S0nxH1UIr9lIJbBTSJXEaBGVr/+n6tyXGsmcpk=";
     }).overrideAttrs
       (old: {
         installPhase =
@@ -107,7 +112,17 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   postPatch = ''
     # Updater artifacts need upstream's minisign key, which we do not have.
-    jq '.bundle.createUpdaterArtifacts = false' apps/desktop/src-tauri/tauri.conf.json \
+    #
+    # Blanking the public key is the other half of that same decision, and it
+    # is upstream's own off-switch: `install_updater` returns early on an empty
+    # `plugins.updater.pubkey`, so the plugin is never registered and no check
+    # ever reaches the network. Nix owns this install — the app lives in the
+    # read-only store, where a self-update can only fail (observed: "Cross-device
+    # link (os error 18)" after downloading the whole payload). Leaving the key
+    # in place buys a download every six hours and an update nudge for an
+    # install that cannot happen; `darwin-rebuild` is the upgrade path.
+    jq '.bundle.createUpdaterArtifacts = false | .plugins.updater.pubkey = ""' \
+      apps/desktop/src-tauri/tauri.conf.json \
       | sponge apps/desktop/src-tauri/tauri.conf.json
 
     # The repo pins rust 1.97; nixpkgs is on 1.94. The pin is a floor, not a
