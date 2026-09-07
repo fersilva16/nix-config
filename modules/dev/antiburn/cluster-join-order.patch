@@ -1,0 +1,41 @@
+diff --git a/crates/antiburn-local/src/discovery/agents/opencode.rs b/crates/antiburn-local/src/discovery/agents/opencode.rs
+index 420f2b9..b062afe 100644
+--- a/crates/antiburn-local/src/discovery/agents/opencode.rs
++++ b/crates/antiburn-local/src/discovery/agents/opencode.rs
+@@ -2781,14 +2781,33 @@ pub(crate) fn db_session_fingerprint_connection(
+     } else {
+         "WITH cluster(id) AS (SELECT id FROM session WHERE id = ?1)"
+     };
++    // `cluster` is a materialized CTE, so SQLite has no row-count estimate for
++    // it and picks the wrong loop order: it drives from `message` / `part` and
++    // probes `cluster` through an automatic covering index. That turns every
++    // fingerprint into a full scan of `part` — the largest table in the
++    // database — no matter how small the session is, so the cost is O(rows in
++    // the database) per session instead of O(rows in the session). Against a
++    // 7.7 GB `opencode.db` (5.4k sessions, 845k parts) that measured 1965 ms
++    // per session, and a scan fingerprints every session.
++    //
++    // `CROSS JOIN` keeps the join order exactly as written, which is SQLite's
++    // documented way to override the planner. Driving from `cluster` (one row
++    // for an unforked session) lets the inner lookup use `part_session_idx`
++    // and `message_session_time_created_id_idx` instead: 1.3 ms per session on
++    // the same database.
++    //
++    // The join order is a planner hint with no bearing on the result set:
++    // `CROSS JOIN` is an inner join in SQLite exactly as `JOIN` is, and
++    // `COUNT` / `MAX` are order-independent, so the fingerprint is identical
++    // under either plan.
+     conn.query_row(
+         &format!(
+             "{cluster}, records(updated) AS (
+-             SELECT COALESCE(time_updated, time_created, 0) FROM session JOIN cluster ON session.id = cluster.id
++             SELECT COALESCE(session.time_updated, session.time_created, 0) FROM cluster CROSS JOIN session ON session.id = cluster.id
+              UNION ALL
+-             SELECT COALESCE(time_updated, time_created, 0) FROM message JOIN cluster ON message.session_id = cluster.id
++             SELECT COALESCE(message.time_updated, message.time_created, 0) FROM cluster CROSS JOIN message ON message.session_id = cluster.id
+              UNION ALL
+-             SELECT COALESCE(time_updated, time_created, 0) FROM part JOIN cluster ON part.session_id = cluster.id
++             SELECT COALESCE(part.time_updated, part.time_created, 0) FROM cluster CROSS JOIN part ON part.session_id = cluster.id
+          )
+          SELECT COUNT(*), MAX(updated) FROM records"
+         ),
