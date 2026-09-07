@@ -20,7 +20,12 @@ let
       # ponytail: was vm.loadavg/ncpu, but macOS load counts threads that aren't
       # running, so it pinned at 100% with the CPU 70% idle. ps pcpu is a
       # decaying per-process average — close enough for a status bar.
-      ncpu=$(sysctl -n hw.ncpu 2>/dev/null)
+      # getconf, not `sysctl -n hw.ncpu`: that spelling is macOS-only and on
+      # Linux fell into the ''${ncpu:-1} fallback, dividing by 1 core instead of
+      # 32 and pinning the widget at 100% again. getconf is correct on both.
+      # ponytail: Linux ps pcpu is a lifetime average, not a decaying one, so
+      # short spikes under-report. /proc/stat deltas if that ever matters.
+      ncpu=$(getconf _NPROCESSORS_ONLN 2>/dev/null)
       cpu=$(ps -Ao pcpu 2>/dev/null | awk -v n="''${ncpu:-1}" 'NR > 1 { s += $1 } END { v = s / n; printf "%.0f", (v > 100 ? 100 : v) }')
       [[ -z "''${cpu}" ]] && exit 0
 
