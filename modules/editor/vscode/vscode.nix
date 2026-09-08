@@ -34,16 +34,18 @@ let
     in
     if attempt.success then attempt.value else null;
 
-  # Extensions whose marketplace package fails to *build* on this platform —
-  # tryEval below only catches eval-time failures. They keep working as
-  # manual installs via mutableExtensionsDir.
+  # Extensions whose marketplace package fails to *build* — tryEval below only
+  # catches eval-time failures. They keep working as manual installs via
+  # mutableExtensionsDir.
   # ponytail: hardcoded skip list; generalize only if it grows.
-  brokenOnThisPlatform = forPlatform {
-    # oxc resolves to an ancient 0.0.2 vsix on linux whose package.json
-    # trips the extension builder ("cannot use null as iterable").
-    linux = [ "oxc.oxc-vscode" ];
-  };
-  declaredIds = lib.subtractLists brokenOnThisPlatform (import ./extensions.nix);
+  brokenExtensions = [
+    # Abandoned under this id: the marketplace only carries an 0.0.2 vsix from
+    # 2023, whose package.json trips the extension builder ("cannot use null as
+    # iterable"). Was linux-only until the 26.11 builder rejected it on darwin
+    # too — no newer version exists to move to.
+    "oxc.oxc-vscode"
+  ];
+  declaredIds = lib.subtractLists brokenExtensions (import ./extensions.nix);
   resolvedExtensions = builtins.filter (pkg: pkg != null) (map resolve declaredIds);
   unavailableIds = builtins.filter (id: resolve id == null) declaredIds;
   extensions =
@@ -86,7 +88,7 @@ let
       echo "]"
     } > "$tmp"
 
-    ${pkgs.nixfmt-rfc-style}/bin/nixfmt "$tmp" >/dev/null 2>&1 || true
+    ${pkgs.nixfmt}/bin/nixfmt "$tmp" >/dev/null 2>&1 || true
     mv "$tmp" "$out"
 
     echo "vscode-sync-extensions: wrote $out"
