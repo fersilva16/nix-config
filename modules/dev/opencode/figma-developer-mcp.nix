@@ -18,7 +18,7 @@ let
   # FD-tracking regression. The fetchPnpmDeps `pnpm` arg controls only the
   # pnpm binary used to populate the offline store — runtime use of the
   # output by downstream builds is unaffected.
-  pnpm = pnpm_10.override { nodejs = nodejs_22; };
+  pnpm = pnpm_10.override { nodejs-slim = nodejs_22; };
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "figma-developer-mcp";

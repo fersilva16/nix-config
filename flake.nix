@@ -34,12 +34,17 @@
       inputs.brew-src.follows = "brew-src";
     };
 
-    # Pin brew to a version that includes the cask OS-dependency regression fix
-    # (https://github.com/Homebrew/brew/pull/22261), required for casks like
-    # stremio and iina that combine `on_arm`/`on_intel` macOS deps with a
-    # top-level `depends_on :macos`.
+    # Floor is brew 6.0.0: nix-darwin's homebrew activation passes
+    # `--zap --force-cleanup` to `brew bundle`, and `--force-cleanup` did not
+    # exist before 6.0.0 (5.x only had `-f`/`--force`), so an older brew aborts
+    # activation with "Error: invalid option: --force-cleanup".
+    #
+    # Also still satisfies the reason this was pinned in the first place: the
+    # cask OS-dependency regression fix (https://github.com/Homebrew/brew/pull/22261),
+    # required for casks like stremio and iina that combine `on_arm`/`on_intel`
+    # macOS deps with a top-level `depends_on :macos`.
     brew-src = {
-      url = "github:Homebrew/brew/5.1.13";
+      url = "github:Homebrew/brew/6.0.22";
       flake = false;
     };
 

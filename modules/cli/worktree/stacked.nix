@@ -22,25 +22,6 @@
 let
   inherit (pkgs) lib;
 
-  # nixpkgs ships git-revise 0.7.0 (GPG-only signing). git-stack-cli rebases via
-  # `git revise`, and commits here are signed with SSH (1Password) — unsupported
-  # until v0.8.0 (PR #136). Without it the revise step aborts trying to run a
-  # missing `gpg`. Override to 0.8.0 so it signs via gpg.format=ssh +
-  # gpg.ssh.program (op-ssh-sign), keeping the stack's commits signed.
-  git-revise = pkgs.git-revise.overridePythonAttrs (old: {
-    version = "0.8.0";
-    src = pkgs.fetchurl {
-      url = "https://files.pythonhosted.org/packages/source/g/git-revise/git_revise-0.8.0.tar.gz";
-      hash = "sha256-MjmxgJzWWbM/bzI9O/ylx+Op6y6s4iPPY7NG+RyMgxw=";
-    };
-    # 0.8.0 switched setup.py → pyproject.toml (hatchling), and its PyPI sdist
-    # omits the tests dir, so the upstream pytest checkPhase collects nothing
-    # and fails — build it as a pyproject and skip the check.
-    format = "pyproject";
-    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.python3.pkgs.hatchling ];
-    doCheck = false;
-  });
-
   git-stack-cli = pkgs.stdenvNoCC.mkDerivation {
     pname = "git-stack-cli";
     version = "2.11.0";
@@ -103,10 +84,12 @@ in
 {
   home = {
     # git-stack is the engine; git-revise is the in-memory rebase helper it
-    # shells out to. gh comes from the git module.
+    # shells out to. gh comes from the git module. git-revise must stay >= 0.8.0
+    # (PR #136): commits here are SSH-signed via 1Password, and 0.7.0 was
+    # GPG-only, so the revise step aborted looking for a missing `gpg`.
     home.packages = [
       git-stack-cli
-      git-revise
+      pkgs.git-revise
     ];
 
     programs.fish = {
@@ -211,7 +194,7 @@ in
         # which the binary honors globally across every subcommand (several reject
         # the -b flag, e.g. rebase). git-stack-cli only auto-detects
         # origin/master|main, so this is what makes it work on any default branch
-        # (e.g. prod). Signing is left ON — `git revise` (0.8.0 override above)
+        # (e.g. prod). Signing is left ON — `git revise` (>= 0.8.0)
         # SSH-signs via 1Password. Scoped to the call via `env`; an explicit
         # GIT_STACK_CONFIG override is respected.
         _wts_gs = ''
