@@ -595,37 +595,56 @@ mkUserModule {
                 rm -f "$tmp"
               fi
 
-              # Detached with both streams closed: execute-silent waits on the
-              # child's pipes, so leaving stdout open would hand the round trip
-              # straight back to the keypress it was just taken out of.
-              (
-                # This is the whole reason the write survives. tmux destroys the
-                # popup pane the moment the picker exits, which SIGHUPs its
-                # process group — and a backgrounded child is still in it. So
-                # pressing x and then esc killed the writer mid-flight, leaving
-                # the marker behind forever and the sync icon stuck on.
-                #
-                # Exactly what nohup does, inline because the body is a compound
-                # statement and nohup takes a command. SIG_IGN survives exec, so
-                # the `td` below ignores the signal too — which is the half that
-                # actually matters.
-                #
-                # An empty double-quoted string, not the usual empty single
-                # quotes: this is a nix indented string, where a pair of single
-                # quotes is the terminator.
-                trap "" HUP
-                if td task complete "id:$2" --quiet >/dev/null 2>&1; then
-                  rm -f "$PENDING/$2"
-                else
-                  # The server still has the task, so the refresh puts the row
-                  # back — that IS the recovery, and the only reason the delete
-                  # above is safe to do before the write. The marker exists so
-                  # the return reads as "did not save" instead of a ghost.
-                  touch "$FAILED/$2"
-                  rm -f "$PENDING/$2"
-                  ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
-                fi
-              ) >/dev/null 2>&1 &
+              # Handed to the tmux SERVER, not backgrounded here. tmux destroys
+              # the popup pane the moment the picker exits, and SIGHUPs its
+              # process group on the way out — so `x` then esc killed the write
+              # mid-flight, which is most of the 1.2s it spends on the network.
+              #
+              # A backgrounded child is in that group and dies with it. Ignoring
+              # the signal here does not save it either: the trap sets SIG_IGN in
+              # THIS shell, and `td` is a node binary that re-arms SIGHUP for
+              # itself on startup, so the child died on signal 1 (exit 129) with
+              # the trap in place. Measured, not assumed — that is what left the
+              # failed marker and the red `!` behind every completion.
+              #
+              # run-shell -b parents the write to the tmux server, which outlives
+              # every popup, so nothing the pane does on teardown can reach it.
+              # Always available: both ways in (prefix+t and hyper+t) are a tmux
+              # display-popup, so there is no path here without a server.
+              #
+              # Deliberately NOT in runtimeInputs: writeShellApplication prepends
+              # those, so a nixpkgs tmux would shadow the one on the inherited
+              # PATH — and a client only talks to a server of its own protocol.
+              # The server here is still 3.6a while the profile has moved to
+              # 3.7c, so pinning the new one would fail every handoff. The
+              # inherited binary is by construction the one that started the
+              # server we are running inside.
+              #
+              # Synchronous fallback rather than a second background attempt: if
+              # the handoff fails there is no server to outlive anything, and a
+              # 1.2s pause is the cheap outcome next to a completion that is
+              # gone from the list and never reached Todoist.
+              tmux run-shell -b "$self --finish $2" 2>/dev/null ||
+                "$self" --finish "$2"
+              exit 0
+              ;;
+
+            --finish)
+              # The write itself, run detached by --complete above. Split into
+              # its own verb because run-shell takes a command rather than a
+              # compound statement.
+              [ -n "''${2:-}" ] || exit 0
+              if td task complete "id:$2" --quiet >/dev/null 2>&1; then
+                rm -f "$PENDING/$2"
+              else
+                # The server still has the task, so the refresh puts the row
+                # back — that IS the recovery, and the only reason the delete
+                # in --complete is safe to do before the write. The marker
+                # exists so the return reads as "did not save" than a ghost.
+                touch "$FAILED/$2"
+                rm -f "$PENDING/$2"
+                ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+              fi
               exit 0
               ;;
 
