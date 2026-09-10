@@ -147,6 +147,7 @@ mkUser {
   libreoffice.enable = true;
   word.enable = true;
   "windows-app".enable = true;
+  anydesk.enable = true;
   granola.enable = true;
   "wispr-flow".enable = true;
   "cold-turkey-blocker".enable = false;
