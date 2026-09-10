@@ -119,7 +119,11 @@ mkUser {
   ghostty.enable = true;
 
   # Chat & communication
-  slack.enable = true;
+  slack = {
+    enable = true;
+    later.workspace = "telepatiaworkspace.slack.com";
+    later.enable = true;
+  };
   teams.enable = true;
   telegram.enable = true;
   whatsapp.enable = true;
