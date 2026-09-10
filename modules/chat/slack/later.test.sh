@@ -227,6 +227,24 @@ export TMUX_SLACK_LATER_SECURITY="$TMP/bin/security"
 
 export TMUX_SLACK_LATER_PROFILE="$TMP/missing/Default"
 export TMUX_SLACK_LATER_WORKSPACE="telepatiaworkspace.slack.com"
+
+# 0. --cached answers from disk and never fetches — this is what lets a caller
+# paint before the network. Nothing has run yet, so the cache root is absent: a
+# refresh that slipped in would have had to mkdir it, and would have hit curl.
+: >"$CURL_LOG"
+cached_cold=$(bash "$SRC" list --cached)
+check "cold --cached reports loading" "loading" "$(jq -r '.error' <<<"$cached_cold")"
+check "cold --cached still returns a list" "0" "$(jq '.items | length' <<<"$cached_cold")"
+check "cold --cached writes no cache" "absent" \
+  "$([[ -e "$TMUX_SLACK_LATER_CACHE_ROOT" ]] && echo present || echo absent)"
+[[ ! -s "$CURL_LOG" ]] || {
+  echo "FAIL --cached made an HTTP request" >&2
+  exit 1
+}
+printf 'ok   cold --cached makes no HTTP request\n'
+check "list rejects an unknown flag" "64" \
+  "$(bash "$SRC" list --nope >/dev/null 2>&1 || echo $?)"
+
 missing_list=$(bash "$SRC" list)
 first_cache=$(cache)
 check "absent profile records profile error" "profile" "$(jq -r '.error' "$first_cache")"
@@ -304,6 +322,19 @@ check "fresh list returns cached title" "One summary" "$(jq -r '.items[0].title'
   exit 1
 }
 printf 'ok   fresh list makes no HTTP request\n'
+
+# A stale cache is precisely the case plain `list` spends a refresh on. --cached
+# hands the stale rows over untouched instead, which is a caller's first frame.
+touch -t 200001010000 "$success_cache"
+: >"$CURL_LOG"
+stale_cached=$(MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" list --cached)
+check "stale --cached serves the stale rows" "12" "$(jq '.items | length' <<<"$stale_cached")"
+check "stale --cached does not mark them loading" "" "$(jq -r '.error' <<<"$stale_cached")"
+[[ ! -s "$CURL_LOG" ]] || {
+  echo "FAIL stale --cached made an HTTP request" >&2
+  exit 1
+}
+printf 'ok   stale --cached makes no HTTP request\n'
 
 cat >"$success_cache" <<'EOF'
 {"counts":{"uncompleted_count":52,"uncompleted_overdue_count":0},"error":""}

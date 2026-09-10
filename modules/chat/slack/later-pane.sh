@@ -10,6 +10,9 @@ WORKSPACE=${TMUX_SLACK_LATER_WORKSPACE:-}
 # umask 077 in a per-user TMPDIR: the snapshot is real Later content, so it
 # never lands in a shared path or a repo fixture.
 SNAP="${TMPDIR:-/tmp}/tmux-slack-later-pane.json"
+# Set once the pane's first real backend load has been kicked off, so the `load`
+# event can tell that one from every later one without fzf keeping state for us.
+LOADED="$SNAP.loaded"
 # fzf runs every bind through `sh -c`, so the re-entry command has to be one a
 # shell can actually execute. $0 alone is not: this file lives in the nix store
 # with no executable bit, and the wrapper reaches it as an argument to bash.
@@ -18,11 +21,17 @@ self="${BASH:-bash} \"$0\""
 
 # One list call per view change, not per subcommand: --list and --header run off
 # the same snapshot, so the header cannot claim a count the rows disagree with.
+# Args are forwarded: `snapshot --cached` takes whatever the backend already has
+# without waiting for a fetch.
 snapshot() {
   local tmp
   umask 077
   tmp=$(mktemp "$SNAP.XXXXXX") || return 1
-  if tmux-slack-later-list >"$tmp" 2>/dev/null &&
+  # fzf kills a reader it has superseded, and this one is holding real Later
+  # content in a half-written file.
+  # shellcheck disable=SC2064  # expanding now is the point: $tmp is local
+  trap "rm -f '$tmp'" EXIT HUP INT TERM
+  if tmux-slack-later-list "$@" >"$tmp" 2>/dev/null &&
     jq -e 'type == "object"' "$tmp" >/dev/null 2>&1; then
     mv "$tmp" "$SNAP"
   else
@@ -64,11 +73,11 @@ render() {
 placeholder() {
   local error
   error=$(jq -r '(.error // "") | tostring | gsub("[^a-zA-Z0-9 _-]"; "")' "$SNAP" 2>/dev/null) || error=""
-  if [ -n "$error" ]; then
-    printf '\033[2mcould not load Later (%s) — r to retry\033[0m' "$error"
-  else
-    printf '\033[2mnothing saved for later\033[0m'
-  fi
+  case "$error" in
+    "") printf '\033[2mnothing saved for later\033[0m' ;;
+    loading) printf '\033[2mloading Later…\033[0m' ;;
+    *) printf '\033[2mcould not load Later (%s) — r to retry\033[0m' "$error" ;;
+  esac
 }
 
 # "Later · 12 · 10 shown · truncated · ⚠ credentials". The tally shows only when
@@ -90,7 +99,12 @@ header_line() {
   case "${shown:-}" in "" | *[!0-9]*) shown=0 ;; esac
   [ "$shown" = "$n" ] || extra=" · $shown shown"
   [ "${truncated:-0}" != 1 ] || extra="$extra · truncated"
-  [ -z "${error:-}" ] || extra="$extra · ⚠ $error"
+  # A fetch in flight is not a failure: no ⚠, just a count that is not final.
+  case "${error:-}" in
+    "") ;;
+    loading) extra="$extra · loading…" ;;
+    *) extra="$extra · ⚠ $error" ;;
+  esac
   printf 'Later · %s%s\n' "$n" "$extra"
   printf 'enter open · / search · r refresh · q quit\n'
 }
@@ -110,7 +124,10 @@ valid_url() {
 }
 
 case "${1:-}" in
-  --list)
+  # --load is --list with the real backend call in front of it: the fetch fzf
+  # runs behind the cached rows once they are already on screen.
+  --list | --load)
+    [ "$1" = --list ] || snapshot
     rows=$(render)
     [ -n "$rows" ] || rows=$'\t'"$(placeholder)"
     printf '%s\n' "$rows"
@@ -118,6 +135,20 @@ case "${1:-}" in
     ;;
   --header)
     header_line
+    exit 0
+    ;;
+  # fzf fires `load` after every list it finishes reading. The first one is the
+  # cached snapshot, and answers with the fetch that replaces it; every later
+  # one is a finished fetch, and answers with the header it left behind. Both
+  # are printed for fzf's `transform`, which runs whatever actions it is given.
+  --loaded)
+    # A marker we cannot write answers as if the fetch already happened: fzf
+    # loads what a reload delivers, so a reload it can never mark down is a loop.
+    if [ -e "$LOADED" ] || ! : 2>/dev/null >"$LOADED"; then
+      printf 'transform-header(%s --header)' "$self"
+    else
+      printf 'reload-sync(%s --load)' "$self"
+    fi
     exit 0
     ;;
   --refresh)
@@ -132,7 +163,11 @@ case "${1:-}" in
     ;;
 esac
 
-snapshot
+# Whatever the backend already has, with no fetch in the way: a cache that is
+# stale, or missing entirely, still gives fzf something to be interactive with
+# on the first frame. The fetch happens under the `load` bind below.
+rm -f "$LOADED"
+snapshot --cached
 list=$(render)
 [ -n "$list" ] || list=$'\t'"$(placeholder)"
 
@@ -145,9 +180,15 @@ b_refresh='execute-silent('"$self"' --refresh)+'"$redraw"
 # for the duration of a query; change:clear-query wipes the letters --disabled
 # would otherwise silently collect in menu mode.
 b_search='unbind(change)+unbind(q)+unbind(r)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
-b_esc_back='clear-query+disable-search+change-prompt(❯ )+rebind(change)+rebind(q)+rebind(r)+rebind(/)+'"$redraw"
+b_esc_back='clear-query+disable-search+change-prompt(❯ )+rebind(change)+rebind(q)+rebind(r)+rebind(/)'
 # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's variable, not bash's
 b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
+# search() re-matches every row, which a cleared query no longer does once
+# search is off, and it has to ride on the bind: emitted from the transform,
+# fzf ignores it. It stands in for the reload that used to end this path, which
+# killed the first load still fetching — with the marker down, nothing would
+# start another. On the abort branch fzf is quitting, so it lands nowhere.
+b_esc="$b_esc+search()"
 
 printf '%s\n' "$list" | fzf \
   --ansi --no-sort --layout=reverse --cycle \
@@ -159,6 +200,7 @@ printf '%s\n' "$list" | fzf \
   --gutter=' ' \
   --color='pointer:green,prompt:green,info:dim,header:dim' \
   --header="$(header_line)" \
+  --bind "load:transform($self --loaded)" \
   --bind "enter:$b_open" \
   --bind "r:$b_refresh" \
   --bind "/:$b_search" \

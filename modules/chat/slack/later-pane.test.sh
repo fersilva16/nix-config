@@ -124,6 +124,12 @@ check "an empty list says it is empty" "$(run --list | plain | cut -f2)" \
   "nothing saved for later"
 check "the empty placeholder carries no url" "$(run --list | cut -f1)" ""
 
+snapshot '{"counts":{"uncompleted_count":0},"items":[],"error":"loading","truncated":false}'
+check "a first frame with no cache says so" "$(run --list | plain | cut -f2)" \
+  "loading Later…"
+check "a fetch in flight is not dressed as a failure" "$(run --header | head -1)" \
+  "Later · 0 · loading…"
+
 snapshot '{"counts":{"uncompleted_count":0},"items":[],"error":"credentials","truncated":false}'
 check "a failed read does not pose as an empty list" "$(run --list | plain | cut -f2)" \
   "could not load Later (credentials) — r to retry"
@@ -195,6 +201,73 @@ check "r refreshes the backend cache before re-listing" \
 check "r then re-reads the list" \
   "$(grep -c 'tmux-slack-later-list' "$CALLED")" "1"
 check "refresh leaves a usable snapshot" "$(run --header | head -1)" "Later · 1"
+
+# ── the first frame ───────────────────────────────────────────────────────
+# The backend's own list refreshes a stale cache before it answers, which is a
+# network round trip the pane used to sit through with nothing on screen. So the
+# pane must reach fzf off `--cached` alone and let fzf run the slow call behind
+# the rows that are already up. This backend takes 3 seconds to answer anything
+# but --cached, so a pane that still waits for it cannot pass on time.
+cat >"$SANDBOX/bin/tmux-slack-later-list" <<EOF
+#!/bin/sh
+printf '%s\n' "list \$*" >>"$CALLED"
+if [ "\$1" = --cached ]; then
+  printf '{"counts":{"uncompleted_count":1},"items":[{"id":"c","title":"from cache","url":""}],"error":"","truncated":false}'
+else
+  sleep 3
+  printf '{"counts":{"uncompleted_count":2},"items":[{"id":"f","title":"from Slack","url":""},{"id":"g","title":"also fresh","url":""}],"error":"","truncated":false}'
+fi
+EOF
+chmod +x "$SANDBOX/bin/tmux-slack-later-list"
+cat >"$SANDBOX/bin/fzf" <<EOF
+#!/bin/sh
+cat >"$SANDBOX/fzfstdin"
+printf '%s\n' "\$@" >"$SANDBOX/fzfargs"
+EOF
+chmod +x "$SANDBOX/bin/fzf"
+
+: >"$CALLED"
+started=$(date +%s)
+run >/dev/null
+elapsed=$(($(date +%s) - started))
+check "fzf starts before the slow backend answers" "$((elapsed < 3))" "1"
+check "the first frame costs exactly one cached call" \
+  "$(sort "$CALLED" | uniq -c | tr -s ' ' | sed 's/^ //')" "1 list --cached"
+check "the rows fzf opens with are the cached ones" \
+  "$(plain <"$SANDBOX/fzfstdin" | cut -f2)" "from cache"
+check "the header fzf opens with matches them" \
+  "$(grep -c '^--header=Later · 1$' "$SANDBOX/fzfargs")" "1"
+
+# fzf re-asks on every load it finishes: the first answer fetches, the rest read
+# back the header that fetch left behind. Without that turn the pane would loop
+# reloading itself, and without the marker every reload would refetch.
+loadbind=$(sed -n 's/^load:transform(\(.*\))$/\1/p' "$SANDBOX/fzfargs")
+check "the load event is wired to the pane" \
+  "$([ -n "$loadbind" ] && echo yes)" "yes"
+# Restarting the reader kills whatever it is still reading, so a redraw on the
+# way out of search would abort that first load and, with the marker already
+# down, nothing would start another. Refresh may do it — the user asked.
+check "leaving search does not abort the load" \
+  "$(grep -c '^esc:.*reload' "$SANDBOX/fzfargs")" "0"
+first=$(PATH="$SANDBOX/bin:$PATH" TMPDIR="$SANDBOX" TMUX_SLACK_LATER_WORKSPACE="$WORKSPACE" \
+  sh -c "$loadbind" 2>/dev/null)
+second=$(PATH="$SANDBOX/bin:$PATH" TMPDIR="$SANDBOX" TMUX_SLACK_LATER_WORKSPACE="$WORKSPACE" \
+  sh -c "$loadbind" 2>/dev/null)
+check "the first load asks fzf for the real list" \
+  "$(printf '%s' "$first" | sed 's/(.*--/(--/')" "reload-sync(--load)"
+check "a later load only re-reads the header" \
+  "$(printf '%s' "$second" | sed 's/(.*--/(--/')" "transform-header(--header)"
+
+# What that reload actually delivers: the rows fzf swaps in, and the header the
+# following load event then reads out of the snapshot it left.
+loadcmd=$(printf '%s' "$first" | sed 's/^reload-sync(//; s/)$//')
+: >"$CALLED"
+fresh=$(PATH="$SANDBOX/bin:$PATH" TMPDIR="$SANDBOX" TMUX_SLACK_LATER_WORKSPACE="$WORKSPACE" \
+  sh -c "$loadcmd" 2>/dev/null | plain | cut -f2 | tr '\n' '|')
+check "the async load calls the real backend" "$(cat "$CALLED")" "list "
+check "the async load returns the fetched rows" "$fresh" "from Slack|also fresh|"
+check "the header follows the rows it loaded" "$(run --header | head -1)" "Later · 2"
+rm -f "$SANDBOX/bin/fzf"
 
 if ((fail)); then
   echo "FAILED"

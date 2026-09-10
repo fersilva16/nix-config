@@ -137,8 +137,11 @@ cache_has_items() {
   valid_list <"$CACHE" >/dev/null 2>&1
 }
 
+# 2>/dev/null before the input redirect, not after: an absent cache is a normal
+# --cached state, and bash reports a failed redirect against whatever stderr is
+# at that point in the line.
 emit_list() {
-  valid_list <"$CACHE" 2>/dev/null || empty_list "cache"
+  valid_list 2>/dev/null <"$CACHE" || empty_list "${1:-cache}"
 }
 
 cookie_database() {
@@ -553,7 +556,14 @@ refresh() {
   publish_error "credentials"
 }
 
+# --cached never fetches. A stale or absent cache is something a caller can put
+# on screen now and correct later, so the wait for a real refresh — minutes, in
+# the worst case — belongs to a caller that asked for one, not to a first paint.
 list() {
+  if [[ ${1:-} == --cached ]]; then
+    emit_list loading
+    return
+  fi
   if ! cache_fresh || ! cache_has_items; then
     refresh || true
   fi
@@ -603,8 +613,9 @@ if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
       "$1"
       ;;
     list)
+      case ${2:-} in "" | --cached) ;; *) exit 64 ;; esac
       if configure; then
-        list
+        list "${2:-}"
       else
         empty_list "${CONFIG_ERROR:-configuration}"
       fi
