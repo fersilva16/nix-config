@@ -1,0 +1,364 @@
+diff --git a/apps/desktop/src-tauri/src/provider_usage/live/sources/anthropic_fetch.rs b/apps/desktop/src-tauri/src/provider_usage/live/sources/anthropic_fetch.rs
+index 9068cf0..4964342 100644
+--- a/apps/desktop/src-tauri/src/provider_usage/live/sources/anthropic_fetch.rs
++++ b/apps/desktop/src-tauri/src/provider_usage/live/sources/anthropic_fetch.rs
+@@ -338,7 +338,10 @@ mod macos_keychain {
+ /// own cache" section.
+ pub struct ClaudeDirectFetch {
+     credentials_path: Option<PathBuf>,
+-    pi_auth_path: Option<PathBuf>,
++    /// Every OpenCode-shaped agent store to consult after the CLI's own
++    /// carriers — see [`pi_auth`] for which agents those are and why an
++    /// agent-owned token is worth reading at all.
++    pi_auth_paths: Vec<PathBuf>,
+     claude_json_path: Option<PathBuf>,
+     /// Whether to consult the macOS Keychain before the file carriers. Always true in production; the `at()` test
+     /// constructor disables it so a test exercises the file it names
+@@ -431,7 +434,7 @@ impl ClaudeDirectFetch {
+     pub fn new() -> ClaudeDirectFetch {
+         ClaudeDirectFetch {
+             credentials_path: default_credentials_path(),
+-            pi_auth_path: pi_auth::default_auth_path(),
++            pi_auth_paths: pi_auth::default_auth_paths(),
+             claude_json_path: default_claude_json_path(),
+             #[cfg(target_os = "macos")]
+             try_keychain: true,
+@@ -451,7 +454,7 @@ impl ClaudeDirectFetch {
+     pub fn at(path: PathBuf) -> ClaudeDirectFetch {
+         ClaudeDirectFetch {
+             credentials_path: Some(path),
+-            pi_auth_path: None,
++            pi_auth_paths: Vec::new(),
+             claude_json_path: None,
+             #[cfg(target_os = "macos")]
+             try_keychain: false,
+@@ -478,7 +481,7 @@ impl ClaudeDirectFetch {
+     ) -> ClaudeDirectFetch {
+         ClaudeDirectFetch {
+             credentials_path: Some(credentials_path),
+-            pi_auth_path: None,
++            pi_auth_paths: Vec::new(),
+             claude_json_path: None,
+             #[cfg(target_os = "macos")]
+             try_keychain: false,
+@@ -528,10 +531,10 @@ impl ClaudeDirectFetch {
+             native_carriers.push(credentials.clone());
+             carriers.push(credentials);
+         }
+-        if let Some(entry) = self
+-            .pi_auth_path
+-            .as_deref()
+-            .and_then(|path| pi_auth::read_entry(path, pi_auth::ANTHROPIC_KEY))
++        for entry in self
++            .pi_auth_paths
++            .iter()
++            .filter_map(|path| pi_auth::read_entry(path, pi_auth::ANTHROPIC_KEYS))
+             .filter(|entry| !entry.refresh_token.is_empty())
+         {
+             carriers.push(ClaudeCredentials {
+diff --git a/apps/desktop/src-tauri/src/provider_usage/live/sources/codex_fetch.rs b/apps/desktop/src-tauri/src/provider_usage/live/sources/codex_fetch.rs
+index 7b75a94..74f3381 100644
+--- a/apps/desktop/src-tauri/src/provider_usage/live/sources/codex_fetch.rs
++++ b/apps/desktop/src-tauri/src/provider_usage/live/sources/codex_fetch.rs
+@@ -262,7 +262,9 @@ impl CodexTransport for LiveCodexTransport {
+ /// then falling back to the app-server RPC if neither attempt lands.
+ pub struct CodexDirectFetch {
+     auth_path: Option<PathBuf>,
+-    pi_auth_path: Option<PathBuf>,
++    /// Every OpenCode-shaped agent store to consult after the Codex CLI's
++    /// own `auth.json` — see [`pi_auth`] for which agents those are.
++    pi_auth_paths: Vec<PathBuf>,
+     /// The Codex CLI's session log root, for the seed read described in
+     /// "Seeding from the session log" above. `None` skips that seed
+     /// entirely — the state every test constructor below starts from.
+@@ -276,7 +278,7 @@ impl CodexDirectFetch {
+     pub fn new() -> CodexDirectFetch {
+         CodexDirectFetch {
+             auth_path: default_auth_path(),
+-            pi_auth_path: pi_auth::default_auth_path(),
++            pi_auth_paths: pi_auth::default_auth_paths(),
+             sessions_root: default_sessions_root(),
+             transport: Box::new(LiveCodexTransport),
+             cached_refresh: Mutex::new(None),
+@@ -289,7 +291,7 @@ impl CodexDirectFetch {
+     pub fn at(path: PathBuf) -> CodexDirectFetch {
+         CodexDirectFetch {
+             auth_path: Some(path),
+-            pi_auth_path: None,
++            pi_auth_paths: Vec::new(),
+             sessions_root: None,
+             transport: Box::new(LiveCodexTransport),
+             cached_refresh: Mutex::new(None),
+@@ -299,18 +301,18 @@ impl CodexDirectFetch {
+ 
+     #[cfg(test)]
+     fn with_transport(path: PathBuf, transport: Box<dyn CodexTransport>) -> CodexDirectFetch {
+-        Self::with_paths(Some(path), None, transport)
++        Self::with_paths(Some(path), Vec::new(), transport)
+     }
+ 
+     #[cfg(test)]
+     fn with_paths(
+         auth_path: Option<PathBuf>,
+-        pi_auth_path: Option<PathBuf>,
++        pi_auth_paths: Vec<PathBuf>,
+         transport: Box<dyn CodexTransport>,
+     ) -> CodexDirectFetch {
+         CodexDirectFetch {
+             auth_path,
+-            pi_auth_path,
++            pi_auth_paths,
+             sessions_root: None,
+             transport,
+             cached_refresh: Mutex::new(None),
+@@ -378,11 +380,11 @@ impl LiveUsageSource for CodexDirectFetch {
+             };
+ 
+             let pi_entry = self
+-                .pi_auth_path
+-                .as_deref()
+-                .and_then(|path| pi_auth::read_entry(path, pi_auth::CODEX_KEY))
++                .pi_auth_paths
++                .iter()
++                .filter_map(|path| pi_auth::read_entry(path, pi_auth::CODEX_KEYS))
+                 .filter(|entry| !entry.refresh_token.is_empty())
+-                .filter(|entry| {
++                .find(|entry| {
+                     i128::from(entry.expires_at_ms) > now.unix_timestamp_nanos() / 1_000_000
+                 });
+             let pi_error = match &pi_entry {
+@@ -906,7 +908,7 @@ mod tests {
+         }
+         let calls = Arc::new(AtomicUsize::new(0));
+         let source =
+-            CodexDirectFetch::with_paths(None, Some(pi_path), Box::new(PiOnly(Arc::clone(&calls))));
++            CodexDirectFetch::with_paths(None, vec![pi_path], Box::new(PiOnly(Arc::clone(&calls))));
+         let outcome = source.fetch(TEST_MAX_AGE);
+         assert_eq!(outcome.error, None);
+         assert_eq!(outcome.snapshots.len(), 1);
+@@ -935,7 +937,7 @@ mod tests {
+                 unreachable!("Pi credentials are never refreshed")
+             }
+         }
+-        let source = CodexDirectFetch::with_paths(None, Some(pi_path), Box::new(Never));
++        let source = CodexDirectFetch::with_paths(None, vec![pi_path], Box::new(Never));
+         let outcome = source.fetch(TEST_MAX_AGE);
+         assert!(outcome.snapshots.is_empty());
+         assert_eq!(outcome.error, None);
+diff --git a/apps/desktop/src-tauri/src/provider_usage/live/sources/pi_auth.rs b/apps/desktop/src-tauri/src/provider_usage/live/sources/pi_auth.rs
+index 5120486..2be4906 100644
+--- a/apps/desktop/src-tauri/src/provider_usage/live/sources/pi_auth.rs
++++ b/apps/desktop/src-tauri/src/provider_usage/live/sources/pi_auth.rs
+@@ -1,8 +1,34 @@
+-//! Read Pi's OAuth store as a read-only credential carrier.
++//! Read an OpenCode-shaped OAuth store as a read-only credential carrier.
+ //!
+-//! Pi stores provider credentials in `~/.pi/agent/auth.json`. This module
+-//! reads only OAuth entries for the providers that live usage supports.
+-//! It never refreshes a token or writes the file.
++//! Two agents keep provider credentials in this same JSON shape — a flat map
++//! from provider key to `{"type": "oauth", "access", "refresh", "expires"}` —
++//! because Pi is an OpenCode fork and inherited the store:
++//!
++//! - **Pi**, at `~/.pi/agent/auth.json`.
++//! - **OpenCode**, at `auth.json` under each of its data roots — the same
++//!   XDG-aware roots the OpenCode session scanner already resolves, so this
++//!   module borrows [`antiburn_local::discovery::agents::opencode::data_roots`]
++//!   rather than growing a second copy of that platform logic.
++//!
++//! Only the Codex entry's key differs between them: Pi names it
++//! `openai-codex`, OpenCode names it `openai`. [`CODEX_KEYS`] lists both, Pi
++//! first, so a Pi store resolves exactly as it did before this module learned
++//! about OpenCode.
++//!
++//! This module reads only OAuth entries for the providers that live usage
++//! supports. It never refreshes a token or writes the file.
++//!
++//! # Why a second store is worth reading
++//!
++//! [`super::anthropic_fetch`] deliberately never refreshes the Claude CLI's
++//! token: refreshing is the owning tool's lifecycle decision, not a
++//! background reader's. The consequence is that an expired Claude credential
++//! reports an authentication failure until the reader next opens the CLI
++//! itself. A reader whose day is spent in OpenCode has a *continuously
++//! refreshed* credential for the very same provider account sitting on the
++//! same machine, so consulting it keeps the meter alive across the stretches
++//! where the CLI's own token has lapsed. It is a carrier of last resort in
++//! both sources — the tool-native store is still tried first.
+ 
+ use std::fs;
+ use std::path::{Path, PathBuf};
+@@ -12,12 +38,16 @@ use serde_json::Value;
+ /// Cap the read because this file is a small credential store.
+ const MAX_AUTH_BYTES: u64 = 256 * 1024;
+ 
+-/// Pi's Anthropic entry key.
+-pub const ANTHROPIC_KEY: &str = "anthropic";
+-/// Pi's Codex entry key.
+-pub const CODEX_KEY: &str = "openai-codex";
++/// The Anthropic entry key. Pi and OpenCode agree on this one.
++pub const ANTHROPIC_KEYS: &[&str] = &["anthropic"];
++/// The Codex entry key, Pi's name first and OpenCode's second.
++///
++/// Trying both against either store is safe rather than merely convenient:
++/// [`parse_entry`] rejects any entry that is not `"type": "oauth"`, so an
++/// API-key entry parked under one of these keys is skipped, not misread.
++pub const CODEX_KEYS: &[&str] = &["openai-codex", "openai"];
+ 
+-/// OAuth data read from one Pi provider entry.
++/// OAuth data read from one provider entry.
+ pub struct PiOauth {
+     pub access_token: String,
+     pub refresh_token: String,
+@@ -25,23 +55,42 @@ pub struct PiOauth {
+     pub account_id: Option<String>,
+ }
+ 
+-/// Pi's auth store path.
+-pub fn default_auth_path() -> Option<PathBuf> {
+-    Some(antiburn_local::paths::home_dir()?.join(".pi/agent/auth.json"))
++/// Every OAuth store this build knows how to read, in the order to try them.
++///
++/// Paths that do not exist are not filtered out here: [`read_entry`] already
++/// answers `None` for a missing file, and a store that appears between this
++/// call and the read should be picked up rather than pre-emptively excluded.
++pub fn default_auth_paths() -> Vec<PathBuf> {
++    let mut paths = Vec::new();
++    if let Some(home) = antiburn_local::paths::home_dir() {
++        paths.push(home.join(".pi/agent/auth.json"));
++    }
++    paths.extend(
++        antiburn_local::discovery::agents::opencode::data_roots()
++            .into_iter()
++            .map(|root| root.join("auth.json")),
++    );
++    paths
+ }
+ 
+-/// Read a live OAuth entry for `provider_key`.
+-pub fn read_entry(path: &Path, provider_key: &str) -> Option<PiOauth> {
++/// Read a live OAuth entry under the first of `provider_keys` that matches.
++pub fn read_entry(path: &Path, provider_keys: &[&str]) -> Option<PiOauth> {
+     let metadata = fs::metadata(path).ok()?;
+     if metadata.len() > MAX_AUTH_BYTES {
+         return None;
+     }
+     let contents = fs::read_to_string(path).ok()?;
+-    parse_entry(&contents, provider_key)
++    parse_entry(&contents, provider_keys)
+ }
+ 
+-fn parse_entry(contents: &str, provider_key: &str) -> Option<PiOauth> {
++fn parse_entry(contents: &str, provider_keys: &[&str]) -> Option<PiOauth> {
+     let value: Value = serde_json::from_str(contents).ok()?;
++    provider_keys
++        .iter()
++        .find_map(|key| parse_provider_entry(&value, key))
++}
++
++fn parse_provider_entry(value: &Value, provider_key: &str) -> Option<PiOauth> {
+     let entry = value.get(provider_key)?;
+     if entry.get("type").and_then(Value::as_str) != Some("oauth") {
+         return None;
+@@ -78,26 +127,88 @@ mod tests {
+       "openrouter": {"type": "api-key", "key": "synthetic-key"}
+     }"#;
+ 
++    /// OpenCode's store, which differs from Pi's only in the Codex key.
++    const OPENCODE_STORE: &str = r#"{
++      "anthropic": {"type": "oauth", "access": "synthetic-anthropic-access",
++        "refresh": "synthetic-refresh", "expires": 1800000000000},
++      "openai": {"type": "oauth", "access": "synthetic-openai-access",
++        "refresh": "synthetic-refresh", "expires": 1800000000000,
++        "accountId": "synthetic-account"}
++    }"#;
++
+     #[test]
+     fn reads_oauth_entries_and_optional_account_id() {
+-        let anthropic = parse_entry(STORE, ANTHROPIC_KEY).expect("anthropic entry");
++        let anthropic = parse_entry(STORE, ANTHROPIC_KEYS).expect("anthropic entry");
+         assert_eq!(anthropic.access_token, "synthetic-anthropic-access");
+         assert_eq!(anthropic.expires_at_ms, 1_800_000_000_000);
+         assert_eq!(anthropic.account_id, None);
+-        let codex = parse_entry(STORE, CODEX_KEY).expect("codex entry");
++        let codex = parse_entry(STORE, CODEX_KEYS).expect("codex entry");
++        assert_eq!(codex.account_id.as_deref(), Some("synthetic-account"));
++    }
++
++    #[test]
++    fn reads_opencode_store_through_the_same_keys() {
++        let anthropic = parse_entry(OPENCODE_STORE, ANTHROPIC_KEYS).expect("anthropic entry");
++        assert_eq!(anthropic.access_token, "synthetic-anthropic-access");
++        let codex = parse_entry(OPENCODE_STORE, CODEX_KEYS).expect("codex entry");
++        assert_eq!(codex.access_token, "synthetic-openai-access");
+         assert_eq!(codex.account_id.as_deref(), Some("synthetic-account"));
+     }
+ 
++    /// Pi's key wins when a store somehow carries both, so adding OpenCode's
++    /// key cannot change what an existing Pi store already resolved to.
++    #[test]
++    fn codex_keys_prefer_pi_over_opencode() {
++        const BOTH: &str = r#"{
++          "openai-codex": {"type": "oauth", "access": "pi-access",
++            "refresh": "r", "expires": 1800000000000},
++          "openai": {"type": "oauth", "access": "opencode-access",
++            "refresh": "r", "expires": 1800000000000}
++        }"#;
++        let codex = parse_entry(BOTH, CODEX_KEYS).expect("codex entry");
++        assert_eq!(codex.access_token, "pi-access");
++    }
++
++    /// An unusable entry under the first key must not shadow a usable one
++    /// under the second — the keys are alternatives, not one attempt.
++    #[test]
++    fn codex_keys_fall_through_an_unusable_first_entry() {
++        const API_KEY_FIRST: &str = r#"{
++          "openai-codex": {"type": "api-key", "key": "synthetic-key"},
++          "openai": {"type": "oauth", "access": "opencode-access",
++            "refresh": "r", "expires": 1800000000000}
++        }"#;
++        let codex = parse_entry(API_KEY_FIRST, CODEX_KEYS).expect("codex entry");
++        assert_eq!(codex.access_token, "opencode-access");
++    }
++
++    /// OpenCode's store must be reachable without a Pi install, and the
++    /// tool-native Pi path must stay ahead of it when both are listed.
++    #[test]
++    fn default_paths_list_pi_before_opencode() {
++        let paths = default_auth_paths();
++        assert!(paths.iter().all(|path| path.ends_with("auth.json")));
++        let position = |needle: &str| {
++            paths
++                .iter()
++                .position(|path| path.to_string_lossy().contains(needle))
++        };
++        let opencode = position("opencode").expect("an opencode auth path");
++        if let Some(pi) = position(".pi") {
++            assert!(pi < opencode, "the tool-native Pi store must be tried first");
++        }
++    }
++
+     #[test]
+     fn rejects_non_oauth_missing_and_tombstoned_entries() {
+-        assert!(parse_entry(STORE, "openrouter").is_none());
+-        assert!(parse_entry(STORE, "missing").is_none());
++        assert!(parse_entry(STORE, &["openrouter"]).is_none());
++        assert!(parse_entry(STORE, &["missing"]).is_none());
+         for entry in [
+             r#"{"anthropic":{"type":"oauth","access":"","refresh":"r","expires":1800000000000}}"#,
+             r#"{"anthropic":{"type":"oauth","access":"a","refresh":"","expires":1800000000000}}"#,
+             r#"{"anthropic":{"type":"oauth","access":"a","refresh":"r","expires":0}}"#,
+         ] {
+-            assert!(parse_entry(entry, ANTHROPIC_KEY).is_none());
++            assert!(parse_entry(entry, ANTHROPIC_KEYS).is_none());
+         }
+     }
+ 
+@@ -113,6 +224,6 @@ mod tests {
+             ),
+         )
+         .expect("write");
+-        assert!(read_entry(&path, ANTHROPIC_KEY).is_none());
++        assert!(read_entry(&path, ANTHROPIC_KEYS).is_none());
+     }
+ }

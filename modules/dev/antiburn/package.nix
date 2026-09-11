@@ -36,11 +36,25 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   # Not passed to fetchPnpmDeps or cargoLock below: both read the unpatched
   # src, and these patches only touch Rust, so neither hash moves. Order
-  # matters — cluster-join-order.patch is cut against the tree
-  # sqlite-connection-reuse.patch leaves behind.
+  # matters for the first two — cluster-join-order.patch is cut against the
+  # tree sqlite-connection-reuse.patch leaves behind. The third is
+  # independent of both: it touches only the desktop app's provider_usage
+  # sources, while those two touch antiburn-local's OpenCode discovery.
+  #
+  # opencode-auth-carrier.patch teaches the Anthropic and Codex live-usage
+  # sources to read OpenCode's `auth.json` as a last-resort credential
+  # carrier. Upstream already reads Pi's identical store — Pi is an OpenCode
+  # fork and inherited the format byte for byte — so this is one more path
+  # and one more key name, not a new mechanism. It earns its keep because
+  # the Anthropic source deliberately never refreshes a token: once the
+  # Claude CLI's ~8h credential lapses, the meter goes dark until the CLI
+  # itself is opened again, whereas OpenCode refreshes its token for the
+  # same provider account every time it is used. Worth upstreaming, which
+  # would delete this file.
   patches = [
     ./sqlite-connection-reuse.patch
     ./cluster-join-order.patch
+    ./opencode-auth-carrier.patch
   ];
 
   # Only the desktop app is needed to produce the frontend bundle. The
