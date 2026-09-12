@@ -283,14 +283,14 @@ success_cache=$(cache)
 : >"$CURL_ARGV_LOG"
 : >"$BATCH_LOG"
 MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" refresh
-check "full cookie request publishes 52" "52" "$(jq -r '.counts.uncompleted_count' "$success_cache")"
+check "count excludes the non-message item" "11" "$(jq -r '.counts.uncompleted_count' "$success_cache")"
 check "full cookie request clears error" "" "$(jq -r '.error' "$success_cache")"
-check "full cookie request stores every saved item" "12" "$(jq '.items | length' "$success_cache")"
+check "full cookie request stores every saved message" "11" "$(jq '.items | length' "$success_cache")"
+check "non-message items are dropped" "" "$(jq -r '.items[] | select(.url == "https://telepatiaworkspace.slack.com") | .id' "$success_cache")"
+check "overdue is derived from message due dates" "1" "$(jq -r '.counts.uncompleted_overdue_count' "$success_cache")"
 check "message id combines channel and timestamp" "C01:1700000001.000001" "$(jq -r '.items[0].id' "$success_cache")"
 check "message title is compact and sanitized" "One summary" "$(jq -r '.items[0].title' "$success_cache")"
 check "message url is stable" "https://telepatiaworkspace.slack.com/archives/C01/p1700000001000001" "$(jq -r '.items[0].url' "$success_cache")"
-check "unresolved non-message uses fallback title" "Message unavailable" "$(jq -r '.items[11].title' "$success_cache")"
-check "unresolved non-message uses workspace url" "https://telepatiaworkspace.slack.com" "$(jq -r '.items[11].url' "$success_cache")"
 check "cursor marks bounded result truncated" "true" "$(jq -r '.truncated' "$success_cache")"
 check "cache is private" "600" "$(/usr/bin/stat -f '%Lp' "$success_cache")"
 check "derives Chrome key once" "1" "$(wc -l <"$SECURITY_LOG" | tr -d ' ')"
@@ -328,7 +328,7 @@ printf 'ok   fresh list makes no HTTP request\n'
 touch -t 200001010000 "$success_cache"
 : >"$CURL_LOG"
 stale_cached=$(MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" list --cached)
-check "stale --cached serves the stale rows" "12" "$(jq '.items | length' <<<"$stale_cached")"
+check "stale --cached serves the stale rows" "11" "$(jq '.items | length' <<<"$stale_cached")"
 check "stale --cached does not mark them loading" "" "$(jq -r '.error' <<<"$stale_cached")"
 [[ ! -s "$CURL_LOG" ]] || {
   echo "FAIL stale --cached made an HTTP request" >&2
@@ -342,7 +342,7 @@ EOF
 : >"$CURL_LOG"
 : >"$BATCH_LOG"
 count_only_list=$(MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" list)
-check "count-only cache hydrates rows" "12" "$(jq '.items | length' <<<"$count_only_list")"
+check "count-only cache hydrates rows" "11" "$(jq '.items | length' <<<"$count_only_list")"
 check "count-only cache refreshes saved list" "1" "$(grep -c saved.list "$CURL_LOG" | tr -d ' ')"
 check "count-only cache hydrates in batches" $'10\n1' "$(cat "$BATCH_LOG")"
 
