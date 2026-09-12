@@ -397,6 +397,13 @@ hydration_batches() {
   '
 }
 
+# Saved messages only, by the same predicate hydration_batches fetches by. A
+# standalone reminder has no message behind it — no channel, no timestamp — so
+# it can only be an unopenable row and a +1 nobody can act on. Both counts are
+# derived here rather than taken from the response: Slack's own counts include
+# those reminders.
+# ponytail: the count is what one 49-item page holds, so a truncated list
+# undercounts — page through saved.list if that ever bites.
 materialize_saved() {
   local saved=$1 messages=$2
   jq -ce --arg workspace "$WORKSPACE" --slurpfile messages "$messages" '
@@ -414,34 +421,24 @@ materialize_saved() {
       [$messages[0][$channel][]?
         | select((.ts? | type) == "string" and .ts == $timestamp)
         | .text? | select(type == "string")][0] // "";
-    {
+    [.saved_items[]?
+      | select(.item_type == "message" and (.item_id | channel) and (.ts | timestamp))
+    ] as $messages_saved
+    | {
       counts: {
-        uncompleted_count: .counts.uncompleted_count,
-        uncompleted_overdue_count: .counts.uncompleted_overdue_count
+        uncompleted_count: ($messages_saved | length),
+        uncompleted_overdue_count: ([$messages_saved[]
+          | select((.date_due | type) == "number" and .date_due < now)] | length)
       },
-      items: [
-        .saved_items | to_entries[]
-        | .key as $index | .value
-        | . as $item
-        | ($item.item_id? // null) as $channel
-        | ($item.ts? // null) as $timestamp
+      items: [$messages_saved[]
+        | .item_id as $channel
+        | .ts as $timestamp
         | {
-          id: (if ($channel | channel) and ($timestamp | timestamp)
-            then "\($channel):\($timestamp)"
-            else "item:\($index)"
-            end),
-          title: (if $item.item_type == "message"
-              and ($channel | channel) and ($timestamp | timestamp)
-            then message_text($channel; $timestamp) | clean_title
-            else "Message unavailable"
-            end),
-          url: (if $item.item_type == "message"
-              and ($channel | channel) and ($timestamp | timestamp)
-            then "https://\($workspace)/archives/\($channel)/p\($timestamp | gsub("\\."; ""))"
-            else "https://\($workspace)"
-            end),
-          date_created: (if ($item.date_created? | date) then $item.date_created else null end),
-          date_due: (if ($item.date_due? | date) then $item.date_due else null end)
+          id: "\($channel):\($timestamp)",
+          title: (message_text($channel; $timestamp) | clean_title),
+          url: "https://\($workspace)/archives/\($channel)/p\($timestamp | gsub("\\."; ""))",
+          date_created: (if (.date_created? | date) then .date_created else null end),
+          date_due: (if (.date_due? | date) then .date_due else null end)
         }
       ],
       error: "",
