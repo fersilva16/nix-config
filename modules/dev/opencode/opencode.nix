@@ -38,6 +38,7 @@ mkUserModule {
     anthropic-auth = import ./anthropic-auth.nix { inherit pkgs; };
     ponytail = import ./ponytail.nix { inherit pkgs lib; };
     i-have-adhd = import ./i-have-adhd.nix { };
+    show-me = import ./show-me.nix { };
     cache = import ./cache.nix { };
     omo-gitignore = import ./omo-gitignore.nix { };
     omo = import ./omo.nix { inherit pkgs; };
