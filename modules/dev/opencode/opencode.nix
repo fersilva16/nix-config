@@ -16,6 +16,7 @@ let
       ./patches/edit-tool-dollar-substitution.patch
       ./patches/generate-remove-prettier.patch
       ./patches/relax-bun-version-check.patch
+      ./patches/retry-spliced-anthropic-stream.patch
     ];
   });
 in
