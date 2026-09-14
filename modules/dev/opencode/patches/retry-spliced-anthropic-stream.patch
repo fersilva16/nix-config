@@ -1,0 +1,132 @@
+Retry a spliced Anthropic stream instead of killing the run.
+
+`@ai-sdk/anthropic` fails a stream with
+
+    AI_InvalidResponseDataError: Received message_start for message "msg_B"
+    while message "msg_A" is still open.
+
+when a second `message_start` arrives before the first message closed.  That
+happens when an intermediary — a gateway, or Anthropic's own edge — loses its
+upstream connection mid-generation, retries, and concatenates the retried
+generation's SSE events onto the *same* HTTP response body.  The response then
+carries generation A truncated mid `content_block` (no `content_block_stop`)
+followed by a complete generation B.
+
+The error is not a bug, it is the guard vercel/ai added in #18332 / #18402 to
+fix #18331.  Before it, both generations were merged into one recorded step;
+the signed thinking blocks of a generation Anthropic never completed were then
+replayed on the next request, which Anthropic rejects with a *non-retryable*
+400 "`thinking` or `redacted_thinking` blocks in the latest assistant message
+cannot be modified".  Failing loudly is the correct behaviour.
+
+What is missing is recovery.  The request itself was always well-formed, so
+resending it is all that is needed, but `retryable()` never matches the
+message and the run dies.  Observed ~20 times over three days on
+`anthropic/claude-opus-5` over direct OAuth with no gateway in the path.
+
+Two changes:
+
+  * packages/opencode/src/session/retry.ts — add the message to
+    `RETRYABLE_MESSAGE_PATTERNS`.  `fromError()` classifies
+    `InvalidResponseDataError` through `case e instanceof Error` into
+    `NamedError.Unknown`, so `retryable()` reaches its non-API tail and decides
+    purely on the message text.  `streamInput.messages` is built once in
+    `prompt.ts` before `handle.process()`, so a retry resends the original
+    request — the corrupt partial is never fed back in.
+
+  * packages/opencode/src/session/processor.ts — drop the parts a failed
+    attempt already persisted before retrying.  This is required, not
+    cosmetic: the splice usually severs the stream *after* the thinking block
+    closed, so generation A leaves behind a complete, signed reasoning part.
+    `toModelMessagesEffect()` replays reasoning parts with their
+    `providerMetadata` and filters nothing, so a recovered stream would hand
+    Anthropic A's orphaned signature on the following turn and reproduce the
+    exact 400 that #18331 was about, one turn later.
+
+    Parts are identified by attempt rather than by content because an
+    abandoned generation is indistinguishable from a good one on inspection —
+    both can be complete and signed.  `PartID` is `prt_` plus a fixed-width
+    monotonic prefix, so a marker taken at the start of an attempt orders
+    strictly below every part that attempt goes on to write.  The marker is
+    reset at the top of each `process()` call: it is per-attempt, and the tool
+    loop calls `process()` once per step, so a step's first attempt must not
+    sweep up the previous step's successful parts.
+
+    This also cleans up after the mid-stream errors opencode already retries
+    (`ECONNRESET`, `ResponseStreamError`), which leave the same debris today.
+
+Applies to 1.18.29.  Drop this patch once upstream retries the spliced-stream
+error itself.
+
+diff --git a/packages/opencode/src/session/processor.ts b/packages/opencode/src/session/processor.ts
+--- a/packages/opencode/src/session/processor.ts
++++ b/packages/opencode/src/session/processor.ts
+@@ -113,6 +113,11 @@ const layer = Layer.effect(
+         reasoningMap: {},
+       }
+       let aborted = false
++      // Marks where the in-flight stream attempt started writing parts, so a
++      // retry can drop what the failed attempt already persisted. Scoped to a
++      // single process() call and reset there — parts from earlier, already
++      // successful steps of the tool loop must never be swept up.
++      let attemptStart: PartID | undefined
+ 
+       const parse = (e: unknown) =>
+         MessageV2.fromError(e, {
+@@ -638,18 +643,42 @@ const layer = Layer.effect(
+         yield* status.set(ctx.sessionID, { type: "idle" })
+       })
+ 
++      // A retry resends the identical request, so every part the failed attempt
++      // persisted is about to be produced again. Leaving them is not merely
++      // duplicate text: a spliced stream can abandon a fully-signed thinking
++      // block, and replaying a signature from a generation the provider never
++      // completed gets the whole turn rejected with a non-retryable 400.
++      const dropAttemptParts = Effect.fn("SessionProcessor.dropAttemptParts")(function* () {
++        const start = attemptStart
++        if (start === undefined) return
++        const existing = yield* MessageV2.parts(ctx.assistantMessage.id).pipe(
++          Effect.provideService(Database.Service, database),
++        )
++        for (const part of existing) {
++          if (part.id <= start) continue
++          yield* session.removePart({
++            sessionID: part.sessionID,
++            messageID: part.messageID,
++            partID: part.id,
++          })
++        }
++      })
++
+       const process = Effect.fn("SessionProcessor.process")(function* (streamInput: LLM.StreamInput) {
+         yield* Effect.logInfo("process", {
+           "session.id": input.sessionID,
+           messageID: input.assistantMessage.id,
+         })
+         ctx.needsCompaction = false
++        attemptStart = undefined
+         ctx.shouldBreak = (yield* config.get()).experimental?.continue_loop_on_deny !== true
+ 
+         return yield* Effect.gen(function* () {
+           yield* Effect.gen(function* () {
++            yield* dropAttemptParts()
+             ctx.currentText = undefined
+             ctx.reasoningMap = {}
++            attemptStart = PartID.ascending()
+             yield* status.set(ctx.sessionID, { type: "busy" })
+             const stream = llm.stream(streamInput)
+ 
+diff --git a/packages/opencode/src/session/retry.ts b/packages/opencode/src/session/retry.ts
+--- a/packages/opencode/src/session/retry.ts
++++ b/packages/opencode/src/session/retry.ts
+@@ -38,6 +38,10 @@ const RETRYABLE_MESSAGE_PATTERNS = [
+   /^timeout$|\b(?:request|response|connection|network|stream|read) (?:timeout|timed out|time out)\b/i,
+   /try your request again|retry your request|resource exhausted|resource_exhausted/i,
+   /\btry again (?:later|in\b)|\b(?:currently|temporarily) at capacity\b/i,
++  // Spliced stream: an intermediary retried mid-generation and concatenated
++  // both generations onto one response body, so @ai-sdk/anthropic fails rather
++  // than merge them (vercel/ai#18331). The request was never at fault.
++  /message_start for message .+ while message .+ is still open/i,
+ ]
+ 
+ function cap(ms: number) {
