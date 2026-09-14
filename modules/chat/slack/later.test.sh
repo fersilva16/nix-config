@@ -17,7 +17,8 @@ mkdir -p "$TMPDIR" "$TMP/bin"
 
 OPENSSL=${TMUX_SLACK_LATER_OPENSSL:-openssl}
 if ! "$OPENSSL" enc -help 2>&1 | grep -q -- '-saltlen'; then
-  OPENSSL="$(nix path-info --offline nixpkgs#openssl 2>/dev/null | head -n 1)/bin/openssl"
+  # path-info prints the path but exits non-zero; the -x guard below is the real check.
+  OPENSSL="$(nix path-info --offline nixpkgs#openssl 2>/dev/null | head -n 1)/bin/openssl" || true
 fi
 [[ -x "$OPENSSL" ]] || {
   echo 'FAIL OpenSSL with -saltlen support is required' >&2
@@ -151,7 +152,7 @@ SAVED_RESPONSE=$(cat <<'JSON'
 {"ok":true,"counts":{"uncompleted_count":52,"uncompleted_overdue_count":0},"saved_items":[
 {"item_id":"C01","item_type":"message","ts":"1700000001.000001","state":"saved","todo_state":"not_started","date_created":1700000001,"date_due":null},
 {"item_id":"C02","item_type":"message","ts":"1700000002.000002","state":"saved","todo_state":"not_started","date_created":1700000002,"date_due":1700100002},
-{"item_id":"C03","item_type":"message","ts":"1700000003.000003","state":"saved","todo_state":"not_started","date_created":1700000003,"date_due":null},
+{"item_id":"C03","item_type":"message","ts":"1700000003.000003","state":"saved","todo_state":"not_started","date_created":1700000003,"date_due":0},
 {"item_id":"C04","item_type":"message","ts":"1700000004.000004","state":"saved","todo_state":"not_started","date_created":1700000004,"date_due":null},
 {"item_id":"C05","item_type":"message","ts":"1700000005.000005","state":"saved","todo_state":"not_started","date_created":1700000005,"date_due":null},
 {"item_id":"C06","item_type":"message","ts":"1700000006.000006","state":"saved","todo_state":"not_started","date_created":1700000006,"date_due":null},
@@ -287,7 +288,7 @@ check "count excludes the non-message item" "11" "$(jq -r '.counts.uncompleted_c
 check "full cookie request clears error" "" "$(jq -r '.error' "$success_cache")"
 check "full cookie request stores every saved message" "11" "$(jq '.items | length' "$success_cache")"
 check "non-message items are dropped" "" "$(jq -r '.items[] | select(.url == "https://telepatiaworkspace.slack.com") | .id' "$success_cache")"
-check "overdue is derived from message due dates" "1" "$(jq -r '.counts.uncompleted_overdue_count' "$success_cache")"
+check "overdue counts past due dates, not the unset sentinel" "1" "$(jq -r '.counts.uncompleted_overdue_count' "$success_cache")"
 check "message id combines channel and timestamp" "C01:1700000001.000001" "$(jq -r '.items[0].id' "$success_cache")"
 check "message title is compact and sanitized" "One summary" "$(jq -r '.items[0].title' "$success_cache")"
 check "message url is stable" "https://telepatiaworkspace.slack.com/archives/C01/p1700000001000001" "$(jq -r '.items[0].url' "$success_cache")"

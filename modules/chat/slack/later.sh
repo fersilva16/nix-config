@@ -428,7 +428,7 @@ materialize_saved() {
       counts: {
         uncompleted_count: ($messages_saved | length),
         uncompleted_overdue_count: ([$messages_saved[]
-          | select((.date_due | type) == "number" and .date_due < now)] | length)
+          | select((.date_due | type) == "number" and .date_due > 0 and .date_due < now)] | length)
       },
       items: [$messages_saved[]
         | .item_id as $channel
