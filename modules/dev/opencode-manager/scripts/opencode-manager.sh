@@ -219,8 +219,11 @@ notify::add() {
 
   if command -v tmux &>/dev/null; then
     tmux refresh-client -S 2>/dev/null || true
-    tmux set -g message-style "fg=#da702c,bg=#f2f0e5" 2>/dev/null || true
-    tmux display-message -d 5000 "󰂞  ${session}: ${message}" 2>/dev/null || true
+    # Colour inline, never `set -g message-style`: that is a global option, so
+    # one notification permanently replaced the theme's message style for every
+    # later message and prompt — and the replacement carried no fill=, which is
+    # what leaves the status bar showing through a prompt.
+    tmux display-message -d 5000 "#[fg=#da702c]󰂞  ${session}: ${message}" 2>/dev/null || true
   fi
 
   if [[ -f "/tmp/tmux-remote-state" ]]; then
