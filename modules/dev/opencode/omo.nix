@@ -8,6 +8,56 @@ let
   # opencode npm-installs its own plugins at runtime, so there is no
   # derivation to hang `applyPatches` off — the tree lands here instead.
   pkgRoot = "$HOME/.cache/opencode/packages/${plugin}/node_modules/${package}";
+
+  # A tier is one model per provider at the same price level. The call site
+  # picks which provider leads, and the other becomes its runtime_fallback
+  # counterpart: outages are provider-wide, so a same-provider fallback would
+  # die alongside its primary, and staying in-tier keeps a fallback from
+  # jumping price. The variant spans the whole chain, so `high.claude "max"`
+  # reads as "the high tier, Claude first, all of it at max effort".
+  #
+  # Every agent and category below takes 5.0.0-beta.84's default primary and
+  # effort (the first rung an anthropic/openai login can reach); the
+  # counterpart comes from the tier, not from beta's chain. The pin above
+  # stays on 4.19.4 until 5.x leaves beta.
+  mkTier = models: {
+    claude = chain [
+      models.claude
+      models.gpt
+    ];
+    gpt = chain [
+      models.gpt
+      models.claude
+    ];
+  };
+  chain = models: variant: {
+    inherit variant;
+    model = builtins.head models;
+    fallback_models = map (m: {
+      inherit variant;
+      model = m;
+    }) (builtins.tail models);
+  };
+
+  ultra = mkTier {
+    gpt = "openai/gpt-6-astra";
+    claude = "anthropic/claude-fable-5-1";
+  };
+  high = mkTier {
+    gpt = "openai/gpt-5.6-sol";
+    claude = "anthropic/claude-opus-5-5";
+  };
+  mid = mkTier {
+    gpt = "openai/gpt-5.6-terra";
+    claude = "anthropic/claude-sonnet-5";
+  };
+  # Hand-built because haiku-4-5 exposes no effort levels, so its rung can't
+  # carry the chain's variant. Nothing needs a Claude-led low tier yet.
+  low.gpt = variant: {
+    inherit variant;
+    model = "openai/gpt-5.6-luna-fast";
+    fallback_models = [ "anthropic/claude-haiku-4-5" ];
+  };
 in
 {
   default = true;
@@ -53,45 +103,55 @@ in
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json";
       codegraph.daemon = false;
       _migrations = [ "2026-07-opencode-config-unification" ];
-      "[opencode]".agents = {
-        sisyphus = {
-          model = "anthropic/claude-opus-5-5";
-          variant = "max";
-        };
-        prometheus = {
-          model = "anthropic/claude-opus-5-5";
-          variant = "max";
-        };
-        metis = {
-          model = "anthropic/claude-opus-5-5";
-          variant = "max";
-        };
-        hephaestus = {
-          model = "openai/gpt-6-sol";
-          variant = "high";
-        };
-        oracle = {
-          model = "openai/gpt-5.5";
-          variant = "high";
-        };
-        momus = {
-          model = "openai/gpt-6-sol";
-          variant = "xhigh";
-        };
+      # opencode cannot do this natively: its retry re-runs the SAME provider
+      # (anomalyco/opencode#7602 is still open, and #20105/#24369/#26192 were
+      # all closed unmerged), so a provider outage kills the run. omo's
+      # runtime-fallback hook swaps in another model instead.
+      #
+      # Both defaults below are wrong for this purpose. `enabled` is false, and
+      # retry_on_errors is [429 500 502 503 504] — which omits 529, Anthropic's
+      # overloaded_error, i.e. the exact "Claude is out" case this exists for.
+      "[opencode]".runtime_fallback = {
+        enabled = true;
+        retry_on_errors = [
+          429
+          500
+          502
+          503
+          504
+          529
+        ];
+        # Default false, which would strand every agent on its counterpart
+        # until the next restart. Primary comes back after cooldown_seconds.
+        restore_primary_after_cooldown = true;
       };
+      # atlas and sisyphus-junior stay unset: 4.19.4 already resolves them to
+      # beta.84's pick, claude-sonnet-5.
+      "[opencode]".agents = {
+        sisyphus = high.claude "max";
+        prometheus = ultra.claude "xhigh";
+        metis = ultra.claude "max";
+        momus = ultra.gpt "xhigh";
+        oracle = high.gpt "xhigh";
+        hephaestus = high.gpt "medium";
+        "multimodal-looker" = high.gpt "low";
+        explore = low.gpt "low";
+        librarian = low.gpt "low";
+      };
+      # quick stays unset: 4.19.4 already resolves it to beta.84's pick,
+      # claude-haiku-4-5 "off".
       "[opencode]".categories = {
-        deep = {
-          model = "openai/gpt-5.6-terra";
-          variant = "xhigh";
-        };
-        ultrabrain = {
-          model = "openai/gpt-6-astra";
-          variant = "xhigh";
-        };
-        "unspecified-low" = {
-          model = "openai/gpt-6-luna";
-          variant = "xhigh";
-        };
+        ultrabrain = ultra.gpt "max";
+        # beta.84 splits deep into deep-low (this chain) and deep-high
+        # (ultra.gpt "high"); rename it when the pin reaches 5.x.
+        deep = high.gpt "medium";
+        "visual-engineering" = ultra.claude "max";
+        artistry = ultra.claude "max";
+        writing = ultra.claude "low";
+        "unspecified-high" = high.claude "max";
+        # beta.84 leads with mimo and grok, which we have no login for, so it
+        # lands on terra ($2/$12 per Mtok).
+        "unspecified-low" = mid.gpt "high";
       };
     };
   };
