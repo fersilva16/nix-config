@@ -40,20 +40,30 @@ in
 
     # Plugin-registered agent overrides live here rather than in
     # programs.opencode.settings.agent.
-    xdg.configFile."opencode/oh-my-openagent.json".source = jsonFormat.generate "oh-my-openagent.json" {
+    #
+    # Path matters: omo's "2026-07-opencode-config-unification" migration
+    # (ran 2026-09-03) copied ~/.config/opencode/oh-my-openagent.json into
+    # ~/.omo/omo.jsonc under the "[opencode]" key and now reads ONLY from
+    # there — edits to the old path are silently ignored. `_migrations` is
+    # replayed below so omo treats the migration as done and never tries to
+    # rewrite this read-only store symlink. `codegraph.daemon` was hand-set
+    # in the migrated file; it is kept here so nix owns the whole file.
+    home.file.".omo/omo.jsonc".source = jsonFormat.generate "omo.jsonc" {
       "$schema" =
-        "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/dist/oh-my-opencode.schema.json";
-      agents = {
+        "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json";
+      codegraph.daemon = false;
+      _migrations = [ "2026-07-opencode-config-unification" ];
+      "[opencode]".agents = {
         sisyphus = {
-          model = "anthropic/claude-opus-5";
+          model = "anthropic/claude-opus-5-5";
           variant = "max";
         };
         prometheus = {
-          model = "anthropic/claude-opus-5";
+          model = "anthropic/claude-opus-5-5";
           variant = "max";
         };
         metis = {
-          model = "anthropic/claude-opus-5";
+          model = "anthropic/claude-opus-5-5";
           variant = "max";
         };
         hephaestus = {
@@ -69,7 +79,7 @@ in
           variant = "xhigh";
         };
       };
-      categories = {
+      "[opencode]".categories = {
         deep = {
           model = "openai/gpt-5.6-terra";
           variant = "xhigh";
