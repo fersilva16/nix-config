@@ -67,7 +67,7 @@ in
           variant = "max";
         };
         hephaestus = {
-          model = "openai/gpt-5.6-sol";
+          model = "openai/gpt-6-sol";
           variant = "high";
         };
         oracle = {
@@ -75,7 +75,7 @@ in
           variant = "high";
         };
         momus = {
-          model = "openai/gpt-5.6-sol";
+          model = "openai/gpt-6-sol";
           variant = "xhigh";
         };
       };
@@ -85,11 +85,11 @@ in
           variant = "xhigh";
         };
         ultrabrain = {
-          model = "openai/gpt-5.6-sol";
+          model = "openai/gpt-6-astra";
           variant = "xhigh";
         };
         "unspecified-low" = {
-          model = "openai/gpt-5.6-luna";
+          model = "openai/gpt-6-luna";
           variant = "xhigh";
         };
       };
