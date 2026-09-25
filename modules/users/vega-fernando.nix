@@ -173,6 +173,7 @@ mkUser {
   keyboardcleantool.enable = true;
   "scroll-reverser".enable = true;
   raycast.enable = true;
+  vicinae.enable = true;
   openlogi.enable = true;
 
   # Finance
