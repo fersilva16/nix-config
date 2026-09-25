@@ -128,7 +128,12 @@ in
       # atlas and sisyphus-junior stay unset: 4.19.4 already resolves them to
       # beta.84's pick, claude-sonnet-5.
       "[opencode]".agents = {
-        sisyphus = high.claude "max";
+        # The one deviation from beta.84's default effort ("max"): measured
+        # on this host, opus-5-5 averages ~1290 reasoning tokens/turn at max
+        # against ~90 for opus-5, and most of that went to turns that did not
+        # need it. xhigh lands near ~200 — thin enough to feel responsive,
+        # twice what "high" spends.
+        sisyphus = high.claude "xhigh";
         prometheus = ultra.claude "xhigh";
         metis = ultra.claude "max";
         momus = ultra.gpt "xhigh";
