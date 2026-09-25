@@ -517,8 +517,6 @@ mkUserModule {
   parts = {
     pr = import ./pr.nix;
     linear = import ./linear.nix;
-    stacked = import ./stacked.nix { inherit pkgs; };
-    linear-stacked = import ./linear-stacked.nix;
   };
   home = {
     programs.fish = {
