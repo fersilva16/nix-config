@@ -39,14 +39,10 @@ in
 
         ## Worktree stacks
 
-        A worktree can be a stack of PRs, one worktree per PR. `wts` (a binary,
-        works from sh) prints the stack for the current directory, what to do
-        next, and the rules. Run it before any branch, rebase, push, or PR work
-        in a worktree, and again whenever you are unsure of the stack's state.
-        To split work into stacked PRs: `wts add <name>` once per PR, bottom
-        first. To check out an existing stacked PR: `wts pull [pr#]`. Never
-        create, rebase, or retarget stack branches by hand; `wts help` lists
-        the commands.
+        Stacked PRs are one worktree per PR, run through `wts` (works from sh).
+        Run `wts` before any branch, rebase, push or PR work in a worktree: it
+        prints the stack, the rules, and the commands to run under `next:`.
+        Those are pre-approved: run them without asking.
       '';
     };
 }
