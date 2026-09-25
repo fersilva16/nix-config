@@ -229,7 +229,9 @@ let
       branch="$3"
       base_branch="$4"
 
-      pool="''${wt_path%/*}/.pool"
+      # From main_root, not wt_path's parent: stack layers (wts) live one level
+      # deeper, under .stacks/<root>/, and claim from the same pool.
+      pool="$(dirname "$main_root")/$(basename "$main_root").worktrees/.pool"
       name="''${wt_path##*/}"
       log="''${wt_path%/*}/.$name.log"
 
@@ -517,8 +519,15 @@ mkUserModule {
   parts = {
     pr = import ./pr.nix;
     linear = import ./linear.nix;
-    stacked = import ./stacked.nix { inherit pkgs; };
-    linear-stacked = import ./linear-stacked.nix;
+    stack = import ./stack.nix {
+      inherit
+        pkgs
+        wt-claim
+        wt-create
+        wt-enter
+        wt-pool-fill
+        ;
+    };
   };
   home = {
     programs.fish = {
@@ -751,6 +760,12 @@ mkUserModule {
             echo "wtmv: no worktree found for '$old'"
             return 1
           end
+          # ponytail: renaming would also mean moving .stacks/<old> and every
+          # layer session; refuse until that's actually wanted.
+          if test -d "$wt_dir/.stacks/$old"
+            echo "wtmv: '$old' is a stack root — renaming stacks isn't supported"
+            return 1
+          end
           if test -e "$new_path"
             echo "wtmv: '$new' already exists"
             return 1
@@ -776,7 +791,7 @@ mkUserModule {
 
           # Rename the tmux session (parent/old -> parent/new)
           if set -q TMUX
-            set -l old_session (command tmux list-sessions -F '#{session_name}' | grep "/$old\$" | head -1)
+            set -l old_session (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$old\$" | head -1)
             if test -n "$old_session"
               set -l parent (string split -m 1 '/' -- "$old_session")[1]
               command tmux rename-session -t "=$old_session" "$parent/$new"
@@ -865,13 +880,38 @@ mkUserModule {
             end
           end
 
+          # A stack root (see wts) takes its layers along: same dirty guard,
+          # then their sessions, worktrees and branches (-d/-D like the root's).
+          set -l stack_dir "$wt_base/$repo_name.worktrees/.stacks/$name"
+          set -l layer_cleanup ""
+          if test -d "$stack_dir"
+            set -l bflag -d
+            test $force -eq 1; and set bflag -D
+            for d in $stack_dir/*/
+              set -l l (string trim -r -c / -- $d)
+              if test $force -eq 0; and test -n "$(git -C "$l" status --porcelain 2>/dev/null)"
+                echo "wtrm: stack layer '"(basename $l)"' has changes — use 'wtrm --force $name' to force"
+                return 1
+              end
+              set -l lb (git -C "$l" branch --show-current 2>/dev/null)
+              set layer_cleanup "$layer_cleanup; git -C '$main_root' worktree remove --force '$l' 2>/dev/null; rm -rf '$l'"
+              test -n "$lb"; and set layer_cleanup "$layer_cleanup; git -C '$main_root' branch $bflag '$lb' 2>/dev/null"
+            end
+            if set -q TMUX
+              for s in (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name/")
+                set layer_cleanup "; tmux kill-session -t '=$s'$layer_cleanup"
+              end
+            end
+            set layer_cleanup "$layer_cleanup; rm -rf '$stack_dir'; git -C '$main_root' worktree prune"
+          end
+
           # Detect if we're removing our own session (self-remove)
           set -l self_rm 0
           set -l current_session ""
           set -l parent_session ""
           if set -q TMUX
             set current_session (command tmux display-message -p '#{session_name}')
-            set -l target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
+            set -l target_session (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name\$" | head -1)
             if test -n "$target_session" -a "$current_session" = "$target_session"
               set self_rm 1
               set parent_session (string split -m 1 '/' -- "$current_session")[1]
@@ -912,6 +952,7 @@ mkUserModule {
                 set cleanup "$cleanup; git -C '$main_root' branch -d '$branch' 2>/dev/null"
               end
             end
+            set cleanup "$cleanup$layer_cleanup"
 
             # Switch to parent, then schedule cleanup in background.
             # Silenced: run-shell displays stdout (and a failing exit status) in
@@ -922,7 +963,7 @@ mkUserModule {
           else
             # Regular remove (from a different session)
             if set -q TMUX
-              set -l target_session (command tmux list-sessions -F '#{session_name}' | grep "/$name\$" | head -1)
+              set -l target_session (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name\$" | head -1)
               if test -n "$target_session"
                 command tmux kill-session -t "=$target_session"
               end
@@ -944,6 +985,7 @@ mkUserModule {
             git worktree remove --force "$wt_path" 2>/dev/null
             rm -rf "$wt_path"
             git worktree prune
+            test -n "$layer_cleanup"; and sh -c "true$layer_cleanup"
 
             if test -z "$branch"
               echo "Removed worktree '$name'"

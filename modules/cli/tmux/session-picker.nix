@@ -3,7 +3,7 @@
 # not a filter) so it feels close to a native menu, and "/" switches to live
 # fuzzy search. Layout is a tree: roots alphabetical (same as choose-tree
 # -O name), worktree sessions nested under their root with ├─/└─ connectors,
-# and (once a stack source is wired up) stacked worktrees indented by depth.
+# and stack layers (wts) indented under their stack root, bottom → top.
 # Every line is a selectable session — no separator or header lines — so j/k
 # never land on dead rows.
 #
@@ -15,9 +15,9 @@ let
   # Computes per-session metadata into tmux session options, all read by the
   # picker from cache (never on its critical path):
   #   @wt-label  branch label (root sessions on a non-default branch only)
-  #   @wt-sort   topological stack chain (US-delimited) — currently always
-  #              empty (no stack source wired up); the picker renders a flat
-  #              per-root tree until one repopulates it.
+  #   @wt-sort   stack chain (US-delimited) from `wts _key`: "<stack>US" for a
+  #              stack root, "<stack>US<NN>US" for its NNth layer. Empty for
+  #              plain worktrees, which render as a flat per-root tree.
   #   @wt-oc     opencode attention glyph (pre-colored): ◍ busy · ● done ·
   #              ⏸ permission · ? question · ‼ error. Empty when idle/none.
   #              Source: tmux-opencode-manager (soft dep; skipped if absent).
@@ -163,9 +163,23 @@ let
         return 0
       }
 
-      tmux list-sessions -F "#{session_name}''${TAB}#{session_path}" 2>/dev/null |
-        while IFS="$TAB" read -r name path; do
+      tmux list-sessions -F "#{session_name}''${TAB}#{session_path}''${TAB}#{pane_current_path}" 2>/dev/null |
+        while IFS="$TAB" read -r name path ppath; do
           [[ "$name" == "pocket" ]] && continue
+
+          # session_path is where the session started and tmux never updates
+          # it, so a renamed or removed worktree leaves it dangling. Fall back
+          # to the active pane's directory; with neither alive, the session is
+          # a leftover and says so rather than posing as a live worktree.
+          if [[ ! -d "$path" ]]; then
+            if [[ -d "$ppath" ]]; then
+              path=$ppath
+            else
+              for o in @wt-sort @wt-oc @wt-pr @wt-ci; do tmux set-option -t "$name" "$o" "" 2>/dev/null || true; done
+              tmux set-option -t "$name" @wt-label "''${RED}gone''${RST}" 2>/dev/null || true
+              continue
+            fi
+          fi
 
           ocg="''${OC_GLYPH[$name]:-}"
           cdir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
@@ -222,10 +236,24 @@ let
             fi
           fi
 
+          # Stack members (worktree module's `wts`, a soft dep on the profile
+          # PATH above): a chain that orders the root, then its layers bottom
+          # → top, and the label becomes +N (root commits not yet in a layer)
+          # and ↻ (behind the layer below).
+          chain=""
+          if [[ "$path" == */.stacks/*/* || -d "''${path%/*}/.stacks/''${path##*/}" ]] &&
+            IFS="$TAB" read -r st pos pend behind < <(cd "$path" && wts _key 2>/dev/null); then
+            chain="$st$US"
+            ((pos == 0)) || chain+="$(printf '%02d' "$pos")$US"
+            label=""
+            ((pend == 0)) || label="+$pend"
+            ((behind == 0)) || label+="''${label:+ }''${YEL}↻''${RST}"
+          fi
+
           # set-option rejects the "=" exact-match prefix (target-pane parser);
           # bare names resolve exact-first, so this is safe.
           tmux set-option -t "$name" @wt-label "$label" 2>/dev/null || true
-          tmux set-option -t "$name" @wt-sort "" 2>/dev/null || true
+          tmux set-option -t "$name" @wt-sort "$chain" 2>/dev/null || true
           tmux set-option -t "$name" @wt-oc "$ocg" 2>/dev/null || true
           tmux set-option -t "$name" @wt-pr "$prg" 2>/dev/null || true
           tmux set-option -t "$name" @wt-ci "$cig" 2>/dev/null || true
@@ -316,47 +344,79 @@ let
         # stack contiguous and topologically ordered.
         mapfile -t sorted < <(printf '%s\n' "''${rows[@]}" | LC_ALL=C sort -t "$RS" -k1,1 -k2,2n -k3,3)
 
-        # Pass 1: which roots have a bare root session, and worktree-child counts
-        # (to draw └─ for the last child).
-        declare -A HAS_ROOT WT_COUNT WT_SEEN
+        # Pass 1: tree shape. Level 0 = repo root session (or a session whose
+        # root is gone, shown flat), 1 = worktree or stack root, 2 = stack layer
+        # under its stack root. A layer whose stack root session is gone drops
+        # to level 1 and shows as "stack/layer".
+        declare -A HAS_ROOT HAS_STACK L1_COUNT L1_SEEN L2_COUNT L2_SEEN
+        declare -a LV SHOWN
         for row in "''${sorted[@]}"; do
-          IFS="$RS" read -r root cls _ _ _ _ <<<"$row"
-          if ((cls == 0)); then
-            HAS_ROOT["$root"]=1
-          else
-            WT_COUNT["$root"]=$((''${WT_COUNT["$root"]:-0} + 1))
-          fi
+          IFS="$RS" read -r root cls _ _ _ chain <<<"$row"
+          if ((cls == 0)); then HAS_ROOT["$root"]=1; fi
+          nous="''${chain//"$US"/}"
+          if ((''${#chain} - ''${#nous} == 1)); then HAS_STACK["$root$RS''${chain%%"$US"*}"]=1; fi
         done
 
-        # Pass 2: one line per session, grouped into a tree under each root.
-        for row in "''${sorted[@]}"; do
-          IFS="$RS" read -r root cls _ name label chain <<<"$row"
+        # Pass 2: each row's level, the per-parent child counts (for └─), and
+        # the column the status glyphs line up on. Widths are counted, not
+        # measured: names are ASCII and each level's prefix has a fixed width.
+        col=0
+        for i in "''${!sorted[@]}"; do
+          IFS="$RS" read -r root cls _ name _ chain <<<"''${sorted[i]}"
+          nous="''${chain//"$US"/}"
+          sk="$root$RS''${chain%%"$US"*}"
+          if ((cls == 0)); then
+            LV[i]=0 SHOWN[i]="$name" w=0
+          elif [[ -z "''${HAS_ROOT[$root]:-}" ]]; then
+            # In the agents view every row is agents/*, so the shared prefix is
+            # pure noise — strip it. No-op in the main view, which filters them.
+            LV[i]=0 SHOWN[i]="''${name#agents/}" w=0
+          elif ((''${#chain} - ''${#nous} >= 2)) && [[ -n "''${HAS_STACK[$sk]:-}" ]]; then
+            LV[i]=2 SHOWN[i]="''${name##*/}" w=8
+            L2_COUNT["$sk"]=$((''${L2_COUNT["$sk"]:-0} + 1))
+          else
+            LV[i]=1 SHOWN[i]="''${name#*/}" w=5
+            L1_COUNT["$root"]=$((''${L1_COUNT["$root"]:-0} + 1))
+          fi
+          w=$((w + ''${#SHOWN[i]}))
+          # ponytail: one very long name shouldn't push every row's glyphs off
+          # screen; past 28 columns it just overflows its own row.
+          if ((w <= 28 && w > col)); then col=$w; fi
+        done
+
+        # Pass 3: one line per session.
+        cont=" "
+        for i in "''${!sorted[@]}"; do
+          IFS="$RS" read -r root cls _ name label chain <<<"''${sorted[i]}"
 
           mark="  "
           [[ "$name" == "$current" ]] && mark="''${CUR}●''${RST} "
 
-          if ((cls == 0)); then
-            body="$name"
-          elif [[ -n "''${HAS_ROOT[$root]:-}" ]]; then
-            WT_SEEN["$root"]=$((''${WT_SEEN["$root"]:-0} + 1))
-            if ((WT_SEEN[$root] == WT_COUNT[$root])); then conn="└─"; else conn="├─"; fi
-            extra=""
-            if [[ -n "$chain" ]]; then
-              nous="''${chain//"$US"/}"
-              depth=$((''${#chain} - ''${#nous}))
-              for ((i = 1; i < depth; i++)); do extra+="  "; done
-            fi
-            body="  ''${DIM}''${conn}''${RST} ''${extra}''${name#*/}"
-          else
-            # Worktree whose root session is not present: full name, no tree.
-            # In the agents view every row is agents/*, so the shared prefix is
-            # pure noise — strip it. No-op in the main view, which filters them.
-            body="''${name#agents/}"
-          fi
+          case "''${LV[i]}" in
+          1)
+            L1_SEEN["$root"]=$((''${L1_SEEN["$root"]:-0} + 1))
+            # cont carries the level-1 line down past this row's layers.
+            if ((L1_SEEN[$root] == L1_COUNT[$root])); then conn="└─" cont=" "; else conn="├─" cont="│"; fi
+            pre="  ''${DIM}''${conn}''${RST} " w=5
+            ;;
+          2)
+            sk="$root$RS''${chain%%"$US"*}"
+            L2_SEEN["$sk"]=$((''${L2_SEEN["$sk"]:-0} + 1))
+            if ((L2_SEEN[$sk] == L2_COUNT[$sk])); then conn="└─"; else conn="├─"; fi
+            pre="  ''${DIM}''${cont}  ''${conn}''${RST} " w=8
+            ;;
+          *) pre="" w=0 ;;
+          esac
+          body="$pre''${SHOWN[i]}"
 
-          [[ -n "$label" ]] && body="''${body}  ''${DIM}''${label}''${RST}"
-          sc="''${STATUS[$name]:-}"
-          [[ -n "$sc" ]] && body="''${body}  $sc"
+          tail="''${STATUS[$name]:-}"
+          [[ -n "$label" ]] && tail+="''${tail:+ }''${DIM}''${label}''${RST}"
+          if [[ -n "$tail" ]]; then
+            pad=$((col - w - ''${#SHOWN[i]}))
+            ((pad > 0)) || pad=0
+            printf -v sp '%*s' $((pad + 2)) ""
+            body+="$sp$tail"
+          fi
           printf '%s\t%s%s\n' "$name" "$mark" "$body"
         done
       }
