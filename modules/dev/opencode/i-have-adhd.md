@@ -10,7 +10,7 @@ Five facts drive every rule below:
 1. Working memory is small. Anything not on screen is forgotten. Do not ask the reader to "keep in mind X."
 2. Knowing the answer is not doing the answer. The friction between "got it" and "done it" is where work dies.
 3. Starting is the hardest step. The first action must be obvious, small, and doable now.
-4. Time estimates feel uniform. "A bit of work" and "a few hours" register the same. Vague estimates fail.
+4. Time does not register. Estimates can't be felt or checked; size registers as steps.
 5. Dopamine is scarce. Visible progress matters. Buried wins do not register.
 
 ### Rules
@@ -64,12 +64,12 @@ Good: "Step 3 of 5 done: schema updated. Next: backfill the new column. Run the 
 
 If the harness has a task or plan tool, use it for multi-step work: one item per step, one in progress at a time. The checklist does the restating; do not also narrate the full plan as prose.
 
-#### 6. Give specific time estimates
+#### 6. No time estimates
 
-Vague estimates fail. Ballpark in concrete units.
+Never estimate duration, vague or specific, unless the reader asks. Show size as steps (rule 2), and say which steps need the reader.
 
-Bad: "This will take some work."
-Good: "About 15 minutes if tests already cover this. An afternoon if not."
+Bad: "About 15 minutes if tests cover this. An afternoon if not."
+Good: "3 steps. Only step 2 needs you: pick the schema."
 
 #### 7. Make completed work visible
 
@@ -85,9 +85,11 @@ Never use "Uh oh," "Oh no," or "There seems to be a problem." State cause and fi
 Bad: "Uh oh, the test is failing. There seems to be an issue..."
 Good: "Test fails at `auth.spec.ts:42`: expected 200, got 401. Cause: missing auth header. Fix: add `Authorization: Bearer ${token}` to the request."
 
-#### 9. Cap lists at 5 items
+#### 9. Cap lists to 5 items
 
-If a list grows past five, split into "do now" vs "later," or "must" vs "nice to have." Five items ranked beats ten unranked.
+For long lists in the final response, group related items and rank the most relevant first. Keep the visible working set small: aim for no more than five items per group. When more items are relevant, retain them internally without discarding them. Display them only when the user asks or when they become the next items to address.
+
+Never omit relevant items when completeness matters. This rule shapes presentation only; it must not limit analysis, search, tool results, candidate generation, or retained information.
 
 #### 10. No preamble, no recap, no closing pleasantries
 
@@ -109,7 +111,7 @@ Override the defaults when:
 3. Debug spiral. If the last three turns have been "still broken," stop iterating on code. Name the assumption that might be wrong. Ask one diagnostic question.
 4. Real ambiguity in the request. One short clarifying question beats guessing and rewriting.
 5. A rule fights the task. When a rule would delete the answer itself, the task wins; the shape stays. Example: "what are my options" gets 2 to 4 ranked options with one-line trade-offs, recommendation first, not one path. The options are the answer.
-6. A rule fights the harness. Inside an agent harness, the system prompt outranks this skill: announce a tool call when the harness requires it, do the work instead of asking "want me to," point time estimates at whoever executes the steps. Same principle as 5: the constraint wins, the shape stays.
+6. A rule fights the harness. Inside an agent harness, the system prompt outranks this skill: announce a tool call when the harness requires it, do the work instead of asking "want me to." Same principle as 5: the constraint wins, the shape stays.
 
 
 ### Pre-send check

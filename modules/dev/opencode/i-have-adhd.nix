@@ -3,12 +3,13 @@ _:
 # preamble/recap/closers, plus a pre-send deletion checklist.
 #
 # `i-have-adhd.md` is a fork of https://github.com/ayghri/i-have-adhd (MIT) at
-# rev d05af1e, keeping the `Rules`, `When to break the rules`, and `Pre-send
-# check` sections.  Dropped: `Persistence` (session toggling via a
-# `/i-have-adhd` command that does not exist once the text is unconditionally
-# in the prompt) and `What ADHD changes about reading` (background theory, no
-# instruction in it).  Edit the markdown directly — it is a fork, not a
-# mirror, so there is nothing to re-sync.
+# rev d05af1e.  Dropped: `Persistence` (session toggling via a `/i-have-adhd`
+# command that does not exist once the text is unconditionally in the
+# prompt).  Changed: fact 4 and rule 6 ban time estimates instead of asking
+# for them (AI estimates are calibrated to human speed and the reader plans
+# by steps, not minutes); rule 9 is taken from upstream 4c76175.  Edit the
+# markdown directly — it is a fork, not a mirror, so there is nothing to
+# re-sync.
 #
 # Upstream ships it as a skill, but its frontmatter sets
 # `disable-model-invocation: true`: the model can never invoke it, so as a
