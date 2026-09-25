@@ -163,7 +163,12 @@ let
         return 0
       }
 
-      tmux list-sessions -F "#{session_name}''${TAB}#{session_path}''${TAB}#{pane_current_path}" 2>/dev/null |
+      # Root sessions (no "/" in the name) are made by hand and get cd'd away
+      # from where they started, so they read the active pane's directory —
+      # the same place prefix+c and splits open. Worktree sessions keep their
+      # start path: wt/wts create them with -c, and a stray cd into another
+      # repo should not relabel them.
+      tmux list-sessions -F "#{session_name}''${TAB}#{?#{m:*/*,#{session_name}},#{session_path},#{pane_current_path}}''${TAB}#{pane_current_path}" 2>/dev/null |
         while IFS="$TAB" read -r name path ppath; do
           [[ "$name" == "pocket" ]] && continue
 
@@ -458,7 +463,8 @@ let
       if [[ "''${1:-}" == "--open-pr" ]]; then
         # Bare name (not =name): display-message rejects the "=" exact-match
         # prefix, same as set-option; bare resolves exact-first, so it's safe.
-        p=$(tmux display-message -p -t "''${2:-}" '#{session_path}' 2>/dev/null || true)
+        # Same path rule as --list: root sessions follow their active pane.
+        p=$(tmux display-message -p -t "''${2:-}" '#{?#{m:*/*,#{session_name}},#{session_path},#{pane_current_path}}' 2>/dev/null || true)
         [[ -n "$p" ]] && cd "$p" && gh pr view --web >/dev/null 2>&1 || true
         exit 0
       fi
