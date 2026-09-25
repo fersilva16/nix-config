@@ -27,8 +27,6 @@ wts — stacked PRs, one worktree per PR. Run from the stack root or any layer.
                            origin to origin; rebase each layer onto the one below;
                            move the root onto the top. --main also moves the
                            bottom onto the latest trunk
-  wts push [--force]       force-push layers with commits origin lacks (with
-                           lease) and point each PR's base at the layer below
   wts pull [pr#] [--root <name>] [<layer name>...]
                            check out an open PR's whole stack, one layer per PR,
                            root at its top PR. Without names it lists the PRs;
@@ -37,23 +35,21 @@ wts — stacked PRs, one worktree per PR. Run from the stack root or any layer.
                            and pr# defaults to its branch's PR; with --root, or
                            anywhere else, root is a new worktree (pr<pr#>).
 
-Layers pulled from other people's PRs show as @them's; sync and push refuse to
-rewrite those without --force, which needs the user's go-ahead.
+@them's layers (pulled from others' PRs): sync needs --force and a plain git
+push fails. Both need the user's go-ahead.
 EOF
 }
 
 rules() {
   cat <<EOF
 rules:
-  - one layer = one PR, based on the layer below (bottom: $trunk)
-  - root is never pushed; its commits are work waiting to go into layers
-  - move work by committing it in the right layer (git -C <layer path> ...),
-    then \`wts sync\`; the split is done when root shows "= top"
-  - uncommitted changes on root are the user's: leave them alone
-  - a layer whose agent is busy is that agent's: don't commit to it or sync
-    until it's idle
-  - PR, CI and review state is context: act on it only when the user asks
-  - restack, push and retarget only through wts; never \`git push -u\` in a layer
+  - a layer is one PR on the layer below; it has no PR until the user asks
+  - root is never pushed: commit its work into layers, then wts sync
+  - run next: without asking; ask before closing a PR, dropping an unmerged
+    layer, or touching an @them's layer
+  - restack only with wts sync; never git push -u in a layer
+  - leave root's uncommitted files and busy agents' layers alone
+  - PR, CI and review state is context, not a to-do
 EOF
 }
 
@@ -152,10 +148,12 @@ dirty() { [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ]; }
 # The session for worktree $1: the one started there, else one under session
 # $2 whose shell sits there now. A moved worktree (git worktree move) keeps its
 # session, still carrying the old start path, and the shell moves with it.
+# agents/* sessions are agents' scratch space, never a worktree's own.
 sess_at() {
   local sp sn pp alt=""
   command -v tmux >/dev/null || return 0
   while IFS=$'\t' read -r sp sn pp; do
+    [[ "$sn" != agents/* ]] || continue
     if [ "$sp" = "$1" ]; then
       echo "$sn"
       return 0
@@ -324,7 +322,7 @@ status() {
     return 0
   fi
   local tmp ghpid gh_ok=0 fetch_ok=0 i b l p pn lp own f behind ahead lo ro d c s rs top rsync=0 pend=0 x
-  local made=() facts=() nx=() fix=() landed=() closed=() pickup=() restack=() pushes=() retarget=() nopr=() ask=()
+  local made=() facts=() nx=() fix=() landed=() closed=() pickup=() restack=() pushes=() retarget=() ask=()
   load_prs </dev/null
   tmp=$(mktemp)
   (pr_query) >"$tmp" 2>/dev/null &
@@ -362,7 +360,7 @@ status() {
     if ((behind && i)); then
       f+=", missing $(plural "$behind" commit) of $pn ↻"
       if [ -n "$own" ]; then
-        ask+=("$l is @$own's and not on the latest $pn: ask them to restack it, or with the user's go-ahead: wts sync --force")
+        ask+=("$l is @$own's and not on the latest $pn: ask them to restack, or with the user's go-ahead: wts sync --force")
       else
         restack+=("$l")
       fi
@@ -376,7 +374,7 @@ status() {
         facts+=("deleted on origin")
       else
         facts+=("not on origin yet")
-        if [ -z "$own" ]; then pushes+=("$l"); fi
+        if [ -z "$own" ]; then pushes+=("$b"); fi
       fi
     else
       read -r lo ro < <(git rev-list --left-right --count "$b...origin/$b")
@@ -392,35 +390,34 @@ status() {
         if ((ro == 0)); then f="$(plural "$lo" "unpushed commit")"; else f="rewritten here, not pushed yet"; fi
         facts+=("$f")
         if [ -z "$own" ]; then
-          pushes+=("$l")
+          pushes+=("$b")
         else
-          ask+=("$l has commits @$own's branch lacks: pushing them needs the user's go-ahead (wts push --force)")
+          ask+=("$l has commits @$own's branch lacks: with the user's go-ahead: git push --force-with-lease origin $b")
         fi
       fi
     fi
 
     if ((gh_ok)) && [ -z "${pr_n[$b]:-}" ]; then
       facts+=("no PR")
-      [ -n "$own" ] || nopr+=("gh pr create --head $b --base $(base_of "$i")")
     elif ((gh_ok)); then
       f="PR #${pr_n[$b]}"
       case "${pr_s[$b]}" in
       MERGED)
         f+=" merged"
-        landed+=("wts rm $l (PR #${pr_n[$b]} merged; drops its commits from the layer above)")
+        landed+=("wts rm $l (PR #${pr_n[$b]} merged)")
         ;;
       CLOSED)
         f+=" closed"
-        closed+=("$l's PR #${pr_n[$b]} was closed without merging: ask the user whether to drop it (wts rm $l)")
+        closed+=("$l's PR #${pr_n[$b]} closed unmerged: ask the user whether to wts rm $l")
         ;;
       *)
         if [ "${pr_d[$b]}" = true ]; then f+=" draft"; else f+=" open"; fi
         if [ "${pr_b[$b]}" != "$(base_of "$i")" ]; then
           f+=", based on ${pr_b[$b]} (should be $(base_of "$i"))"
           if [ -z "$own" ]; then
-            retarget+=("$l")
+            retarget+=("gh pr edit ${pr_n[$b]} --base $(base_of "$i")")
           else
-            ask+=("$l's PR is based on ${pr_b[$b]}, not $(base_of "$i"): it's @$own's, so ask them, or with the user's go-ahead: wts push --force")
+            ask+=("$l's PR is based on ${pr_b[$b]}, not $(base_of "$i"): with the user's go-ahead: gh pr edit ${pr_n[$b]} --base $(base_of "$i")")
           fi
         fi
         case "${pr_c[$b]}" in
@@ -444,7 +441,7 @@ status() {
     if in_rebase "$lp"; then
       c=$(git -C "$lp" diff --name-only --diff-filter=U | tr '\n' ' ')
       facts+=("MID-REBASE, conflicts: ${c% }")
-      fix+=("resolve the conflicts in $lp, git -C $lp rebase --continue, then wts sync")
+      fix+=("resolve conflicts, git -C $lp rebase --continue, wts sync")
     fi
     facts+=("$(agent_of "$(sess_at "$lp" "$rs")")")
 
@@ -488,12 +485,11 @@ status() {
   ((rsync == 0)) || restack+=(root)
   ((${#restack[@]} == 0)) || f+="${f:+; }restacks ${restack[*]}"
   [ -z "$f" ] || nx+=("wts sync ($f)")
-  ((pend == 0)) || nx+=("root has $(plural "$pend" commit) not in a layer: commit each change into its layer (git -C <layer worktree> ...), then wts sync")
-  f=""
-  ((${#pushes[@]} == 0)) || f="pushes ${pushes[*]}"
-  ((${#retarget[@]} == 0)) || f+="${f:+; }retargets ${retarget[*]}"
-  [ -z "$f" ] || nx+=("wts push ($f)")
-  nx+=(${nopr[@]+"${nopr[@]}"} ${ask[@]+"${ask[@]}"} ${closed[@]+"${closed[@]}"})
+  ((pend == 0)) || nx+=("root has $(plural "$pend" commit) not in a layer: commit each into its layer (git -C <layer>), then wts sync")
+  # Refs are shared, so one push from any worktree covers every layer. Bases
+  # after pushes: GitHub only takes a base branch it already has.
+  ((${#pushes[@]} == 0)) || nx+=("git push --force-with-lease origin ${pushes[*]}")
+  nx+=(${retarget[@]+"${retarget[@]}"} ${ask[@]+"${ask[@]}"} ${closed[@]+"${closed[@]}"})
   if ((${#nx[@]})); then
     echo "next:"
     for x in "${nx[@]}"; do echo "  - $x"; done
@@ -676,39 +672,6 @@ sync() {
   status
 }
 
-push() {
-  local i b rc=0 force=0 out changed=()
-  case "${1:-}" in
-  "") ;;
-  --force) force=1 ;;
-  *) die "unknown flag $1" ;;
-  esac
-  load
-  ((${#order[@]})) || die "$name is not a stack"
-  # Only layers with commits origin never had: pushing an older copy would
-  # undo someone's newer push (wts sync picks those up instead).
-  for b in "${order[@]}"; do
-    if ! git rev-parse -q --verify "refs/remotes/origin/$b" >/dev/null || [ -n "$(unseen "$b")" ]; then
-      changed+=("$b")
-    fi
-  done
-  ((force)) || for b in ${changed[@]+"${changed[@]}"}; do guard "$b" push; done
-  for b in ${changed[@]+"${changed[@]}"}; do
-    git -C "${lpath[$b]}" push -q --force-with-lease origin "$b" || rc=1
-  done
-  if out=$(pr_query 2>/dev/null); then
-    load_prs <<<"$out"
-    for i in "${!order[@]}"; do
-      b=${order[$i]}
-      if [ "${pr_s[$b]:-}" != OPEN ] || [ "${pr_b[$b]}" = "$(base_of "$i")" ]; then continue; fi
-      ((force)) || guard "$b" push
-      (cd "$root" && gh pr edit "${pr_n[$b]}" --base "$(base_of "$i")" >/dev/null) || rc=1
-    done
-  fi
-  ((rc == 0)) || echo "some pushes or retargets failed (see above)" >&2
-  status
-}
-
 pull() {
   local a pr="" nm="" rows n h bs f t i me top rb rp rs ps setup l b cur="" here here_b="" kids=() stack=() stale=() names=()
   local -A head=() num=() base=() who=() fork=() title=() used=()
@@ -872,6 +835,8 @@ pull() {
       git config --unset "branch.$b.wtsAuthor" || true
     else
       git config "branch.$b.wtsAuthor" "${who[$b]}"
+      # No such remote: a bare `git push` here fails; `git push origin <b>` works.
+      git config "branch.$b.pushRemote" ask-the-user
     fi
   done
   pool_fill
@@ -917,7 +882,6 @@ case "$cmd" in
 add) add "$@" ;;
 rm) rm_layer "$@" ;;
 sync) sync "$@" ;;
-push) push "$@" ;;
 _key) key ;;
 *) usage >&2 && exit 2 ;;
 esac

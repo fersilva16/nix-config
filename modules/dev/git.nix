@@ -38,6 +38,14 @@ mkUserModule {
 
             push = {
               autoSetupRemote = true;
+              # Push to the same-named branch even when the upstream is another
+              # branch: a wts bottom layer tracks origin/main, and `simple`
+              # refuses to push it.
+              default = "current";
+              # --force-with-lease alone trusts origin/<branch>, which a
+              # background fetch (wt-pool-fill) can move past a teammate's
+              # push you never saw. This also requires that tip in your reflog.
+              useForceIfIncludes = true;
             };
 
             core = {
