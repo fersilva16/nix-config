@@ -229,7 +229,9 @@ let
       branch="$3"
       base_branch="$4"
 
-      pool="''${wt_path%/*}/.pool"
+      # From main_root, not wt_path's parent: stack layers (wts) live one level
+      # deeper, under .stacks/<root>/, and claim from the same pool.
+      pool="$(dirname "$main_root")/$(basename "$main_root").worktrees/.pool"
       name="''${wt_path##*/}"
       log="''${wt_path%/*}/.$name.log"
 
@@ -517,6 +519,15 @@ mkUserModule {
   parts = {
     pr = import ./pr.nix;
     linear = import ./linear.nix;
+    stack = import ./stack.nix {
+      inherit
+        pkgs
+        wt-claim
+        wt-create
+        wt-enter
+        wt-pool-fill
+        ;
+    };
   };
   home = {
     programs.fish = {
