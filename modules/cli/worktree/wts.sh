@@ -148,10 +148,12 @@ dirty() { [ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ]; }
 # The session for worktree $1: the one started there, else one under session
 # $2 whose shell sits there now. A moved worktree (git worktree move) keeps its
 # session, still carrying the old start path, and the shell moves with it.
+# agents/* sessions are agents' scratch space, never a worktree's own.
 sess_at() {
   local sp sn pp alt=""
   command -v tmux >/dev/null || return 0
   while IFS=$'\t' read -r sp sn pp; do
+    [[ "$sn" != agents/* ]] || continue
     if [ "$sp" = "$1" ]; then
       echo "$sn"
       return 0
