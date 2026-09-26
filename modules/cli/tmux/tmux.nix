@@ -266,8 +266,11 @@ mkUserModule {
           # the session's first pane already started, so the AGENTS.md snippet
           # above spells the command out for that one; every later window in
           # the session picks it up from here. Index 10 because the
-          # session-picker part owns session-created[20].
-          set-hook -g 'session-created[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\""'
+          # session-picker part owns session-created[20]. Re-evaluated on
+          # rename, so an agents/* session renamed into a real one drops the
+          # session-local sh and falls back to fish (and vice versa).
+          set-hook -g 'session-created[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\"" "set -u default-command"'
+          set-hook -g 'session-renamed[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\"" "set -u default-command"'
 
           set -g renumber-windows on
 
