@@ -4,6 +4,7 @@
 import type { ExtensionAPI } from "@code-yeongyu/senpi"
 import footer from "./footer.ts"
 import prompt from "./prompt.ts"
+import sessions from "./sessions.ts"
 import sidebar from "./sidebar.ts"
 import tools from "./tools.ts"
 import turn from "./turn.ts"
@@ -14,4 +15,5 @@ export default function (pi: ExtensionAPI) {
   turn(pi)
   tools(pi)
   sidebar(pi)
+  sessions(pi)
 }

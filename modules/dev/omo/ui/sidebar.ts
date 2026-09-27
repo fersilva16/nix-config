@@ -5,15 +5,18 @@
 // not extension API: only this file and tools.ts touch omo internals.
 import { spawnSync } from "node:child_process"
 import { HStack, VStack, visibleWidth } from "@earendil-works/pi-tui"
+import { BACKDROP } from "./sessions.ts"
 import { type Ctx, contextUsage, type Entry, homePath, paint, sessionCost, type Theme } from "./stats.ts"
 
 const WIDTH = 40
 const MIN_TERMINAL_WIDTH = 100
-const MARGIN_LEFT = 4
+const MARGIN_LEFT = 2
 const MARGIN_X = 2
 const MARGIN_Y = 1
 const BG = "userMessageBg"
 const VERSION = process.execPath.match(/binary-runtime\/([^/]+)\//)?.[1] ?? ""
+const INNER = Symbol.for("omo-ui-sidebar.inner")
+const ORIGINAL_SELECTION = Symbol.for("omo-ui-sidebar.applySelection")
 
 type Component = { render(width: number): string[]; invalidate(): void }
 type LayoutTui = {
@@ -135,7 +138,7 @@ export default function sidebar(pi: Pi) {
   const guarded = new WeakSet<LayoutTui>()
 
   const panel: Component = {
-    render: (width) => (state && theme && tui ? renderPanel(state, theme, width, tui.terminal.rows - 2 * MARGIN_Y) : []),
+    render: (width) => (state && theme && tui ? renderPanel(state, theme, width, tui.terminal.rows) : []),
     invalidate() {},
   }
   // omo's layout pastes columns side by side without resetting SGR state, so
@@ -152,22 +155,30 @@ export default function sidebar(pi: Pi) {
   }
 
   // Regular (non-fullscreen) mode has no layout root; the sidebar is a no-op there.
+  // /new and /reload re-run session_start (and /reload a fresh copy of this
+  // module), so the tui's layout root may already be a previous sidebar's
+  // wrapper. The wrapper records omo's own root under a global symbol, which
+  // survives module reloads; unwrap it before wrapping again.
   const mount = (t: LayoutTui, th: Theme) => {
     tui = t
     theme = th
-    const current = t.layoutRoot
+    const current = t.layoutRoot as (Component & { [INNER]?: Component }) | undefined
     if (!t.setLayoutRoot || !current || current === root) return
-    const columns = new HStack([
-      { component: blank, basis: MARGIN_LEFT, shrink: 0 },
-      { component: current, basis: 0, grow: 1 },
-      { component: blank, basis: MARGIN_X, shrink: 0 },
-      { component: panel, basis: WIDTH, shrink: 0, visible: (vp: { width: number }) => visible && vp.width >= MIN_TERMINAL_WIDTH },
+    const inner = current[INNER] ?? current
+    // A bottom margin under the main column only; the panel spans full height.
+    const main = new VStack([
+      { component: inner, basis: 0, grow: 1 },
+      { component: blank, basis: MARGIN_Y, shrink: 0 },
     ])
-    root = new VStack([
-      { component: blank, basis: MARGIN_Y, shrink: 0 },
-      { component: columns, basis: 0, grow: 1 },
-      { component: blank, basis: MARGIN_Y, shrink: 0 },
-    ]) as unknown as Component
+    root = Object.assign(
+      new HStack([
+        { component: blank, basis: MARGIN_LEFT, shrink: 0 },
+        { component: main, basis: 0, grow: 1 },
+        { component: blank, basis: MARGIN_X, shrink: 0 },
+        { component: panel, basis: WIDTH, shrink: 0, visible: (vp: { width: number }) => visible && vp.width >= MIN_TERMINAL_WIDTH },
+      ]),
+      { [INNER]: inner },
+    ) as unknown as Component
     t.setLayoutRoot(root)
     guardSelection(t)
   }
@@ -177,15 +188,18 @@ export default function sidebar(pi: Pi) {
   // after any reset already there (sliceWithWidth's pendingAnsi), so the
   // first margin cell picks up tool-block backgrounds while text is
   // selected. Re-reset at that column after omo's pass.
-  const guardSelection = (t: LayoutTui) => {
-    const original = t.applySelection
+  // The unwrapped method is kept on the tui under a global symbol so a
+  // reloaded copy of this module replaces the guard instead of stacking one.
+  const guardSelection = (t: LayoutTui & { [ORIGINAL_SELECTION]?: LayoutTui["applySelection"] }) => {
+    const original = (t[ORIGINAL_SELECTION] ??= t.applySelection)
     if (!original || guarded.has(t)) return
     guarded.add(t)
     t.applySelection = function (this: LayoutTui, screen: string[], layout?: unknown) {
       const columns = t.terminal.columns
       const panelShown = visible && columns >= MIN_TERMINAL_WIDTH
       const edge = columns - MARGIN_X - (panelShown ? WIDTH : 0)
-      return original.call(this, screen, layout).map((line) => resetAt(line, edge))
+      const lines = original.call(this, screen, layout)
+      return (globalThis as { [BACKDROP]?: boolean })[BACKDROP] ? lines : lines.map((line) => resetAt(line, edge))
     }
   }
 

@@ -1,7 +1,7 @@
 // opencode-style prompt: a filled box with an accent bar on the left and an
 // "agent · model provider · thinking" line in place of the bottom border.
 import { CustomEditor } from "@code-yeongyu/senpi"
-import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui"
+import { CURSOR_MARKER, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui"
 import { type Ctx, paint, type Theme } from "./stats.ts"
 
 const BG = "selectedBg"
@@ -41,6 +41,33 @@ export default function prompt(pi: Pi) {
 
     class PromptEditor extends CustomEditor {
       contentRows = 0
+      leader: string | undefined
+
+      // opencode-style ctrl+x leader. omo has no key chords, so the editor
+      // (which sees keys before omo's app bindings) holds ctrl+x and reads
+      // the next key: l opens /sessions, y replays ctrl+x for omo's own copy,
+      // esc cancels, anything else is typed as usual.
+      handleInput(data: string) {
+        const leader = this.leader
+        this.leader = undefined
+        if (leader !== undefined) {
+          if (data === "l") return this.runCommand("/sessions")
+          if (data === "y") return super.handleInput(leader)
+          if (matchesKey(data, Key.escape)) return
+        } else if (matchesKey(data, Key.ctrl("x"))) {
+          this.leader = data
+          return
+        }
+        super.handleInput(data)
+      }
+
+      runCommand(command: string) {
+        // omo's submit handler reads the editor text, not its argument.
+        const draft = this.getText()
+        this.setText(command)
+        this.onSubmit?.(command)
+        this.setText(draft)
+      }
 
       render(width: number): string[] {
         const inner = Math.max(1, width - 1)
