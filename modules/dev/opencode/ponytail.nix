@@ -45,13 +45,31 @@ let
       value.source = "${ponytail-src}/skills/${n}/SKILL.md";
     }) names
   );
+  # omo loads the same files as prompt templates and skills. The plugin is
+  # opencode-only, so `/ponytail <level>` lasts for the session there instead
+  # of persisting.
+  omoFiles = lib.listToAttrs (
+    lib.concatMap (n: [
+      {
+        name = ".omo/agent/prompts/${n}.md";
+        value.source = "${ponytail-src}/.opencode/command/${n}.md";
+      }
+      {
+        name = ".omo/agent/skills/${n}/SKILL.md";
+        value.source = "${ponytail-src}/skills/${n}/SKILL.md";
+      }
+    ]) names
+  );
 in
 {
-  home = {
-    programs.opencode.settings.plugin = [
-      "file://${ponytail-src}/.opencode/plugins/ponytail.mjs"
-    ];
+  home =
+    { userCfg, ... }:
+    {
+      programs.opencode.settings.plugin = [
+        "file://${ponytail-src}/.opencode/plugins/ponytail.mjs"
+      ];
 
-    xdg.configFile = commandFiles // skillFiles;
-  };
+      xdg.configFile = commandFiles // skillFiles;
+      home.file = lib.mkIf userCfg.omo.enable omoFiles;
+    };
 }

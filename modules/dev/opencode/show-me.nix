@@ -1,4 +1,4 @@
-_:
+{ lib }:
 # show-me: `/show-me` explains the current topic visually — pseudocode, call
 # trees, component trees, shallow file trees, Mermaid, and diffs *of* those
 # shapes rather than of code.
@@ -15,6 +15,15 @@ _:
 # visually") carries no trigger phrases — as a skill opencode's matcher would
 # fire it arbitrarily or never.  Explicit `/show-me` is the intent anyway.
 {
-  # Discovered under `{command,commands}/**/*.md` in the config dir.
-  home.xdg.configFile."opencode/commands/show-me.md".source = ./show-me.md;
+  home =
+    { userCfg, ... }:
+    {
+      # Discovered under `{command,commands}/**/*.md` in the config dir.
+      xdg.configFile."opencode/commands/show-me.md".source = ./show-me.md;
+      # Same file as an omo prompt template: same frontmatter, no
+      # opencode-only syntax.
+      home.file = lib.mkIf userCfg.omo.enable {
+        ".omo/agent/prompts/show-me.md".source = ./show-me.md;
+      };
+    };
 }

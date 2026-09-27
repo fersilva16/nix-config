@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, lib }:
 let
   # autoresearch-opencode: autonomous experiment loop skill + slash command +
   # context-injection plugin.  Upstream is shipped as plain markdown and
@@ -15,30 +15,40 @@ let
   };
 in
 {
-  home = {
-    # Plugin loads via file:// URL — opencode resolves TypeScript directly via
-    # Bun, no compilation needed (matches direnv-plugin pattern).
-    programs.opencode.settings.plugin = [
-      "file://${autoresearch-src}/plugins/autoresearch-context.ts"
-    ];
+  home =
+    { userCfg, ... }:
+    {
+      # Plugin loads via file:// URL — opencode resolves TypeScript directly via
+      # Bun, no compilation needed (matches direnv-plugin pattern).
+      programs.opencode.settings.plugin = [
+        "file://${autoresearch-src}/plugins/autoresearch-context.ts"
+      ];
 
-    xdg.configFile = {
-      # Skill: autonomous experiment-loop instructions.  Discovered by
-      # opencode under `{skill,skills}/**/SKILL.md` in the config dir.
-      "opencode/skills/autoresearch/SKILL.md".source = "${autoresearch-src}/skills/autoresearch/SKILL.md";
+      xdg.configFile = {
+        # Skill: autonomous experiment-loop instructions.  Discovered by
+        # opencode under `{skill,skills}/**/SKILL.md` in the config dir.
+        "opencode/skills/autoresearch/SKILL.md".source = "${autoresearch-src}/skills/autoresearch/SKILL.md";
 
-      # Slash command: `/autoresearch [goal]` — drives the experiment loop.
-      # Discovered under `{command,commands}/**/*.md`.
-      "opencode/commands/autoresearch.md".source = "${autoresearch-src}/commands/autoresearch.md";
+        # Slash command: `/autoresearch [goal]` — drives the experiment loop.
+        # Discovered under `{command,commands}/**/*.md`.
+        "opencode/commands/autoresearch.md".source = "${autoresearch-src}/commands/autoresearch.md";
 
-      # Backup utility referenced by the skill (`./scripts/backup-state.sh`
-      # lookup is project-relative, but having a known-good copy in the
-      # config dir matches upstream's `install.sh` behavior and lets users
-      # symlink it into their experiment projects).
-      "opencode/scripts/backup-state.sh" = {
-        source = "${autoresearch-src}/scripts/backup-state.sh";
-        executable = true;
+        # Backup utility referenced by the skill (`./scripts/backup-state.sh`
+        # lookup is project-relative, but having a known-good copy in the
+        # config dir matches upstream's `install.sh` behavior and lets users
+        # symlink it into their experiment projects).
+        "opencode/scripts/backup-state.sh" = {
+          source = "${autoresearch-src}/scripts/backup-state.sh";
+          executable = true;
+        };
+      };
+
+      # omo gets the skill and the command; the context-injection plugin is
+      # opencode-only.
+      home.file = lib.mkIf userCfg.omo.enable {
+        ".omo/agent/skills/autoresearch/SKILL.md".source =
+          "${autoresearch-src}/skills/autoresearch/SKILL.md";
+        ".omo/agent/prompts/autoresearch.md".source = "${autoresearch-src}/commands/autoresearch.md";
       };
     };
-  };
 }
