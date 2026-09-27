@@ -152,6 +152,10 @@ mkUserModule {
       };
 
       "opencode/plugin/tmux-notifier.ts".source = ./plugins/tmux-notifier.ts;
+
+      # `types.lines`: agents with their own notifier append their
+      # #{pane_current_command} pattern (see scripts/opencode-manager.sh).
+      "tmux-opencode-manager/agent-commands".text = "opencode";
     };
 
     home.sessionVariables.OPENCODE_TMUX_NOTIFIER_SOUND_DIR = "${mohak34-sounds}";

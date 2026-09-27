@@ -964,5 +964,10 @@ mkUserModule {
           complete -f -c lin -n "test (commandline -opc)[2] = ai" -l todo -d "Set issue state to Todo"
         '';
       };
+
+      # omo's `/lin` runs the fish `lin` above, so it needs both.
+      home.file = lib.mkIf (userCfg.omo.enable && userCfg.fish.enable) {
+        ".omo/agent/extensions/lin.ts".source = ./lin.ts;
+      };
     };
 }

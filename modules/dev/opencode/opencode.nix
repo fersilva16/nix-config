@@ -35,11 +35,11 @@ mkUserModule {
     direnv-plugin = import ./direnv-plugin.nix { inherit pkgs; };
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
-    autoresearch = import ./autoresearch.nix { inherit pkgs; };
+    autoresearch = import ./autoresearch.nix { inherit pkgs lib; };
     anthropic-auth = import ./anthropic-auth.nix { inherit pkgs; };
     ponytail = import ./ponytail.nix { inherit pkgs lib; };
     i-have-adhd = import ./i-have-adhd.nix { };
-    show-me = import ./show-me.nix { };
+    show-me = import ./show-me.nix { inherit lib; };
     cache = import ./cache.nix { };
     omo-gitignore = import ./omo-gitignore.nix { };
     omo = import ./omo.nix { inherit pkgs; };
