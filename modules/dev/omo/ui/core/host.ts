@@ -11,10 +11,22 @@ type Method = (this: any, ...args: any[]) => any
 // Wraps target[name]. The unwrapped method is kept on the target under a
 // global symbol, so /reload's fresh copy of this module re-wraps omo's
 // original instead of stacking wrappers.
+//
+// A running omo can /reload into a newer copy of this extension, so a key
+// must never be renamed: the new copy would take the old wrapper for omo's
+// original and wrap on top of it. Keys used before core/host.ts existed are
+// listed here and still count.
+const LEGACY_ORIGINALS: Record<string, symbol | undefined> = {
+  applySelection: Symbol.for("omo-ui-sidebar.applySelection"),
+  compositeOverlays: Symbol.for("omo-ui.backdrop.original"),
+  render: Symbol.for("omo-ui-tools.render"),
+}
+
 export function patch(target: object, name: string, wrap: (original: Method) => Method): void {
   const slots = target as Record<string | symbol, Method | undefined>
   const key = Symbol.for(`omo-ui.original.${name}`)
-  const original = (slots[key] ??= slots[name])
+  const legacy = LEGACY_ORIGINALS[name]
+  const original = (slots[key] ??= (legacy && slots[legacy]) ?? slots[name])
   if (original) slots[name] = wrap(original)
 }
 
@@ -38,8 +50,11 @@ let tui: HostTui | undefined
 const mounts: Mount[] = []
 
 // Widget factories are the only API that hands out the tui; one empty widget
-// passes it to every feature that needs it.
+// passes it to every feature that needs it. omo can run the extension again
+// without re-importing this module (/new, session switch), so mounts from the
+// previous run are dropped rather than kept alongside the new ones.
 export function initHost(pi: Pi): void {
+  mounts.length = 0
   pi.on("session_start", (_e, ctx) => {
     ctx.ui.setWidget("ui-host-mount", (t, theme) => {
       tui = t
@@ -70,19 +85,27 @@ export function copySelection(): boolean {
 // Fullscreen layout. Only fullscreen mode has a layout root; in regular mode
 // these hooks are no-ops.
 const INNER = Symbol.for("omo-ui.layout.inner")
-let wrapped: Component | undefined
+// The key sidebar.ts used before core/host.ts existed (see patch()).
+const LEGACY_INNER = Symbol.for("omo-ui-sidebar.inner")
+type Wrapper = Component & { [INNER]?: Component; [LEGACY_INNER]?: Component }
 
-// /new and /reload re-run session_start, so the root may already be a
-// previous wrapper; the wrapper records omo's own root under INNER, which
-// survives module reloads, and it is unwrapped before wrapping again.
+// omo's own root under any chain of our wrappers.
+const unwrap = (root: Wrapper): Component => {
+  const inner = root[INNER] ?? root[LEGACY_INNER]
+  return inner ? unwrap(inner) : root
+}
+
+// /new, /reload and session switches re-run session_start, so the root may
+// already be a wrapper, possibly built by another copy of this extension or
+// by an earlier run whose state is gone. The wrapper records omo's own root
+// under INNER, which survives module reloads; every call unwraps to it and
+// wraps again with the caller's build, so the latest mount always wins.
 // Returns whether the tui is fullscreen (has a layout root).
 export function wrapLayout(t: HostTui, build: (inner: Component) => Component): boolean {
-  const current = t.layoutRoot as (Component & { [INNER]?: Component }) | undefined
+  const current = t.layoutRoot as Wrapper | undefined
   if (!t.setLayoutRoot || !current) return false
-  if (current === wrapped) return true
-  const inner = current[INNER] ?? current
-  wrapped = Object.assign(build(inner), { [INNER]: inner })
-  t.setLayoutRoot(wrapped)
+  const inner = unwrap(current)
+  t.setLayoutRoot(Object.assign(build(inner), { [INNER]: inner }))
   return true
 }
 
