@@ -21,7 +21,9 @@ let
   # pane dies before it draws, and the split looks like it opens and
   # instantly closes. An absolute store path would fix launching but not the
   # customCommands below, which shell out to fish and gh and would inherit
-  # that same stripped PATH. The login shell fixes both.
+  # that same stripped PATH. The login shell fixes both. It execs lazygit so
+  # tmux reports the pane as `lazygit` rather than `fish`, which is what
+  # tmux-nerd-font-window-name matches its icon on (theme.nix).
   tmux-lazygit = pkgs.writeShellApplication {
     name = "tmux-lazygit";
     runtimeInputs = [ pkgs.tmux ];
@@ -30,7 +32,7 @@ let
       if [ -z "$pane" ]; then
         pane=$(tmux split-window -h -P -F '#{pane_id}' \
           -c "$(tmux display-message -p '#{pane_current_path}')" \
-          '${pkgs.fish}/bin/fish -lc lazygit')
+          '${pkgs.fish}/bin/fish -lc "exec lazygit"')
         tmux set-option -p -t "$pane" @lazygit 1
       elif [ "$(tmux display-message -p -t "$pane" '#{window_id}')" != "$(tmux display-message -p '#{window_id}')" ]; then
         tmux join-pane -h -s "$pane"
