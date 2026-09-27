@@ -1,4 +1,4 @@
-// Session state shared by the footer and sidebar: one set of event
+// Session state shared by the footer, sidebar and prompt: one set of event
 // subscriptions keeps it fresh and re-renders the UI when it changes.
 import { spawnSync } from "node:child_process"
 import { requestRender } from "./host.ts"
@@ -18,6 +18,7 @@ export type Snapshot = {
 type Pi = {
   on(event: string, handler: (event: unknown, ctx: Ctx) => void): void
   getSessionName(): string | undefined
+  events: { on(channel: "agents:active", handler: (agent: string) => void): void }
 }
 
 const EDIT_TOOLS = new Set(["edit", "write"])
@@ -25,6 +26,8 @@ const REFRESH_EVENTS = ["turn_end", "tool_result", "model_select", "session_info
 
 export const store = {
   snapshot: undefined as Snapshot | undefined,
+  // Published by the agents extension; stays "OmO" without it.
+  agent: "OmO",
 }
 
 let pi: Pi | undefined
@@ -87,6 +90,9 @@ export function refresh(ctx: Ctx): void {
 
 export function initStore(api: Pi): void {
   pi = api
+  api.events.on("agents:active", (name) => {
+    store.agent = name === "omo" ? "OmO" : name
+  })
   api.on("session_start", (_e, ctx) => {
     branch = gitBranch(ctx.cwd)
     refresh(ctx)

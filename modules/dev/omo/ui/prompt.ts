@@ -4,6 +4,7 @@ import { CustomEditor } from "@code-yeongyu/senpi"
 import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui"
 import { type CardStyle, cardInner, cardRow } from "./core/card.ts"
 import { type Intent, Keymap, submitCommand } from "./core/intents.ts"
+import { store } from "./core/store.ts"
 import { stripAnsi } from "./core/style.ts"
 import type { Ctx, Theme } from "./core/types.ts"
 
@@ -24,10 +25,11 @@ type Prompt = {
   forward(data: string): void
 }
 
-// opencode-style ctrl+x leader: l opens /sessions, y replays ctrl+x for omo's
-// own copy.
+// opencode-style ctrl+x leader: l opens /sessions, a cycles /agent, y replays
+// ctrl+x for omo's own copy.
 const INTENTS: Intent<Prompt>[] = [
   { leader: true, key: "l", run: (editor) => submitCommand(editor, "/sessions") },
+  { leader: true, key: "a", run: (editor) => submitCommand(editor, "/agent") },
   { leader: true, key: "y", run: (editor, _data, leader) => leader && editor.forward(leader) },
 ]
 
@@ -47,7 +49,7 @@ export default function prompt(pi: Pi) {
       const m = ctx.model
       const thinking = pi.getThinkingLevel()
       return [
-        theme.fg("accent", "OmO"),
+        theme.fg("accent", store.agent),
         m ? `${m.name ?? m.id} ${theme.fg("muted", m.provider ?? "")}` : theme.fg("muted", "no model"),
         thinking === "off" ? "" : theme.fg("warning", thinking),
       ]
