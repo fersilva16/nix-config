@@ -461,6 +461,7 @@ async function spawn(name: string, prompt: string, stack?: string, after?: strin
   if (!process.env.TMUX) die("needs to run inside tmux")
   const p = project() ?? die("not in a git repo")
   for (const n of needs) if (!existsSync(pathOf(p, n))) die(`--needs ${n}: no such agent worktree`)
+  pullTrunk(p.main)
   const wt = (n: string) => {
     const r = spawnSync("fish", ["-c", "set -x WT_SYNC 1; set -x WT_DETACH 1; wt $argv[1]", n], { encoding: "utf8" })
     if (r.status !== 0) die(`wt: ${(r.stderr || r.stdout).trim()}`)
@@ -513,6 +514,22 @@ async function spawn(name: string, prompt: string, stack?: string, after?: strin
     await Bun.sleep(1000)
   }
   console.log(`started ${name} in tmux ${session} (worktree ${path}), but it has not joined the RPC host; use agent peek/open`)
+}
+
+// New agents branch off the main branch, so bring it up to origin first.
+// Fast-forward only: local commits on it, or a dirty tree in the way, stop the
+// spawn instead of being merged or rebased. When the main checkout is on
+// another branch, the fetch moves the local main ref directly.
+function pullTrunk(main: string) {
+  const trunk = (git(main, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]) ?? "origin/main").replace(/^origin\//, "")
+  const run = (args: string[]) => {
+    const r = spawnSync("git", ["-C", main, ...args], { encoding: "utf8" })
+    if (r.status !== 0) die(`could not pull ${trunk} before spawning: ${(r.stderr || r.stdout).trim()}`)
+  }
+  if (git(main, ["branch", "--show-current"]) === trunk) {
+    run(["fetch", "-q", "origin", trunk])
+    run(["merge", "--ff-only", "-q", `origin/${trunk}`])
+  } else run(["fetch", "-q", "origin", `${trunk}:${trunk}`])
 }
 
 // Agent name -> worktree: "main", "<name>" (wt) or "<root>/<layer>" (wts).
