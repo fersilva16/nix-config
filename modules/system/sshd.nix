@@ -1,8 +1,9 @@
 # SSH daemon hardening, expressed per platform because the two OSes take it
 # by different routes:
 #
-#   darwin — the daemon itself is toggled on demand by tmux-remote (Remote
-#     Login), so only the drop-in is declared. macOS sshd_config ends with an
+#   darwin — the daemon itself is not managed here: Remote Login (System
+#     Settings > General > Sharing) turns it on or off, so only the drop-in
+#     is declared. macOS sshd_config ends with an
 #     Include of sshd_config.d/*, which is what makes this file take effect.
 #
 #   linux — NixOS generates sshd_config wholesale from services.openssh and
