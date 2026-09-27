@@ -5,6 +5,12 @@ import type { Theme } from "./types.ts"
 
 export type CardStyle = { bar: string; fill?: { theme: Theme; token: string } }
 
+// The prompt's card, shared by everything drawn as part of the prompt (the
+// editor and the ask-user question).
+export function promptStyle(theme: Theme): CardStyle {
+  return { bar: theme.fg("accent", CHROME.bar), fill: { theme, token: "selectedBg" } }
+}
+
 export function cardInner(width: number): number {
   return Math.max(1, width - 1)
 }

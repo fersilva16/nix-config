@@ -270,3 +270,131 @@ export function onSelectionText(rewrite: (text: string) => string): void {
     },
   )
 }
+
+// Questions. The ask-user tool has no styling API. A blocking question (or
+// an expanded non-blocking one) replaces the editor with an
+// AskUserQuestionComponent that InteractiveMode keeps on `askUserQuestion`;
+// a pending non-blocking question is the "ask-user" widget that
+// refreshAsyncWidget sets above the editor. All of it happens inside
+// InteractiveMode methods, which are wrapped once here; the exported hooks
+// only switch features on.
+export type QuestionComponent = Component & {
+  children: Component[]
+  titleText: Component
+  hintsText: Component & { text: string }
+  countdownLabel: string
+  doneCallback(response: { status: string }): void
+  state: {
+    focus: string
+    activeTabIndex: number
+    activeQuestion: { header: string }
+    request: { questions: unknown[] }
+  }
+}
+type QuestionHost = {
+  askUserQuestion?: QuestionComponent
+  setExtensionWidget: Method
+  shownQuestionId?: string
+  pendingOrder: string[]
+  pendingQuestions: Map<string, { finish(response: unknown): void }>
+  ui: { hasOverlay(): boolean }
+  extensionSelector?: unknown
+  extensionInput?: unknown
+  extensionEditor?: unknown
+  expandPendingQuestion(requestId?: string, ...rest: unknown[]): boolean
+}
+type WidgetFactory = (...args: unknown[]) => Component
+
+const questionHooks: {
+  decorate?: (question: QuestionComponent) => void
+  decorateWidget?: (widget: Component) => Component
+  expandPending?: boolean
+} = {}
+
+export function onQuestion(decorate: (question: QuestionComponent) => void): void {
+  questionHooks.decorate = decorate
+  patchQuestions()
+}
+
+export function onQuestionWidget(decorate: (widget: Component) => Component): void {
+  questionHooks.decorateWidget = decorate
+  patchQuestions()
+}
+
+// Pending non-blocking questions take the editor's place as soon as nothing
+// else holds it, like blocking ones, and esc cancels them rather than
+// collapsing them back into the widget. The widget remains only while a
+// dialog or another question is up.
+export function expandPendingQuestions(): void {
+  questionHooks.expandPending = true
+  patchQuestions()
+}
+
+function decorateNew(host: QuestionHost, before: QuestionComponent | undefined): void {
+  const question = host.askUserQuestion
+  if (question && question !== before) questionHooks.decorate?.(question)
+}
+
+function expandPending(host: QuestionHost): void {
+  if (!questionHooks.expandPending || host.askUserQuestion) return
+  if (host.ui.hasOverlay() || host.extensionSelector || host.extensionInput || host.extensionEditor) return
+  const shown = host.shownQuestionId
+  const id = shown !== undefined && host.pendingQuestions.has(shown) ? shown : host.pendingOrder.find((i) => host.pendingQuestions.has(i))
+  if (id !== undefined) host.expandPendingQuestion(id)
+}
+
+function patchQuestions(): void {
+  patch(mode, "showQuestionOverlay", (original) =>
+    function (this: QuestionHost, ...args: unknown[]) {
+      const before = this.askUserQuestion
+      const result = original.apply(this, args)
+      decorateNew(this, before)
+      return result
+    },
+  )
+  // omo's expanded pending question hands a cancel back to the widget; when
+  // pending questions take over the prompt, it finishes the question instead,
+  // with the same cancelled response a blocking question resolves with.
+  patch(mode, "expandPendingQuestion", (original) =>
+    function (this: QuestionHost, requestId = this.shownQuestionId, ...rest: unknown[]) {
+      const before = this.askUserQuestion
+      const state = requestId === undefined ? undefined : this.pendingQuestions.get(requestId)
+      const result = original.call(this, requestId, ...rest)
+      const question = this.askUserQuestion
+      if (questionHooks.expandPending && state && question && question !== before) {
+        const done = question.doneCallback
+        question.doneCallback = (response) => (response.status === "cancelled" ? state.finish(response) : done.call(question, response))
+      }
+      decorateNew(this, before)
+      return result
+    },
+  )
+  patch(mode, "refreshAsyncWidget", (original) =>
+    function (this: QuestionHost, ...args: unknown[]) {
+      // Shadow setExtensionWidget on the instance for this call only, so the
+      // widget factory is wrapped while the prototype method (and any hook
+      // on it, such as onWidget) still runs.
+      const set = this.setExtensionWidget
+      const decorate = questionHooks.decorateWidget
+      this.setExtensionWidget = function (this: QuestionHost, key: string, factory?: WidgetFactory, ...rest: unknown[]) {
+        const wrapped = key === "ask-user" && factory && decorate ? (...a: unknown[]) => decorate(factory(...a)) : factory
+        return set.call(this, key, wrapped, ...rest)
+      }
+      try {
+        return original.apply(this, args)
+      } finally {
+        delete (this as Partial<QuestionHost>).setExtensionWidget
+        expandPending(this)
+      }
+    },
+  )
+  // A closed question (blocking or not) gives the editor back; the next
+  // pending question takes it at once.
+  patch(mode, "hideQuestionOverlay", (original) =>
+    function (this: QuestionHost, ...args: unknown[]) {
+      const result = original.apply(this, args)
+      expandPending(this)
+      return result
+    },
+  )
+}

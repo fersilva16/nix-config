@@ -10,6 +10,7 @@ import { initHost, onSelectionText } from "./core/host.ts"
 import { initStore } from "./core/store.ts"
 import footer from "./footer.ts"
 import prompt from "./prompt.ts"
+import question from "./question.ts"
 import sessions from "./sessions.ts"
 import sidebar from "./sidebar.ts"
 import tools from "./tools.ts"
@@ -19,6 +20,7 @@ export default function (pi: ExtensionAPI) {
   initHost(pi)
   initStore(pi)
   prompt(pi)
+  question(pi)
   footer(pi)
   turn(pi)
   tools(pi)
