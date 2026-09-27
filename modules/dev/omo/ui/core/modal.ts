@@ -12,7 +12,7 @@ const EDGE = 1
 const INDENT = 3
 const PANEL = "userMessageBg"
 
-type ModalCtx = {
+export type ModalCtx = {
   ui: {
     custom<T>(
       factory: (tui: Tui, theme: Theme, keybindings: unknown, done: (value: T) => void) => Component,

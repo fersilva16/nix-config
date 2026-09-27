@@ -25,6 +25,9 @@ type HostTui = Tui & {
   compositeOverlays?: Method
   overlayStack?: { options?: { nonCapturing?: boolean } }[]
   isOverlayVisible?(entry: unknown): boolean
+  hasActiveSelection?(): boolean
+  copyActiveSelectionToClipboard?(): Promise<boolean>
+  clearTextSelection?(): void
 }
 type Mount = (tui: HostTui, theme: Theme) => void
 type Pi = {
@@ -52,6 +55,16 @@ export function onTui(mount: Mount): void {
 
 export function requestRender(): void {
   tui?.requestRender()
+}
+
+// Copies the fullscreen mouse selection and clears it, so the next press of
+// the same key acts normally. False when nothing is selected.
+export function copySelection(): boolean {
+  if (!tui?.hasActiveSelection?.()) return false
+  void tui.copyActiveSelectionToClipboard?.()
+  tui.clearTextSelection?.()
+  tui.requestRender()
+  return true
 }
 
 // Fullscreen layout. Only fullscreen mode has a layout root; in regular mode

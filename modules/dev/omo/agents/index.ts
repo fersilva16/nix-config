@@ -1,8 +1,9 @@
-// Switchable primary agents, opencode-style. `/agent [name]` (or ctrl+x a in
-// the prompt, which cycles) moves this session between plain OmO and the
-// orchestrator; the choice is saved in the session so a resume keeps it.
-// `omo --agent orchestrator` starts in it. omo.nix installs this directory
-// as ~/.omo/agent/extensions/agents; to try an edit before rebuilding:
+// Switchable primary agents, opencode-style. `/agent [name]` (or Tab on an
+// empty prompt / ctrl+x a, which cycle via `agents:cycle`) moves this
+// session between plain OmO and the orchestrator; the choice is saved in
+// the session so a resume keeps it. `omo --agent orchestrator` starts in it.
+// omo.nix installs this directory as ~/.omo/agent/extensions/agents; to try
+// an edit before rebuilding:
 // omo -e ~/nix-config/modules/dev/omo/agents/index.ts
 import { readFileSync } from "node:fs"
 import type { ExtensionAPI } from "@code-yeongyu/senpi"
@@ -29,6 +30,16 @@ export default function (pi: ExtensionAPI) {
     pi.events.emit("agents:active", agent)
   }
 
+  // Switches and saves the choice in the session, so a resume keeps it.
+  function switchTo(agent: Agent) {
+    use(agent)
+    pi.appendEntry(ENTRY, { agent })
+  }
+  const next = () => AGENTS[(AGENTS.indexOf(active) + 1) % AGENTS.length]
+
+  // The prompt's Tab (empty draft) and ctrl+x a.
+  pi.events.on("agents:cycle", () => switchTo(next()))
+
   pi.registerFlag("agent", { description: `Primary agent to start with (${AGENTS.join(", ")})`, type: "string" })
 
   pi.on("session_start", (_e, ctx) => {
@@ -45,14 +56,13 @@ export default function (pi: ExtensionAPI) {
     },
     handler: async (args, ctx) => {
       const name = args?.trim()
-      const next = name ? name : AGENTS[(AGENTS.indexOf(active) + 1) % AGENTS.length]
-      if (!isAgent(next)) {
+      const agent = name ? name : next()
+      if (!isAgent(agent)) {
         ctx.ui.notify(`Unknown agent "${name}". Available: ${AGENTS.join(", ")}`, "error")
         return
       }
-      use(next)
-      pi.appendEntry(ENTRY, { agent: next })
-      ctx.ui.notify(`Agent: ${next}`, "info")
+      switchTo(agent)
+      ctx.ui.notify(`Agent: ${agent}`, "info")
     },
   })
 

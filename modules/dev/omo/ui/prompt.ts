@@ -3,16 +3,22 @@
 import { CustomEditor } from "@code-yeongyu/senpi"
 import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui"
 import { cardInner, cardRow, promptStyle } from "./core/card.ts"
+import { copySelection } from "./core/host.ts"
 import { type Intent, Keymap, submitCommand } from "./core/intents.ts"
+import { confirm, type ModalCtx } from "./core/modal.ts"
 import { stripAnsi } from "./core/style.ts"
 import type { Ctx, Theme } from "./core/types.ts"
 
+type Session = Ctx & { ui: Ui; isIdle(): boolean; abort(): void; shutdown(): void }
 type Pi = {
-  on(event: "session_start", handler: (event: unknown, ctx: Ctx & { ui: Ui }) => void): void
+  on(event: "session_start", handler: (event: unknown, ctx: Session) => void): void
   getThinkingLevel(): string
-  events: { on(channel: "agents:active", handler: (agent: string) => void): void }
+  events: {
+    on(channel: "agents:active", handler: (agent: string) => void): void
+    emit(channel: string, data?: unknown): void
+  }
 }
-type Ui = {
+type Ui = ModalCtx["ui"] & {
   theme: Theme
   setEditorComponent(factory: (tui: unknown, theme: unknown, keybindings: unknown) => unknown): void
 }
@@ -21,15 +27,51 @@ type Prompt = {
   setText(text: string): void
   onSubmit?: (text: string) => void
   forward(data: string): void
+  isShowingAutocomplete(): boolean
 }
 
-// opencode-style ctrl+x leader: l opens /sessions, a cycles /agent, y replays
-// ctrl+x for omo's own copy.
-const INTENTS: Intent<Prompt>[] = [
-  { leader: true, key: "l", run: (editor) => submitCommand(editor, "/sessions") },
-  { leader: true, key: "a", run: (editor) => submitCommand(editor, "/agent") },
-  { leader: true, key: "y", run: (editor, _data, leader) => leader && editor.forward(leader) },
-]
+// Key table. Tab on an empty draft cycles the primary agent, as in opencode;
+// with text (or an open autocomplete) it stays omo's completion. ctrl+c copies
+// a mouse selection, else clears the draft, else exits (asking first while
+// the agent works). The ctrl+x leader: l opens /sessions, a cycles the agent,
+// y replays ctrl+x for omo's own copy.
+function intents(pi: Pi, ctx: Session): Intent<Prompt>[] {
+  const cycleAgent = () => pi.events.emit("agents:cycle")
+  let confirming = false
+  const exitOrConfirm = async () => {
+    if (ctx.isIdle()) return ctx.shutdown()
+    if (confirming) return
+    confirming = true
+    const choice = await confirm(ctx, {
+      title: "Agent is working",
+      message: "Exit omo, or interrupt the current run?",
+      actions: [
+        { key: "ctrl+c", label: "exit", value: "exit" },
+        { key: "i", label: "interrupt", value: "interrupt" },
+        { key: "escape", label: "stay", value: "stay" },
+      ],
+    }).finally(() => {
+      confirming = false
+    })
+    if (choice === "exit") ctx.shutdown()
+    else if (choice === "interrupt") ctx.abort()
+  }
+  return [
+    { id: "agent.cycle", key: "tab", when: (editor) => editor.getText() === "" && !editor.isShowingAutocomplete(), run: cycleAgent },
+    {
+      id: "app.exitOrConfirm",
+      key: "ctrl+c",
+      run: (editor) => {
+        if (copySelection()) return
+        if (editor.getText() !== "") return editor.setText("")
+        void exitOrConfirm()
+      },
+    },
+    { leader: true, key: "l", run: (editor) => submitCommand(editor, "/sessions") },
+    { id: "agent.cycle", leader: true, key: "a", run: cycleAgent },
+    { leader: true, key: "y", run: (editor, _data, leader) => leader && editor.forward(leader) },
+  ]
+}
 
 // CustomEditor.render swaps the first content line's padding for a "❯"
 // marker; skip it and lay out the base Editor directly.
@@ -65,7 +107,8 @@ export default function prompt(pi: Pi) {
       declare setText: Prompt["setText"]
       declare onSubmit: Prompt["onSubmit"]
       contentRows = 0
-      keys = new Keymap<Prompt>("ctrl+x", INTENTS)
+      declare isShowingAutocomplete: Prompt["isShowingAutocomplete"]
+      keys = new Keymap<Prompt>("ctrl+x", intents(pi, ctx))
 
       handleInput(data: string) {
         this.keys.handle(this, data, (d) => super.handleInput(d))
