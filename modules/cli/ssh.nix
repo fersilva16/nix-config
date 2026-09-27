@@ -13,7 +13,7 @@ mkUserModule {
     description = "Public keys accepted for SSH login as this user.";
   };
 
-  # linux only: on darwin the daemon is toggled ad hoc by tmux-remote and the
+  # linux only: on darwin the daemon is left to Remote Login and the
   # keys are handed out by the 1Password agent, so there is no declarative
   # authorized_keys to own there. forPlatform yields {} on darwin.
   user =

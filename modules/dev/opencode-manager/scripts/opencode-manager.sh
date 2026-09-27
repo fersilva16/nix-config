@@ -231,14 +231,6 @@ notify::add() {
     # what leaves the status bar showing through a prompt.
     tmux display-message -d 5000 "#[fg=#da702c]󰂞  ${session}: ${message}" 2>/dev/null || true
   fi
-
-  if [[ -f "/tmp/tmux-remote-state" ]]; then
-    if [[ -n "${TMUX_PANE:-}" ]]; then
-      tmux send-keys -t "$TMUX_PANE" "" 2>/dev/null || true
-    else
-      printf '\a'
-    fi
-  fi
 }
 
 # @cmd Dismiss notification(s)
@@ -442,7 +434,6 @@ sessions() {
 }
 
 # @cmd Show status bar widget
-# @flag --plain   Plain text output for remote/minimal displays
 widget() {
   local BG="#f2f0e5"
   local FG="#100f0f"
@@ -464,32 +455,23 @@ widget() {
 
   local output=""
 
-  if [[ "${argc_plain:-}" -eq 1 ]]; then
-    if [[ "$active" -gt 0 ]]; then
-      output="G:${active}"
-    fi
-    if [[ "$notifs" -gt 0 ]]; then
-      output="${output} !${notifs}"
-    fi
-  else
-    # Urgency shift: orange when notifications need attention, purple otherwise.
-    local badge_bg="${PURPLE}"
-    if [[ "$notifs" -gt 0 ]]; then
-      badge_bg="${ORANGE}"
-    fi
+  # Urgency shift: orange when notifications need attention, purple otherwise.
+  local badge_bg="${PURPLE}"
+  if [[ "$notifs" -gt 0 ]]; then
+    badge_bg="${ORANGE}"
+  fi
 
-    local body=""
-    if [[ "$active" -gt 0 ]]; then
-      body="${body}#[fg=${WHITE},bg=${badge_bg},bold]  ${active}"
-    fi
-    if [[ "$notifs" -gt 0 ]]; then
-      body="${body}#[fg=${WHITE},bg=${badge_bg},bold]  ${notifs}"
-    fi
+  local body=""
+  if [[ "$active" -gt 0 ]]; then
+    body="${body}#[fg=${WHITE},bg=${badge_bg},bold]  ${active}"
+  fi
+  if [[ "$notifs" -gt 0 ]]; then
+    body="${body}#[fg=${WHITE},bg=${badge_bg},bold]  ${notifs}"
+  fi
 
-    if [[ -n "$body" ]]; then
-      # Powerline rounded ends form a pill:  on the left,  on the right.
-      output="#[fg=${badge_bg},bg=${BG}]${body} #[fg=${badge_bg},bg=${BG}]${RST} "
-    fi
+  if [[ -n "$body" ]]; then
+    # Powerline rounded ends form a pill:  on the left,  on the right.
+    output="#[fg=${badge_bg},bg=${BG}]${body} #[fg=${badge_bg},bg=${BG}]${RST} "
   fi
 
   echo "$output"

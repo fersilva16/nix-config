@@ -242,20 +242,13 @@ local function toggleApp(bundleID)
   end
 end
 
--- Hyper + Space → Reach the terminal, then toggle inside it: from another
--- app it only surfaces Ghostty, and from Ghostty it flips between the nvim
--- window and the last one (tmux-nvim-window without `focus`).
+-- Hyper + Space → Focus Ghostty.
 local spaceCode = hs.keycodes.map["space"]
 if spaceCode then
   keyCodeNames[spaceCode] = "space"
   hyperActionsByKeyCode[spaceCode] = function()
-    local front = hs.application.frontmostApplication()
-    if front and front:bundleID() == "com.mitchellh.ghostty" then
-      hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window" }):start()
-    else
-      hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
-      warpToApp("com.mitchellh.ghostty")
-    end
+    hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
+    warpToApp("com.mitchellh.ghostty")
   end
 end
 

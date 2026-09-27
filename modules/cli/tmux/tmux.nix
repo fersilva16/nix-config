@@ -146,7 +146,7 @@ let
       if [ -z "$session" ]; then exit 0; fi
 
       # Already on the nvim window: `focus` arg → stay put (Hyper+C),
-      # otherwise toggle back to the previous window (Hyper+Space).
+      # otherwise toggle back to the previous window.
       active=$(tmux display-message -p -t "$session" '#{@nvim_window}' 2>/dev/null || true)
       if [ "$active" = "1" ]; then
         if [ "$(tmux display-message -p -t "$session" '#{pane_dead}' 2>/dev/null || true)" = "1" ]; then
@@ -180,19 +180,14 @@ let
 
   # Session picker rules, shared by the choose-tree binds here and in
   # session-picker.nix: sessions only, zoomed, sorted by name (worktree sessions
-  # stay grouped with parent), and the `pocket` session filtered out (see
-  # pocket.nix — pocket is popup-only, never selected via a picker; the
-  # filter is a no-op when pocket is disabled).
-  choose-tree-picker = "choose-tree -sZO name -f '#{!=:#{session_name},pocket}'";
+  # stay grouped with parent).
+  choose-tree-picker = "choose-tree -sZO name";
 in
 mkUserModule {
   name = "tmux";
   parts = {
     theme = import ./theme.nix { inherit pkgs; };
-    cheatsheet = import ./cheatsheet.nix { inherit pkgs; };
     statusbar = import ./statusbar.nix { inherit pkgs; };
-    remote = import ./remote.nix { inherit pkgs; };
-    pocket = import ./pocket.nix { inherit pkgs; };
     pr = import ./pr.nix { inherit pkgs; };
     session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker; };
   };

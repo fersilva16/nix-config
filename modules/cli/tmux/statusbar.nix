@@ -79,22 +79,14 @@ let
   };
 
   # Composable status bar orchestrator.
-  # Scans ~/.config/tmux/widgets/ (normal) or ~/.config/tmux/widgets-remote/ (remote)
-  # and runs every executable in filename order. Each part registers its own widgets.
+  # Scans ~/.config/tmux/widgets/ and runs every executable in filename order.
+  # Each part registers its own widgets.
   tmux-status-right = pkgs.writeShellApplication {
     name = "tmux-status-right";
     bashOptions = [ ];
     text = ''
-      WIDGETS_DIR="$HOME/.config/tmux/widgets"
-      WIDGETS_REMOTE_DIR="$HOME/.config/tmux/widgets-remote"
-      STATE_FILE="/tmp/tmux-remote-state"
+      DIR="$HOME/.config/tmux/widgets"
       PANE_PATH="''${1:-}"
-
-      if [[ -f "$STATE_FILE" ]]; then
-        DIR="$WIDGETS_REMOTE_DIR"
-      else
-        DIR="$WIDGETS_DIR"
-      fi
 
       OUTPUT=""
       if [[ -d "$DIR" ]]; then
@@ -116,7 +108,7 @@ in
       tmux-disk-widget
     ];
 
-    # Register widgets for normal mode (ordered by filename prefix)
+    # Register widgets (ordered by filename prefix)
     xdg.configFile."tmux/widgets/50-cpu" = {
       executable = true;
       text = ''

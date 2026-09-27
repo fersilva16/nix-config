@@ -25,18 +25,6 @@ let
     gcloud.disabled = true;
   };
 
-  plainSettings = {
-    format = "$directory\n$character";
-
-    character = {
-      success_symbol = "[>](bold green)";
-      error_symbol = "[x](bold red)";
-      vicmd_symbol = "[<](bold blue)";
-    };
-
-    directory.truncation_length = 1;
-  };
-
   nerdSymbols = {
     character = {
       success_symbol = "[λ](bold green)";
@@ -48,27 +36,8 @@ let
 in
 mkUserModule {
   name = "starship";
-  home =
-    { userCfg, ... }:
-    {
-      xdg.configFile."starship-plain.toml".source =
-        (pkgs.formats.toml { }).generate "starship-plain.toml"
-          plainSettings;
-
-      programs.starship = {
-        enable = true;
-        settings = lib.recursiveUpdate baseSettings nerdSymbols;
-      };
-
-      # Fish shell integration: switch to plain config when tmux remote mode is active
-      programs.fish.interactiveShellInit = lib.mkIf userCfg.fish.enable ''
-        function __starship_remote_check --on-event fish_prompt
-            if test -f /tmp/tmux-remote-state
-                set -gx STARSHIP_CONFIG ~/.config/starship-plain.toml
-            else
-                set -ge STARSHIP_CONFIG
-            end
-        end
-      '';
-    };
+  home.programs.starship = {
+    enable = true;
+    settings = lib.recursiveUpdate baseSettings nerdSymbols;
+  };
 }
