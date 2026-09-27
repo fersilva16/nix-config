@@ -189,6 +189,7 @@ mkUserModule {
     theme = import ./theme.nix { inherit pkgs; };
     statusbar = import ./statusbar.nix { inherit pkgs; };
     pr = import ./pr.nix { inherit pkgs; };
+    resurrect = import ./resurrect.nix { inherit pkgs lib; };
     session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker; };
   };
   home =
@@ -338,21 +339,6 @@ mkUserModule {
 
         plugins = with pkgs; [
           tmuxPlugins.better-mouse-mode
-          {
-            plugin = tmuxPlugins.resurrect;
-            extraConfig = ''
-              set -g @resurrect-capture-pane-contents 'on'
-              set -g @resurrect-strategy-nvim 'session'
-              set -g @resurrect-restore-cwd 'on'
-            '';
-          }
-          {
-            plugin = tmuxPlugins.continuum;
-            extraConfig = ''
-              set -g @continuum-restore 'on'
-              set -g @continuum-save-interval '10'
-            '';
-          }
         ];
       };
     };
