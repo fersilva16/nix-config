@@ -55,6 +55,8 @@ mkUserModule {
           })
           # Flexoki light, matching ghostty/kitty/nvim/tmux/opencode.
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
+          # opencode-style prompt, status line, sidebar and tool blocks.
+          { ".omo/agent/extensions/ui".source = ./ui; }
         ];
 
         # omo rewrites settings.json itself (tips history, model picks), so it
