@@ -2,12 +2,10 @@
 // "agent · model provider · thinking" line in place of the bottom border.
 import { CustomEditor } from "@code-yeongyu/senpi"
 import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui"
-import { type CardStyle, cardInner, cardRow } from "./core/card.ts"
+import { cardInner, cardRow, promptStyle } from "./core/card.ts"
 import { type Intent, Keymap, submitCommand } from "./core/intents.ts"
 import { stripAnsi } from "./core/style.ts"
 import type { Ctx, Theme } from "./core/types.ts"
-
-const BG = "selectedBg"
 
 type Pi = {
   on(event: "session_start", handler: (event: unknown, ctx: Ctx & { ui: Ui }) => void): void
@@ -49,7 +47,7 @@ export default function prompt(pi: Pi) {
   })
   pi.on("session_start", (_e, ctx) => {
     const theme = ctx.ui.theme
-    const style: CardStyle = { bar: theme.fg("accent", "┃"), fill: { theme, token: BG } }
+    const style = promptStyle(theme)
     const info = () => {
       const m = ctx.model
       const thinking = pi.getThinkingLevel()
