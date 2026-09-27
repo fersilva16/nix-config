@@ -42,6 +42,7 @@ in
 
       icons:
         .opencode-wrapp: ""
+        lazygit: "󰊢"
         task: "󱓞"
         agents: "󰚩"
         nvim: ""
