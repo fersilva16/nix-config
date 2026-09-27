@@ -65,27 +65,6 @@ mkUserModule {
           # re-reads every file + the full git index in a loop, pinning CPU
           # (anomalyco/opencode#30086). Costs the file-revert/undo feature.
           snapshot = false;
-          plugin = [ "@rama_nigg/open-cursor@2.5.8" ];
-          provider = {
-            cursor-acp = {
-              name = "Cursor ACP";
-              npm = "@ai-sdk/openai-compatible";
-              options = {
-                baseURL = "http://127.0.0.1:32124/v1";
-              };
-              models = {
-                "cursor-acp/auto" = {
-                  name = "Auto";
-                };
-                "cursor-acp/composer-1.5" = {
-                  name = "Composer 1.5";
-                };
-                "cursor-acp/composer-1" = {
-                  name = "Composer 1";
-                };
-              };
-            };
-          };
           command = {
             lin = {
               template = "!`fish -c lin`";
