@@ -22,7 +22,9 @@ type Usage = { cost?: { total?: number } }
 export type Block = { type: string; id?: string; text?: string; name?: string; arguments?: { path?: string } }
 export type Entry = {
   type: string
-  message?: { role?: string; content?: Block[] | string; usage?: Usage }
+  customType?: string
+  data?: unknown
+  message?: { role?: string; content?: Block[] | string; usage?: Usage; toolName?: string; details?: unknown }
 }
 
 export type Ctx = {

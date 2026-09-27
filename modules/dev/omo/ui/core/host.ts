@@ -2,7 +2,7 @@
 // not cover (the fullscreen layout root, frame compositing, text selection,
 // tool rows). Feature files call these helpers, so an omo upgrade that moves
 // an internal breaks here and nowhere else.
-import { ToolExecutionComponent } from "@code-yeongyu/senpi"
+import { InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
 import type { Component, Theme, Tui } from "./types.ts"
 
 type Method = (this: any, ...args: any[]) => any
@@ -146,6 +146,64 @@ function patchRows(): void {
       swapRenderers(this)
       const render = (w: number): string[] => original.call(this, w)
       return rowHook ? rowHook(this, render, width) : render(width)
+    },
+  )
+}
+
+// Notices, header and widgets (sidebar). omo appends status lines, warnings
+// and notice boxes straight to the transcript from InteractiveMode methods,
+// with no API to redirect them. Each hook wraps the method on the prototype;
+// a hook that returns true takes the item and omo's method is skipped.
+export type Notice = { kind: "status" | "warning" | "error"; title?: string; text: string }
+type NoticeBox = { title: string; tone?: string; why: string; extra?: { text: string }[] }
+const mode = InteractiveMode.prototype as object
+
+export function onNotice(take: (notice: Notice) => boolean): void {
+  const route = <A extends unknown[]>(name: string, toNotice: (...args: A) => Notice | undefined) =>
+    patch(mode, name, (original) =>
+      function (this: unknown, ...args: A) {
+        const notice = toNotice(...args)
+        if (!notice || !take(notice)) return original.apply(this, args)
+      },
+    )
+  route("showStatus", (text: string) => ({ kind: "status", text }))
+  route("showWarning", (text: string) => ({ kind: "warning", text }))
+  route("showNoticeBox", (box: NoticeBox) => ({
+    kind: box.tone === "error" ? "error" : "warning",
+    title: box.title,
+    text: [box.why, ...(box.extra ?? []).map((l) => l.text)].join("\n"),
+  }))
+  // showError also carries turn errors, which stay in the transcript; only
+  // ctx.ui.notify(…, "error") is taken, before it reaches showError. Other
+  // notify levels land in the showStatus/showWarning wrappers above.
+  route("showExtensionNotify", (text: string, type?: string) => (type === "error" ? { kind: "error", text } : undefined))
+}
+
+export function onUpdate(take: (version: string) => boolean): void {
+  patch(mode, "showNewVersionNotification", (original) =>
+    function (this: unknown, version: string) {
+      if (!take(version)) return original.call(this, version)
+    },
+  )
+}
+
+// Header factories are rendered once with an unstyled theme so the hook can
+// read their text; undefined means the header is being cleared.
+const PLAIN = new Proxy({}, { get: () => (...args: string[]) => args.at(-1) }) as Theme
+export function onHeader(take: (text: string | undefined) => boolean): void {
+  patch(mode, "setExtensionHeader", (original) =>
+    function (this: { ui: unknown }, factory?: (tui: unknown, theme: Theme) => Component) {
+      const text = factory?.(this.ui, PLAIN).render(200).join("\n")
+      return original.call(this, take(text) ? undefined : factory)
+    },
+  )
+}
+
+// A taken widget is removed instead of set, so omo's copy never shows.
+export function onWidget(key: string, take: () => boolean): void {
+  patch(mode, "setExtensionWidget", (original) =>
+    function (this: unknown, k: string, content: unknown, options: unknown) {
+      return original.call(this, k, k === key && take() ? undefined : content, options)
     },
   )
 }

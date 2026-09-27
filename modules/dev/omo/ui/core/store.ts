@@ -1,7 +1,7 @@
 // Session state shared by the footer and sidebar: one set of event
 // subscriptions keeps it fresh and re-renders the UI when it changes.
 import { spawnSync } from "node:child_process"
-import { requestRender } from "./host.ts"
+import { type Notice, requestRender } from "./host.ts"
 import type { Ctx, Entry } from "./types.ts"
 
 export type Snapshot = {
@@ -13,11 +13,19 @@ export type Snapshot = {
   files: string[]
   cwd: string
   branch: string
+  todos: TodoPhase[]
 }
+
+export type TodoTask = { content: string; status: string }
+export type TodoPhase = { name: string; tasks: TodoTask[] }
+// omo's todo_owed_reminder event: the model was reminded of open todos
+// ("delivered"), or gave up after the last reminder ("capped").
+export type TodoOwed = { chainCount: number; openTasks: number; reason: "delivered" | "capped" }
 
 type Pi = {
   on(event: string, handler: (event: unknown, ctx: Ctx) => void): void
   getSessionName(): string | undefined
+  events: { on(channel: "todo_owed_reminder", handler: (event: TodoOwed) => void): void }
 }
 
 const EDIT_TOOLS = new Set(["edit", "write"])
@@ -25,10 +33,18 @@ const REFRESH_EVENTS = ["turn_end", "tool_result", "model_select", "session_info
 
 export const store = {
   snapshot: undefined as Snapshot | undefined,
+  // Transcript notices the sidebar took over (core/host.ts onNotice), newest last.
+  notices: [] as Notice[],
+  // A newer omo release, from the update check.
+  update: undefined as string | undefined,
+  // Whether omo's per-model optimized system prompt is applied.
+  promptOptimized: false,
+  todoOwed: undefined as TodoOwed | undefined,
 }
 
 let pi: Pi | undefined
 let branch = ""
+let live: Ctx | undefined
 
 export function sessionCost(entries: Entry[]): number {
   let cost = 0
@@ -58,6 +74,24 @@ function gitBranch(cwd: string): string {
   return r.status === 0 ? r.stdout.trim() : ""
 }
 
+// The todo list as omo's todo extension persists it: the latest
+// senpi.todo-state entry or todo tool result on the branch wins.
+function latestTodos(entries: Entry[]): TodoPhase[] {
+  let phases: TodoPhase[] = []
+  for (const e of entries) {
+    const m = e.message
+    const payload =
+      e.type === "custom" && e.customType === "senpi.todo-state"
+        ? e.data
+        : e.type === "message" && m?.role === "toolResult" && (m.toolName === "todo" || m.toolName === "todowrite")
+          ? m.details
+          : undefined
+    const next = (payload as { phases?: unknown } | undefined)?.phases
+    if (Array.isArray(next)) phases = next as TodoPhase[]
+  }
+  return phases
+}
+
 function collect(ctx: Ctx): Snapshot {
   const entries = ctx.sessionManager.getBranch()
   const files = new Set<string>()
@@ -77,17 +111,37 @@ function collect(ctx: Ctx): Snapshot {
     files: [...files].map((f) => (f.startsWith(cwdPrefix) ? f.slice(cwdPrefix.length) : f)),
     cwd: ctx.cwd,
     branch,
+    todos: latestTodos(entries),
   }
 }
 
 export function refresh(ctx: Ctx): void {
+  live = ctx
   store.snapshot = collect(ctx)
   requestRender()
 }
 
+// For changes that arrive without a ctx (a /todo edit re-syncing omo's
+// widget). No-op between session_shutdown and the next session_start.
+export function refreshLive(): void {
+  if (live) refresh(live)
+}
+
 export function initStore(api: Pi): void {
   pi = api
+  api.events.on("todo_owed_reminder", (event) => {
+    store.todoOwed = event
+    requestRender()
+  })
+  // omo resets its reminder chain on user input; so does the marker.
+  api.on("input", () => {
+    store.todoOwed = undefined
+  })
+  api.on("session_shutdown", () => {
+    live = undefined
+  })
   api.on("session_start", (_e, ctx) => {
+    store.todoOwed = undefined
     branch = gitBranch(ctx.cwd)
     refresh(ctx)
   })
