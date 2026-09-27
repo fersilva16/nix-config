@@ -5,56 +5,41 @@
   ...
 }:
 let
-  # prefix+l toggles a lazygit popup, one per tmux session, replacing tmux's
-  # last-window. Like pocket (tmux/pocket.nix), lazygit lives in a hidden
-  # background session that the popup attaches to, so closing the popup only
-  # detaches: the next prefix+l comes back to the same view, selection and
-  # scroll position. Quitting lazygit (q) ends the hidden session; the next
-  # toggle starts a fresh one.
-  #
-  # The hidden session is keyed by the parent's session_id, not its name, so
-  # a wtmv rename keeps its popup. Its name starts with "_", which the session
-  # pickers skip (tmux.nix). It starts at / rather than the repo because
-  # wts, oc-search and omo's agent find a worktree's session by session_path,
-  # and a popup session started in the worktree would win that lookup.
+  # prefix+l toggles a lazygit split, one per tmux session, replacing tmux's
+  # last-window. The first press splits a pane running lazygit and tags it
+  # @lazygit. Pressing it again breaks that pane out into a background window
+  # of the same session; the next press joins it back beside the current
+  # pane. lazygit keeps running throughout, so it comes back with the same
+  # view, selection and scroll position. Quitting lazygit (q) closes the pane;
+  # the next press starts a fresh one. The pane never leaves its session, so
+  # killing the session (wtrm, kill-session) takes lazygit with it.
   #
   # lazygit runs through a LOGIN fish, not the bare binary. A command passed
-  # to new-session is exec'd from the tmux server's environment, which is
+  # to split-window is exec'd from the tmux server's environment, which is
   # whatever the server was launched with: here /usr/bin:/bin and the tmux
   # store path, no ~/.nix-profile/bin. A bare `lazygit` is not found, the
-  # pane dies before it draws, and the popup opens and instantly closes. An
-  # absolute store path would fix launching but not the customCommands below,
-  # which shell out to fish and gh and would inherit that same stripped PATH.
-  # The login shell fixes both, and its cd puts lazygit in the repo.
+  # pane dies before it draws, and the split looks like it opens and
+  # instantly closes. An absolute store path would fix launching but not the
+  # customCommands below, which shell out to fish and gh and would inherit
+  # that same stripped PATH. The login shell fixes both.
   tmux-lazygit = pkgs.writeShellApplication {
     name = "tmux-lazygit";
     runtimeInputs = [ pkgs.tmux ];
     text = ''
-      # Inside the popup: detach, which exits the popup's `tmux attach` client
-      # and so closes the popup, leaving lazygit running.
-      case "$(tmux display-message -p '#S')" in
-      _lazygit-*) exec tmux detach-client ;;
-      esac
-
-      # A killed parent session (wtrm, kill-session) leaves its popup session
-      # behind, hidden from every picker. Reap those here.
-      tmux list-sessions -F '#{session_name}' | while read -r s; do
-        case "$s" in
-        _lazygit-*) tmux has-session -t "\$''${s#_lazygit-}" 2>/dev/null || tmux kill-session -t "=$s" ;;
-        esac
-      done
-
-      id=$(tmux display-message -p '#{session_id}')
-      hidden="_lazygit-''${id#\$}"
-      if ! tmux has-session -t "=$hidden" 2>/dev/null; then
-        path=$(tmux display-message -p '#{pane_current_path}')
-        # $argv is fish's, expanded by fish rather than here.
-        # shellcheck disable=SC2016
-        tmux new-session -d -s "$hidden" -c / \
-          ${pkgs.fish}/bin/fish -lc 'cd $argv[1]; and exec lazygit' "$path"
-        tmux set-option -t "=$hidden" status off
+      pane=$(tmux list-panes -s -f '#{==:#{@lazygit},1}' -F '#{pane_id}' | head -1)
+      if [ -z "$pane" ]; then
+        pane=$(tmux split-window -h -P -F '#{pane_id}' \
+          -c "$(tmux display-message -p '#{pane_current_path}')" \
+          '${pkgs.fish}/bin/fish -lc lazygit')
+        tmux set-option -p -t "$pane" @lazygit 1
+      elif [ "$(tmux display-message -p -t "$pane" '#{window_id}')" != "$(tmux display-message -p '#{window_id}')" ]; then
+        tmux join-pane -h -s "$pane"
+      elif [ "$(tmux display-message -p '#{window_panes}')" -gt 1 ]; then
+        tmux break-pane -d -s "$pane" -n lazygit
+      else
+        # Standing in lazygit's own background window: nothing to split from.
+        tmux last-window
       fi
-      exec tmux display-popup -E -w 90% -h 90% "tmux attach -t =$hidden"
     '';
   };
 in

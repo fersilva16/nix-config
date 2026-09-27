@@ -180,11 +180,10 @@ let
 
   # Session picker rules, shared by the choose-tree binds here and in
   # session-picker.nix: sessions only, zoomed, sorted by name (worktree sessions
-  # stay grouped with parent), and popup-only sessions filtered out: `pocket`
-  # (see pocket.nix; the filter is a no-op when pocket is disabled) and any
-  # session named `_*`, the convention for hidden popup backing sessions such
-  # as lazygit's `_lazygit-<id>`. None of these is ever selected via a picker.
-  choose-tree-picker = "choose-tree -sZO name -f '#{&&:#{!=:#{session_name},pocket},#{!:#{m:_*,#{session_name}}}}'";
+  # stay grouped with parent), and the `pocket` session filtered out (see
+  # pocket.nix — pocket is popup-only, never selected via a picker; the
+  # filter is a no-op when pocket is disabled).
+  choose-tree-picker = "choose-tree -sZO name -f '#{!=:#{session_name},pocket}'";
 in
 mkUserModule {
   name = "tmux";
