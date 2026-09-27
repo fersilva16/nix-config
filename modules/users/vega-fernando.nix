@@ -47,6 +47,7 @@ mkUser {
     server.autoAttach = false;
   };
   omo.enable = true;
+  agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
   opencode-manager.enable = true;
