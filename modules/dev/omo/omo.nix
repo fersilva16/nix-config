@@ -35,6 +35,7 @@ let
 in
 mkUserModule {
   name = "omo";
+  parts.agent = import ./agent/agent.nix { inherit pkgs lib; };
   home =
     { userCfg, ... }:
     {
@@ -57,11 +58,6 @@ mkUserModule {
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
           # opencode-style prompt, status line, sidebar and tool blocks.
           { ".omo/agent/extensions/ui".source = ./ui; }
-          # `/agent` switches between OmO and the orchestrator, which starts
-          # omo agents in `wt` worktrees + tmux sessions you can take over.
-          (lib.mkIf (userCfg.tmux.enable && userCfg.worktree.enable) {
-            ".omo/agent/extensions/agents".source = ./agents;
-          })
         ];
 
         # omo rewrites settings.json itself (tips history, model picks), so it
