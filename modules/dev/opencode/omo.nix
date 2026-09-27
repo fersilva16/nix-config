@@ -97,12 +97,25 @@ in
     # there — edits to the old path are silently ignored. `_migrations` is
     # replayed below so omo treats the migration as done and never tries to
     # rewrite this read-only store symlink. `codegraph.daemon` was hand-set
-    # in the migrated file; it is kept here so nix owns the whole file.
+    # in the migrated file; it is kept here so nix owns the whole file. It
+    # sits under "[opencode]" because OmO Native reads the same file and has
+    # no `codegraph` key; the plugin merges that block over the top level.
     home.file.".omo/omo.jsonc".source = jsonFormat.generate "omo.jsonc" {
       "$schema" =
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json";
-      codegraph.daemon = false;
-      _migrations = [ "2026-07-opencode-config-unification" ];
+      "[opencode]".codegraph.daemon = false;
+      # OmO Native runs these rewrites of this file too, and each one it
+      # cannot write (read-only store) leaves ~/.omo/.migration-journal.json
+      # behind to retry on every start. reasoning-unification converts
+      # model/variant/fallback_models into 5.x `models = [{ model, reasoning }]`
+      # and category-deep-split renames `deep` to `deep-low` — both break the
+      # 4.19.4 plugin, which reads only the old shape. Drop them once the pin
+      # reaches 5.x and the blocks below move to the new shape.
+      _migrations = [
+        "2026-07-opencode-config-unification"
+        "2026-08-reasoning-unification"
+        "2026-09-category-deep-split"
+      ];
       # opencode cannot do this natively: its retry re-runs the SAME provider
       # (anomalyco/opencode#7602 is still open, and #20105/#24369/#26192 were
       # all closed unmerged), so a provider outage kills the run. omo's
@@ -157,6 +170,38 @@ in
         # beta.84 leads with mimo and grok, which we have no login for, so it
         # lands on terra ($2/$12 per Mtok).
         "unspecified-low" = mid.gpt "high";
+      };
+      # OmO Native reads this same file but its own scope, and the only login
+      # it has is the anthropic subscription: `omo doctor` serves 7 of the 10
+      # builtin categories from that, and a `task` delegation to one of the
+      # missing three dies with "none of its fallback-chain providers are
+      # connected (chatgpt-subscription, openai, github-copilot, opencode)".
+      # These pins are that missing third, mapped onto the tiers above —
+      # deep-low takes the same rung as "[opencode]".deep, its 5.x name.
+      #
+      # No gpt counterpart: it has nothing to authenticate with here. The
+      # second rung is anthropic anyway, which mkTier's reasoning would
+      # normally reject — but the failure it guards against is a provider-wide
+      # outage, and this one is a catalog miss: the subscription does not serve
+      # every Claude id. Measured on this host, a session that opened on
+      # opus-5-5 was demoted to opus-5 by the runtime fallback 20s in
+      # (model_change reason "fallback", 2026-09-27T01:48:17Z), so each pin
+      # keeps a rung that is known to answer.
+      # `[native]`, not the older `[senpi]` spelling: native reads both, but
+      # its harness-native-rename migration would try to rewrite the latter.
+      "[native]".categories = {
+        "deep-low" = chain [
+          "anthropic/claude-opus-5-5"
+          "anthropic/claude-opus-5"
+        ] "medium";
+        "deep-high" = chain [
+          "anthropic/claude-fable-5-1"
+          "anthropic/claude-opus-5"
+        ] "high";
+        ultrabrain = chain [
+          "anthropic/claude-fable-5-1"
+          "anthropic/claude-opus-5"
+        ] "max";
       };
     };
   };
