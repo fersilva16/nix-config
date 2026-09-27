@@ -102,7 +102,7 @@
       # A real split, not a popup: the Later list is something you read while
       # working, and a popup dies the moment you touch the pane behind it.
       # Uppercase L only overrides tmux's default switch-client -l; lowercase l
-      # stays lazygit's split. fzf owns the pane, so exiting fzf closes it —
+      # stays lazygit's popup. fzf owns the pane, so exiting fzf closes it —
       # nothing here kills a pane.
       programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
         bind-key L split-window -h -p 40 '${tmux-slack-later-pane}/bin/tmux-slack-later-pane'

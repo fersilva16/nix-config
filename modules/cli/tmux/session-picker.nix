@@ -167,7 +167,7 @@ let
       # repo should not relabel them.
       tmux list-sessions -F "#{session_name}''${TAB}#{?#{m:*/*,#{session_name}},#{session_path},#{pane_current_path}}''${TAB}#{pane_current_path}" 2>/dev/null |
         while IFS="$TAB" read -r name path ppath; do
-          [[ "$name" == "pocket" ]] && continue
+          [[ "$name" == "pocket" || "$name" == _* ]] && continue
 
           # session_path is where the session started and tmux never updates
           # it, so a renamed or removed worktree leaves it dangling. Fall back
@@ -301,7 +301,7 @@ let
         names=()
         m=$(mode)
         while IFS="$RS" read -r name label oc pr ci; do
-          [[ -z "$name" || "$name" == "pocket" ]] && continue
+          [[ -z "$name" || "$name" == "pocket" || "$name" == _* ]] && continue
           # Exactly one of the two views ever shows a given session.
           if [[ "$m" == agents ]]; then
             [[ "$name" != agents/* ]] && continue

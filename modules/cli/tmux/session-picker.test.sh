@@ -32,7 +32,8 @@ trap 'tmux kill-server 2>/dev/null || true; rm -rf "$TMUX_TMPDIR"' EXIT
 
 # "a/gone/orphan": parent session missing → hangs off the nearest one ("a").
 # "a-b": must not split a's subtree. "z/lonely": no ancestor → flat, full name.
-for s in a a/x a/x/l1 a/x/l2 a/y a-b a/gone/orphan z/lonely; do
+# "pocket" and "_lazygit-1": popup-only sessions, never listed.
+for s in a a/x a/x/l1 a/x/l2 a/y a-b a/gone/orphan z/lonely pocket _lazygit-1; do
   tmux new-session -d -s "$s" -c /tmp
 done
 
