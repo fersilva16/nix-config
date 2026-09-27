@@ -1,11 +1,13 @@
-// opencode-style prompt: a filled box with an accent bar on the left and an
+// opencode-style prompt: a filled card with an accent bar on the left and an
 // "agent · model provider · thinking" line in place of the bottom border.
 import { CustomEditor } from "@code-yeongyu/senpi"
-import { CURSOR_MARKER, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui"
-import { type Ctx, paint, type Theme } from "./stats.ts"
+import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui"
+import { type CardStyle, cardInner, cardRow } from "./core/card.ts"
+import { type Intent, Keymap, submitCommand } from "./core/intents.ts"
+import { stripAnsi } from "./core/style.ts"
+import type { Ctx, Theme } from "./core/types.ts"
 
 const BG = "selectedBg"
-const ANSI = /\x1b\[[0-9;]*m/g
 
 type Pi = {
   on(event: "session_start", handler: (event: unknown, ctx: Ctx & { ui: Ui }) => void): void
@@ -15,18 +17,32 @@ type Ui = {
   theme: Theme
   setEditorComponent(factory: (tui: unknown, theme: unknown, keybindings: unknown) => unknown): void
 }
+type Prompt = {
+  getText(): string
+  setText(text: string): void
+  onSubmit?: (text: string) => void
+  forward(data: string): void
+}
+
+// opencode-style ctrl+x leader: l opens /sessions, y replays ctrl+x for omo's
+// own copy.
+const INTENTS: Intent<Prompt>[] = [
+  { leader: true, key: "l", run: (editor) => submitCommand(editor, "/sessions") },
+  { leader: true, key: "y", run: (editor, _data, leader) => leader && editor.forward(leader) },
+]
 
 // CustomEditor.render swaps the first content line's padding for a "❯"
 // marker; skip it and lay out the base Editor directly.
 const editorRender: (this: CustomEditor, width: number) => string[] = Object.getPrototypeOf(CustomEditor.prototype).render
 
 function isBorder(line: string): boolean {
-  return line.replace(ANSI, "").startsWith("─")
+  return stripAnsi(line).startsWith("─")
 }
 
 export default function prompt(pi: Pi) {
   pi.on("session_start", (_e, ctx) => {
     const theme = ctx.ui.theme
+    const style: CardStyle = { bar: theme.fg("accent", "┃"), fill: { theme, token: BG } }
     const info = () => {
       const m = ctx.model
       const thinking = pi.getThinkingLevel()
@@ -39,45 +55,29 @@ export default function prompt(pi: Pi) {
         .join(theme.fg("dim", " · "))
     }
 
-    class PromptEditor extends CustomEditor {
+    class PromptEditor extends CustomEditor implements Prompt {
+      declare getText: Prompt["getText"]
+      declare setText: Prompt["setText"]
+      declare onSubmit: Prompt["onSubmit"]
       contentRows = 0
-      leader: string | undefined
+      keys = new Keymap<Prompt>("ctrl+x", INTENTS)
 
-      // opencode-style ctrl+x leader. omo has no key chords, so the editor
-      // (which sees keys before omo's app bindings) holds ctrl+x and reads
-      // the next key: l opens /sessions, y replays ctrl+x for omo's own copy,
-      // esc cancels, anything else is typed as usual.
       handleInput(data: string) {
-        const leader = this.leader
-        this.leader = undefined
-        if (leader !== undefined) {
-          if (data === "l") return this.runCommand("/sessions")
-          if (data === "y") return super.handleInput(leader)
-          if (matchesKey(data, Key.escape)) return
-        } else if (matchesKey(data, Key.ctrl("x"))) {
-          this.leader = data
-          return
-        }
+        this.keys.handle(this, data, (d) => super.handleInput(d))
+      }
+
+      forward(data: string) {
         super.handleInput(data)
       }
 
-      runCommand(command: string) {
-        // omo's submit handler reads the editor text, not its argument.
-        const draft = this.getText()
-        this.setText(command)
-        this.onSubmit?.(command)
-        this.setText(draft)
-      }
-
       render(width: number): string[] {
-        const inner = Math.max(1, width - 1)
+        const inner = cardInner(width)
         const lines = editorRender.call(this, inner)
         let bottom = lines.length - 1
         while (bottom > 0 && !isBorder(lines[bottom])) bottom--
         this.contentRows = bottom - 1
-        const bar = theme.fg("accent", "┃")
-        const row = (text: string) => bar + paint(theme, BG, text, inner)
-        const scrolled = (line: string) => line.replace(ANSI, "").replace(/─/g, "").trim()
+        const row = (text: string) => cardRow(style, text, width)
+        const scrolled = (line: string) => stripAnsi(line).replace(/─/g, "").trim()
         const top = scrolled(lines[0])
         const below = scrolled(lines[bottom])
         return [

@@ -1,8 +1,11 @@
-// omo UI customisations, one file per surface. omo.nix installs this
-// directory as ~/.omo/agent/extensions/ui. To try an edit before rebuilding:
+// omo UI customisations, one file per surface, built on the shared core in
+// ./core. omo.nix installs this directory as ~/.omo/agent/extensions/ui. To
+// try an edit before rebuilding:
 // omo -e ~/nix-config/modules/dev/omo/ui/index.ts
 import type { ExtensionAPI } from "@code-yeongyu/senpi"
 import backdrop from "./backdrop.ts"
+import { initHost } from "./core/host.ts"
+import { initStore } from "./core/store.ts"
 import footer from "./footer.ts"
 import prompt from "./prompt.ts"
 import sessions from "./sessions.ts"
@@ -11,11 +14,13 @@ import tools from "./tools.ts"
 import turn from "./turn.ts"
 
 export default function (pi: ExtensionAPI) {
+  initHost(pi)
+  initStore(pi)
   prompt(pi)
   footer(pi)
   turn(pi)
   tools(pi)
   sidebar(pi)
   sessions(pi)
-  backdrop(pi)
+  backdrop()
 }

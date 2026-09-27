@@ -1,7 +1,8 @@
 // opencode's per-turn footer ("▣ agent · model · duration"), stored as a
 // custom session entry: rendered in the transcript, never sent to the model.
 import { Text } from "@earendil-works/pi-tui"
-import type { Ctx, Theme } from "./stats.ts"
+import { clock } from "./core/style.ts"
+import type { Ctx, Theme } from "./core/types.ts"
 
 const TYPE = "ui-turn"
 
@@ -10,11 +11,6 @@ type Pi = {
   on(event: string, handler: (event: unknown, ctx: Ctx) => void): void
   appendEntry(customType: string, data: TurnData): void
   registerEntryRenderer(customType: string, render: (entry: { data?: TurnData }, options: unknown, theme: Theme) => unknown): void
-}
-
-function duration(ms: number): string {
-  const s = Math.round(ms / 1000)
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
 export default function turn(pi: Pi) {
@@ -32,6 +28,7 @@ export default function turn(pi: Pi) {
   pi.registerEntryRenderer(TYPE, (entry, _options, theme) => {
     const data = entry.data ?? { model: "?", ms: 0 }
     const dot = theme.fg("dim", " · ")
-    return new Text(`${theme.fg("accent", "▣")}  OmO${dot}${theme.fg("muted", data.model)}${dot}${theme.fg("muted", duration(data.ms))}`, 1, 0)
+    const duration = clock(Math.round(data.ms / 1000))
+    return new Text(`${theme.fg("accent", "▣")}  OmO${dot}${theme.fg("muted", data.model)}${dot}${theme.fg("muted", duration)}`, 1, 0)
   })
 }

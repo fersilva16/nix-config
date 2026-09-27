@@ -1,33 +1,22 @@
 // opencode-style session picker: /sessions (or ctrl+x l) opens a centred
 // dialog listing this folder's sessions grouped by day, newest first, with
 // fuzzy search, rename and delete. omo's own /resume stays available for its
-// extras (all folders, sort modes). The dimmed backdrop comes from backdrop.ts.
+// extras (all folders, sort modes). The dialog chrome comes from core/modal.ts.
 import { spawnSync } from "node:child_process"
 import { existsSync, unlinkSync } from "node:fs"
 import { SessionManager } from "@earendil-works/pi-coding-agent"
-import { fuzzyFilter, Input, Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui"
-import { spread, type Theme } from "./stats.ts"
+import { fuzzyFilter, Input, Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui"
+import { modalFrame, openModal } from "./core/modal.ts"
+import type { Component, Theme, Tui } from "./core/types.ts"
 
-// opencode's "large" dialog: 88 columns, a one-column margin around the
-// highlight bar, and text inset three more columns inside it.
-const WIDTH = 88
-const EDGE = 1
-const INDENT = 3
 const CHROME = 8 // top pad, title, gap, search, gap, gap, hints, bottom pad
 
 type Session = { path: string; name?: string; firstMessage: string; modified: Date }
-type Tui = { requestRender(): void; terminal: { rows: number; columns: number } }
-type Ctx = {
+type Ctx = Parameters<typeof openModal>[0] & {
   cwd: string
   sessionManager: { getSessionFile(): string | undefined }
   switchSession(path: string): Promise<{ cancelled?: boolean }>
-  ui: {
-    custom<T>(
-      factory: (tui: Tui, theme: Theme, keybindings: unknown, done: (value: T) => void) => unknown,
-      options: { overlay: true; overlayOptions: () => Record<string, unknown> },
-    ): Promise<T>
-    notify(message: string, level: "info" | "warning" | "error"): void
-  }
+  ui: { notify(message: string, level: "info" | "warning" | "error"): void }
 }
 type Pi = {
   setSessionName(name: string): void
@@ -36,15 +25,6 @@ type Pi = {
 type Row = { gap: true } | { header: string } | { session: Session; index: number }
 
 const title = (s: Session) => (s.name ?? s.firstMessage).split("\n")[0].trim()
-const code = (styled: string) => styled.split("\u0000")[0]
-
-// Paint a row with an arbitrary background, re-opening it after every inner
-// reset so styled spans don't punch holes in the fill.
-function fill(open: string, line: string, width: number): string {
-  const fitted = truncateToWidth(line, width)
-  const body = fitted.replaceAll("\x1b[0m", `\x1b[0m${open}`).replaceAll("\x1b[49m", `\x1b[49m${open}`)
-  return `${open}${body}${" ".repeat(Math.max(0, width - visibleWidth(fitted)))}\x1b[49m`
-}
 
 function dayLabel(date: Date, now: Date): string {
   const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
@@ -192,13 +172,8 @@ class Picker {
 
   render(width: number): string[] {
     const th = this.theme
-    const bg = code(th.bg("userMessageBg", "\u0000"))
-    const paper = bg.replace("[48;", "[38;")
-    const inset = EDGE + INDENT
-    const inner = Math.max(1, width - 2 * inset)
-    const line = (text = "") => fill(bg, `${" ".repeat(inset)}${truncateToWidth(text, inner)}`, width)
-    const bar = (open: string, text: string) =>
-      fill(bg, `${" ".repeat(EDGE)}${fill(open, `${" ".repeat(INDENT)}${truncateToWidth(text, inner)}`, width - 2 * EDGE)}`, width)
+    const frame = modalFrame(th, width)
+    const { inner, line } = frame
 
     const rows = this.rows()
     const height = this.listHeight
@@ -213,22 +188,25 @@ class Picker {
       if ("header" in row) return line(th.fg("mdHeading", th.bold(row.header)))
       const { session, index } = row
       if (index !== this.selected) return line(title(session))
-      if (this.confirmDelete === session.path) {
-        return bar(code(th.fg("error", "\u0000")).replace("[38;", "[48;"), `${paper}\x1b[1mPress ctrl+d again to confirm`)
-      }
-      return bar(code(th.fg("mdLink", "\u0000")).replace("[38;", "[48;"), `${paper}\x1b[1m${truncateToWidth(title(session), inner)}`)
+      if (this.confirmDelete === session.path) return frame.highlight("error", "Press ctrl+d again to confirm")
+      return frame.highlight("mdLink", truncateToWidth(title(session), inner))
     })
     if (rows.length === 0) body.push(line(th.fg("muted", "No matching sessions")))
 
-    const key = (label: string, keys: string) => `${label} ${th.fg("muted", keys)}`
     const hints = this.renaming
-      ? [key("save", "enter"), key("cancel", "esc")].join("   ")
-      : [key("delete", "ctrl+d"), key("rename", "ctrl+r")].join("   ")
+      ? frame.hints([
+          ["save", "enter"],
+          ["cancel", "esc"],
+        ])
+      : frame.hints([
+          ["delete", "ctrl+d"],
+          ["rename", "ctrl+r"],
+        ])
     const input = this.renaming ? this.renameInput : this.search
 
     return [
       line(),
-      line(spread(th.bold(this.renaming ? "Rename session" : "Sessions"), th.fg("muted", "esc"), inner)),
+      frame.header(this.renaming ? "Rename session" : "Sessions"),
       line(),
       line(input.render(inner)[0] ?? ""),
       line(),
@@ -253,14 +231,7 @@ export default function sessions(pi: Pi) {
       const list = ((await SessionManager.list(ctx.cwd)) as Session[]).sort((a, b) => b.modified.getTime() - a.modified.getTime())
       if (list.length === 0) return ctx.ui.notify("No sessions in this folder", "info")
       const current = ctx.sessionManager.getSessionFile()
-      let columns = WIDTH + 4
-      const path = await ctx.ui.custom<string | undefined>(
-        (tui, theme, _keys, done) => {
-          columns = tui.terminal.columns
-          return new Picker(list, current, pi, tui, theme, done)
-        },
-        { overlay: true, overlayOptions: () => ({ width: Math.min(WIDTH, columns - 4), anchor: "center" }) },
-      )
+      const path = await openModal<string | undefined>(ctx, (tui, theme, done) => new Picker(list, current, pi, tui, theme, done) as Component)
       if (path && path !== current) await ctx.switchSession(path)
     },
   })
