@@ -6,19 +6,31 @@
 // render, so swapping them on the eval definition is enough. Like sidebar.ts,
 // this touches omo internals.
 import { compactEval, type EvalRenderers } from "./codemode.ts"
-import type { Theme } from "./stats.ts"
+import type { Ctx, Theme } from "./stats.ts"
+
+const ORIGINAL_RENDER = Symbol.for("omo-ui-tools.render")
 
 type Node = { children?: Node[]; layoutRoot?: Node; constructor: { name: string } }
 type Row = Node & {
   isPartial: boolean
   result?: { isError?: boolean }
-  identity: { toolName: string; toolDefinition?: Partial<EvalRenderers> & { renderShell?: string } }
+  identity: { toolName: string; toolCallId: string; toolDefinition?: Partial<EvalRenderers> & { renderShell?: string } }
   render(width: number): string[]
   invalidate(): void
 }
 type Tui = Node & { requestRender(): void }
 type Pi = {
-  on(event: string, handler: (event: unknown, ctx: { ui: Ui }) => void): void
+  on(event: string, handler: (event: { toolName?: string; toolCallId?: string }, ctx: Ctx & { ui: Ui }) => void): void
+}
+
+function lastTodoCallId(ctx: Ctx): string | undefined {
+  let id: string | undefined
+  for (const e of ctx.sessionManager.getBranch()) {
+    const content = e.message?.role === "assistant" ? e.message.content : undefined
+    if (!Array.isArray(content)) continue
+    for (const b of content) if (b.type === "toolCall" && b.name === "todo") id = b.id
+  }
+  return id
 }
 type Ui = { setWidget(key: string, factory: (tui: Tui, theme: Theme) => { render(): string[]; invalidate(): void }): void }
 
@@ -44,6 +56,18 @@ export default function tools(pi: Pi) {
   let patched = false
   const compacted = new WeakSet<object>()
   const refreshed = new WeakSet<Row>()
+  // Every todo call re-prints the whole checklist. Only the latest todo row
+  // renders; earlier ones collapse to nothing, so the list reads as one card
+  // that updates in place.
+  let latestTodo: string | undefined
+  const todoRows = new Map<string, Row>()
+  const setLatestTodo = (id: string | undefined) => {
+    if (id === latestTodo) return
+    const previous = latestTodo === undefined ? undefined : todoRows.get(latestTodo)
+    latestTodo = id
+    previous?.invalidate()
+    tui?.requestRender()
+  }
 
   // Rows restored with a session rendered (and cached) before the swap, so
   // each eval row is invalidated once to rebuild with the compact renderer.
@@ -63,9 +87,16 @@ export default function tools(pi: Pi) {
     const row = findRow(tui)
     if (!row) return
     patched = true
-    const proto = Object.getPrototypeOf(row) as Row
-    const original = proto.render
+    // omo's own render is kept on the prototype under a global symbol so a
+    // reloaded copy of this module replaces the wrapper instead of stacking
+    // another bar on top.
+    const proto = Object.getPrototypeOf(row) as Row & { [ORIGINAL_RENDER]?: Row["render"] }
+    const original = (proto[ORIGINAL_RENDER] ??= proto.render)
     proto.render = function (this: Row, width: number) {
+      if (this.identity.toolName === "todo") {
+        todoRows.set(this.identity.toolCallId, this)
+        if (latestTodo !== undefined && this.identity.toolCallId !== latestTodo) return []
+      }
       compact(this)
       const lines = original.call(this, Math.max(1, width - 1))
       if (!theme) return lines
@@ -78,6 +109,8 @@ export default function tools(pi: Pi) {
   }
 
   pi.on("session_start", (_e, ctx) => {
+    todoRows.clear()
+    setLatestTodo(lastTodoCallId(ctx))
     ctx.ui.setWidget("ui-tools-mount", (t, th) => {
       tui = t
       theme = th
@@ -91,4 +124,7 @@ export default function tools(pi: Pi) {
     })
   })
   for (const event of ["tool_call", "tool_result", "turn_end"]) pi.on(event, patch)
+  pi.on("tool_call", (e) => {
+    if (e.toolName === "todo") setLatestTodo(e.toolCallId)
+  })
 }

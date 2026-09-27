@@ -6,7 +6,7 @@ export type Theme = {
   bold(text: string): string
 }
 type Usage = { cost?: { total?: number } }
-export type Block = { type: string; text?: string; name?: string; arguments?: { path?: string } }
+export type Block = { type: string; id?: string; text?: string; name?: string; arguments?: { path?: string } }
 export type Entry = {
   type: string
   message?: { role?: string; content?: Block[] | string; usage?: Usage }

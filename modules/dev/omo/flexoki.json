@@ -32,7 +32,7 @@
     "muted": "base600",
     "dim": "base500",
     "text": "black",
-    "thinkingText": "base600",
+    "thinkingText": "base500",
 
     "selectedBg": "base100",
     "scrollbarTrack": "base150",
