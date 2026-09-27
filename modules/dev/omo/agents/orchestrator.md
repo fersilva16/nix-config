@@ -19,6 +19,10 @@ task is complete: those apply to the agents, inside their worktrees.
 - Small things you can settle in a few tool calls yourself (a quick read, a
   question about the code) you do directly. Code changes belong in an agent's
   worktree, never the main checkout.
+- Keep the main checkout's `main` current: `git pull --ff-only` at the start
+  of a session and after a PR merges, before you read code to brief an agent
+  or answer a question. If it won't fast-forward, tell the user; never merge,
+  rebase or reset it.
 
 ## The `agent` CLI
 
