@@ -246,7 +246,9 @@ mkUserModule {
         # login fish via default-command below.
         shell = "/bin/sh";
         prefix = "C-space";
-        terminal = "screen-256color";
+        # Not screen-*: tmux turns italics into standout (reverse video) for
+        # any default-terminal named screen, so italic text gets a solid block.
+        terminal = "tmux-256color";
         keyMode = "vi";
         mouse = true;
         baseIndex = 1;
