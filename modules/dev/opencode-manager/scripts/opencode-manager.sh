@@ -8,6 +8,12 @@ set -eu
 NOTIFY_FILE="${TMUX_NOTIFY_FILE:-/tmp/tmux-notifications.json}"
 LOCK_FILE="${NOTIFY_FILE}.lock"
 
+# Which #{pane_current_command} values count as a live agent pane: one ERE per
+# line, written by every module that publishes @oc-sid/@oc-status (opencode
+# here, omo from its own module).
+AGENT_RE="$(paste -sd'|' "${XDG_CONFIG_HOME:-$HOME/.config}/tmux-opencode-manager/agent-commands" 2>/dev/null || true)"
+AGENT_RE="${AGENT_RE:-opencode}"
+
 _init_file() {
   if [[ ! -f "$NOTIFY_FILE" ]]; then
     echo '[]' >"$NOTIFY_FILE"
@@ -45,7 +51,7 @@ _get_sessions() {
   local panes
   panes=$(tmux list-panes -a \
     -F '#{session_name}	#{window_index}	#{@oc-status}	#{pane_current_command}	#{pane_title}' 2>/dev/null |
-    awk -F'\t' -v OFS='\t' '$4 ~ /opencode/ {print $1, $2, $3, $5}' | sort -u)
+    awk -F'\t' -v OFS='\t' -v re="$AGENT_RE" '$4 ~ re {print $1, $2, $3, $5}' | sort -u)
 
   if [[ -z "$panes" ]]; then
     echo '[]'
@@ -102,7 +108,7 @@ _resolve_target_by_sid() {
   tmux list-panes -a \
     -F '#{@oc-sid}	#{session_name}:#{window_index}	#{pane_id}	#{window_active}	#{session_attached}	#{pane_current_command}' \
     2>/dev/null |
-    awk -F'\t' -v sid="$sid" '$1 == sid && $6 ~ /opencode/ { print $2, $3, $4, $5; exit }'
+    awk -F'\t' -v sid="$sid" -v re="$AGENT_RE" '$1 == sid && $6 ~ re { print $2, $3, $4, $5; exit }'
 }
 
 # @cmd Add a notification
@@ -282,7 +288,7 @@ notify::dismiss_orphans() {
   # Only sids claimed by a pane still running opencode count as live; a stale
   # option on an exited pane would otherwise pin its notifications forever.
   live_sids="$(tmux list-panes -a -F '#{@oc-sid}	#{pane_current_command}' 2>/dev/null |
-    awk -F'\t' '$1 != "" && $2 ~ /opencode/ { print $1 }' | sort -u | paste -sd, -)"
+    awk -F'\t' -v re="$AGENT_RE" '$1 != "" && $2 ~ re { print $1 }' | sort -u | paste -sd, -)"
 
   local before after
   before=$(jq 'length' "$NOTIFY_FILE")
