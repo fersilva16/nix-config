@@ -58,7 +58,7 @@
 #   modules.users.fernando = {
 #     bat.enable = true;
 #     git = { enable = true; userName = "Fernando"; userEmail = "..."; };
-#     opencode = { enable = true; server.enable = false; };
+#     slack = { enable = true; later.enable = false; };
 #   };
 #
 {
