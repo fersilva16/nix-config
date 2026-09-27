@@ -7,26 +7,25 @@
 // omo -e ~/nix-config/modules/dev/omo/agents/index.ts
 import { readFileSync } from "node:fs"
 import type { ExtensionAPI } from "@code-yeongyu/senpi"
-import tools from "./tools.ts"
 
 const AGENTS = ["omo", "orchestrator"] as const
 type Agent = (typeof AGENTS)[number]
 const ENTRY = "agents-active"
 const ORCHESTRATOR = readFileSync(new URL("./orchestrator.md", import.meta.url), "utf8")
+// The `agent` CLI starts every message it relays with this marker (see
+// ../agent/agent.ts); without the note, a steer arriving mid-task reads like
+// an injected instruction and gets ignored.
+const RELAYED =
+  "A user message that starts with `[orchestrator]` was sent by the user's orchestrator session on the user's behalf. Treat it as the user's own message."
 
 type Entry = { type: string; customType?: string; data?: { agent?: string } }
 const isAgent = (name: unknown): name is Agent => AGENTS.includes(name as Agent)
 
 export default function (pi: ExtensionAPI) {
   let active: Agent = "omo"
-  const orchestratorTools = tools(pi)
 
-  // The orchestrator's tools exist in every session but are only active in
-  // its own, so agents it spawns can't spawn agents.
   function use(agent: Agent) {
     active = agent
-    const rest = pi.getActiveTools().filter((t) => !orchestratorTools.includes(t))
-    pi.setActiveTools(agent === "orchestrator" ? [...rest, ...orchestratorTools] : rest)
     pi.events.emit("agents:active", agent)
   }
 
@@ -66,7 +65,7 @@ export default function (pi: ExtensionAPI) {
     },
   })
 
-  pi.on("before_agent_start", (event: { systemPrompt: string }) =>
-    active === "orchestrator" ? { systemPrompt: `${event.systemPrompt}\n\n${ORCHESTRATOR}` } : undefined,
-  )
+  pi.on("before_agent_start", (event: { systemPrompt: string }) => ({
+    systemPrompt: `${event.systemPrompt}\n\n${active === "orchestrator" ? ORCHESTRATOR : RELAYED}`,
+  }))
 }

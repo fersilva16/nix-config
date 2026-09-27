@@ -57,11 +57,26 @@ export function initHost(pi: Pi): void {
   mounts.length = 0
   pi.on("session_start", (_e, ctx) => {
     ctx.ui.setWidget("ui-host-mount", (t, theme) => {
+      if (isRpcProxy(t)) return { render: () => [], invalidate() {} }
       tui = t
       for (const mount of mounts) mount(t, theme)
       return { render: () => [], invalidate() {} }
     })
   })
+}
+
+// On the shared RPC host (experimental.sharedHost) the host process renders
+// widget factories against a proxy tui that throws on any internal member
+// ("RPC live component TUI member is unsupported: layoutRoot"), and that throw
+// fails whichever tool triggered the render (todo, ask-user). The TUI client
+// runs this extension against its real tui, so the host side just skips.
+function isRpcProxy(t: HostTui): boolean {
+  try {
+    void t.layoutRoot
+    return false
+  } catch {
+    return true
+  }
 }
 
 export function onTui(mount: Mount): void {
