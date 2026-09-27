@@ -41,6 +41,9 @@ const dir = process.env.OMO_CHECK_DIR
 const tmuxLog = join(dir, "tmux.log")
 const notifyLog = join(dir, "notify.log")
 const transcript = join(dir, "session.jsonl")
+// First exec of a freshly written script pays macOS's scan, which can exceed
+// the extension's 300ms tmux timeout; pay it here, not in the first assertion.
+spawnSync("tmux", [])
 writeFileSync(tmuxLog, "")
 writeFileSync(notifyLog, "")
 writeFileSync(transcript, "")
@@ -60,13 +63,19 @@ assert.deepStrictEqual([...pendingBackgroundTasks([launch("st_a"), launch("st_b"
 // One event shape wide enough for every handler the extension registers.
 type AnyEvent = { messages?: RunMessage[]; name?: string }
 const handlers = new Map<string, (event: AnyEvent, ctx: Ctx) => void>()
+type BusPayload = { source?: string; activeCount?: number; active?: boolean; label?: string }
+const bus = new Map<string, (payload: BusPayload) => void>()
 const pi: Pi = {
   cwd: "/tmp/check",
   sessionKind: "interactive",
   on: (name: string, fn: (event: AnyEvent, ctx: Ctx) => void) => {
     handlers.set(name, fn)
   },
-  events: { on: () => {} },
+  events: {
+    on: (channel: string, fn: (payload: BusPayload) => void) => {
+      bus.set(channel, fn)
+    },
+  },
 }
 extension(pi)
 const ctx: Ctx = {
@@ -107,6 +116,24 @@ assert.strictEqual(paneStatus(), "busy", "busy until the task wakes the session"
 appendFileSync(transcript, wake("st_bg") + "\n")
 assert.ok(await run(), "notifies once the task has woken the session")
 assert.strictEqual(paneStatus(), "idle")
+
+// Monitors, background bash sessions, detached eval cells: omo's wake sources.
+const wakeSource = (source: string, activeCount: number) => bus.get("wake_source_state")?.({ source, activeCount })
+wakeSource("terminal-monitors", 1)
+wakeSource("senpi-codemode", 1)
+assert.ok(!(await run()), "silent while a wake source is live")
+assert.strictEqual(paneStatus(), "busy", "busy until the wake source drains")
+wakeSource("terminal-monitors", 0)
+await sleep(400)
+assert.strictEqual(readFileSync(notifyLog, "utf8"), "", "still silent with one source left")
+wakeSource("senpi-codemode", 0)
+await sleep(400)
+assert.ok(readFileSync(notifyLog, "utf8").includes("--event complete"), "notifies once the last source drains")
+assert.strictEqual(paneStatus(), "idle")
+
+// A pending ask-user question is the user's move, not background work.
+wakeSource("ask-user", 1)
+assert.ok(await run(), "an open question does not hold the completion")
 
 console.log("omo tmux-notifier check: ok")
 process.exit(0)

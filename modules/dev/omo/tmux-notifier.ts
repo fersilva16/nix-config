@@ -23,7 +23,10 @@ export type Pi = {
   on(event: "session_start" | "agent_start" | "agent_settled" | "session_shutdown", handler: (event: unknown, ctx: Ctx) => void): void
   on(event: "agent_end", handler: (event: { messages?: RunMessage[] }, ctx: Ctx) => void): void
   on(event: "session_info_changed", handler: (event: { name?: string }, ctx: Ctx) => void): void
-  events: { on(channel: "herdr:blocked", handler: (payload: { active?: boolean; label?: string }) => void): void }
+  events: {
+    on(channel: "herdr:blocked", handler: (payload: { active?: boolean; label?: string }) => void): void
+    on(channel: "wake_source_state", handler: (payload: { source?: string; activeCount?: number }) => void): void
+  }
 }
 
 const CMD = "tmux-opencode-manager"
@@ -128,6 +131,12 @@ export default function (pi: Pi) {
   let sessionName = ""
   let lastRun: "ok" | "error" | "cancelled" = "ok"
   let pendingComplete: ReturnType<typeof setTimeout> | undefined
+  // Things that will wake this session on their own: monitors, background
+  // bash sessions, detached eval cells, DAG runs... as omo publishes them on
+  // its event bus (the same feed its herdr status reporter reads). A pending
+  // ask-user question is the user's move, so it does not hold the pane busy.
+  const wakeSources = new Map<string, number>()
+  let heldCtx: Ctx | undefined
 
   const suffix = () => (sessionName ? `: ${sessionName}` : ` (${projectName})`)
 
@@ -179,6 +188,7 @@ export default function (pi: Pi) {
 
   pi.on("agent_start", (_event, ctx) => {
     cancelPending()
+    heldCtx = undefined
     bind(ctx)
     setPaneOption("@oc-status", "busy")
   })
@@ -188,11 +198,14 @@ export default function (pi: Pi) {
     lastRun = last?.stopReason === "error" ? "error" : last?.stopReason === "aborted" ? "cancelled" : "ok"
   })
 
-  pi.on("agent_settled", (_event, ctx) => {
+  function settle(ctx: Ctx) {
     // The completion wake starts a new run, which settles again. ponytail: a
     // task that dies without ever waking the parent holds the pane busy until
     // the next run; publish task state from the host if that bites.
-    if (BG_FILTER_ENABLED && lastRun === "ok" && waitingOnBackgroundTasks(ctx)) return
+    if (BG_FILTER_ENABLED && lastRun === "ok" && (wakeSources.size > 0 || waitingOnBackgroundTasks(ctx))) {
+      heldCtx = ctx
+      return
+    }
     setPaneOption("@oc-status", "idle")
     cancelPending()
     pendingComplete = setTimeout(() => {
@@ -201,6 +214,22 @@ export default function (pi: Pi) {
       if (lastRun === "ok") dispatch("complete", `Session has finished${suffix()}`)
       else dispatch("error", `Session ${lastRun === "cancelled" ? "was cancelled" : "encountered an error"}${suffix()}`)
     }, IDLE_DELAY_MS)
+  }
+
+  pi.on("agent_settled", (_event, ctx) => settle(ctx))
+
+  pi.events.on("wake_source_state", (payload) => {
+    const { source, activeCount } = payload ?? {}
+    if (!source || source === "ask-user" || typeof activeCount !== "number") return
+    if (activeCount > 0) wakeSources.set(source, activeCount)
+    else wakeSources.delete(source)
+    // Last source drained: normally its wake starts a run (agent_start cancels
+    // the debounce); if nothing wakes the session, settle as usual.
+    if (wakeSources.size === 0 && heldCtx) {
+      const ctx = heldCtx
+      heldCtx = undefined
+      settle(ctx)
+    }
   })
 
   // One active/inactive pair per built-in question or host dialog.
