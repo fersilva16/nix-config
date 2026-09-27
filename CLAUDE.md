@@ -96,27 +96,27 @@ When a module bundles distinct concerns (e.g., a CLI tool + a background server)
 Parts are plain attrsets with the same fields as `mkUserModule` (`system`, `home`, `extraOptions`), plus `default` (bool, defaults to `true`). The parent passes shared bindings via import args.
 
 ```nix
-# modules/dev/opencode/opencode.nix — parent owns the binary + settings
+# modules/dev/mytool/mytool.nix — parent owns the binary + settings
 { mkUserModule, pkgs, lib, ... }:
 mkUserModule {
-  name = "opencode";
+  name = "mytool";
   parts = {
-    server = import ./server.nix { inherit pkgs opencode-unwrapped serverPort; };
+    server = import ./server.nix { inherit pkgs mytool-unwrapped serverPort; };
   };
   home = {
-    programs.opencode = {
+    programs.mytool = {
       enable = true;
-      package = lib.mkDefault opencode-unwrapped;  # part overrides when enabled
+      package = lib.mkDefault mytool-unwrapped;  # part overrides when enabled
       settings = { ... };
     };
   };
 }
 
-# modules/dev/opencode/server.nix — part owns the daemon + wrapper
-{ pkgs, opencode-unwrapped, serverPort }:
+# modules/dev/mytool/server.nix — part owns the daemon + wrapper
+{ pkgs, mytool-unwrapped, serverPort }:
 {
-  system.launchd.user.agents.opencode-server = { ... };
-  home.programs.opencode.package = opencode-wrapper;  # wins over mkDefault
+  system.launchd.user.agents.mytool-server = { ... };
+  home.programs.mytool.package = mytool-wrapper;  # wins over mkDefault
 }
 ```
 
@@ -188,7 +188,7 @@ mkUser {
   name = "fernando";
   bat.enable = true;
   git.enable = true;
-  opencode = { enable = true; server.enable = false; };
+  slack = { enable = true; later.enable = false; };
 }
 ```
 

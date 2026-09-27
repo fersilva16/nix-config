@@ -28,10 +28,7 @@ mkUser {
   # Dev tools
   git.enable = true;
   lazygit.enable = true;
-  opencode = {
-    enable = true;
-    server.enable = false;
-  };
+  opencode.enable = true;
 
   # Editors
   nvim.enable = true;

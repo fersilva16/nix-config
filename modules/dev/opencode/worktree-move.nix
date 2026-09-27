@@ -124,8 +124,7 @@ _: {
 
           # ponytail: the move API needs a live server and a running TUI only
           # serves /health on its own port, so spin a throwaway one (~1s) and
-          # kill it.  If the shared server is ever enabled
-          # (opencode.server.autoAttach), point $base at :4096 and drop this.
+          # kill it.
           set -l port (random 40000 60000)
           set -l log (mktemp)
           opencode serve --port $port >$log 2>&1 &

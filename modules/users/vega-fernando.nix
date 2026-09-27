@@ -42,10 +42,7 @@ mkUser {
   claude.enable = true;
   "claude-code".enable = true;
   codex.enable = true;
-  opencode = {
-    enable = true;
-    server.autoAttach = false;
-  };
+  opencode.enable = true;
   omo.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;

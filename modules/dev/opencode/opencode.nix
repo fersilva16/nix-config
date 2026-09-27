@@ -4,14 +4,11 @@
   lib,
   inputs,
   system,
-  forPlatform,
   ...
 }:
 let
-  serverPort = 4096;
-
   # Real opencode binary with patches applied
-  opencode-unwrapped = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
+  opencode = inputs.opencode.packages.${system}.default.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       ./patches/edit-tool-dollar-substitution.patch
       ./patches/generate-remove-prettier.patch
@@ -23,15 +20,6 @@ in
 mkUserModule {
   name = "opencode";
   parts = {
-    server = import ./server.nix {
-      inherit
-        pkgs
-        lib
-        forPlatform
-        opencode-unwrapped
-        serverPort
-        ;
-    };
     direnv-plugin = import ./direnv-plugin.nix { inherit pkgs; };
     framelink = import ./framelink.nix { inherit pkgs; };
     agentation = import ./agentation.nix { inherit pkgs; };
@@ -45,14 +33,13 @@ mkUserModule {
     omo = import ./omo.nix { inherit pkgs; };
     codegraph = import ./codegraph.nix { inherit pkgs; };
     worktree-move = import ./worktree-move.nix { };
-    session-search = import ./session-search.nix { inherit pkgs; };
   };
   home =
     { username, ... }:
     {
       programs.opencode = {
         enable = true;
-        package = lib.mkDefault opencode-unwrapped;
+        package = opencode;
         tui = {
           theme = "flexoki";
           cursor = {
@@ -69,17 +56,6 @@ mkUserModule {
             lin = {
               template = "!`fish -c lin`";
               description = "Load Linear issue context";
-            };
-            # Runs inside this session's pane, so wtoc reads @oc-sid from
-            # $TMUX_PANE and relocates *this* session without a picker.
-            move = {
-              template = ''
-                !`fish -c 'wtoc $ARGUMENTS'`
-
-                That is the result of moving this session to a worktree. Repeat it
-                back verbatim and do nothing else — the move already happened.
-              '';
-              description = "Move this session into a git worktree (usage: /move [-c] <name>)";
             };
           };
           permission = {
