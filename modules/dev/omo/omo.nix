@@ -38,17 +38,47 @@ mkUserModule {
   home =
     { userCfg, ... }:
     {
-      home.packages = [ omo ];
       # omo warns at startup without it ("Pi works best with csi-u"); tmux
       # sends extended keys in xterm's format by default.
       programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
         set -g extended-keys-format csi-u
       '';
 
-      # The opencode notifier's contract, published from omo's own events:
-      # bar colour, session-picker glyph, prefix+N queue, sounds.
-      home.file = lib.mkIf userCfg.opencode-manager.enable {
-        ".omo/agent/extensions/tmux-notifier.ts".source = ./tmux-notifier.ts;
+      home = {
+        packages = [ omo ];
+
+        file = lib.mkMerge [
+          # The opencode notifier's contract, published from omo's own events:
+          # bar colour, session-picker glyph, prefix+N queue, sounds.
+          (lib.mkIf userCfg.opencode-manager.enable {
+            ".omo/agent/extensions/tmux-notifier.ts".source = ./tmux-notifier.ts;
+          })
+          # Flexoki light, matching ghostty/kitty/nvim/tmux/opencode.
+          { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
+          # opencode-style prompt, status line, sidebar and tool blocks.
+          { ".omo/agent/extensions/ui".source = ./ui; }
+        ];
+
+        # omo rewrites settings.json itself (tips history, model picks), so it
+        # can't be a store symlink: merge the UI keys in on every activation.
+        # opencode-like look: fullscreen, Flexoki, no startup header or tips.
+        activation.omoSettings = {
+          after = [ "writeBoundary" ];
+          before = [ ];
+          data = ''
+            f="$HOME/.omo/agent/settings.json"
+            mkdir -p "$(dirname "$f")"
+            [ -s "$f" ] || echo '{}' > "$f"
+            ${pkgs.jq}/bin/jq '. + {
+              theme: "flexoki",
+              tuiMode: "fullscreen",
+              fullscreenExitOutput: "resume-hint",
+              quietStartup: true,
+              tips: false,
+              collapseChangelog: true
+            }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+          '';
+        };
       };
 
       xdg.configFile = lib.mkMerge [
