@@ -490,7 +490,12 @@ async function spawn(name: string, prompt: string, stack?: string, after?: strin
   // With --needs, the agent's own pane holds omo back until its dependencies
   // are done; it is the same CLI build that spawned it.
   const gate = needs.length ? `env${dirEnv} ${process.env.AGENT_CLI ?? "agent"} await '${needs.join(",")}' && ` : ""
-  tmux(["send-keys", "-t", pane, "-l", ` ${gate}env OMO_ENABLE_SHARED_HOST=1${dirEnv} omo "$(cat '${file}')"`], "tmux send-keys")
+  // The host inherits the cwd of whichever omo starts it, and outlives that
+  // worktree: once `wt` removes it, every spawn off the host (claude, model
+  // probes) fails on the deleted cwd. Start it from $HOME first; a no-op
+  // when it is already up.
+  const host = `env OMO_ENABLE_SHARED_HOST=1${dirEnv} sh -c 'cd && exec omo host ensure' >/dev/null && `
+  tmux(["send-keys", "-t", pane, "-l", ` ${gate}${host}env OMO_ENABLE_SHARED_HOST=1${dirEnv} omo "$(cat '${file}')"`], "tmux send-keys")
   tmux(["send-keys", "-t", pane, "Enter"], "tmux send-keys")
   const path = tmux(["display-message", "-p", "-t", pane, "#{pane_current_path}"], "tmux")
   const label = stack ? `${stack}/${name}` : name
