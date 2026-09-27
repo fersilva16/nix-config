@@ -2,7 +2,8 @@
 // tool calls and the first output lines. ctrl+o (expanded) hands back to codemode's
 // own renderer, so the full code/output view is one key away.
 import { truncateToWidth } from "@earendil-works/pi-tui"
-import type { Theme } from "./stats.ts"
+import { clock } from "./core/style.ts"
+import type { Theme } from "./core/types.ts"
 
 const MAX_CALLS = 4
 const MAX_OUTPUT_LINES = 3
@@ -37,9 +38,7 @@ function lines(render: (width: number) => string[]): Component {
 
 function duration(ms: number | undefined): string {
   if (ms === undefined) return ""
-  if (ms < 1000) return "<1s"
-  const s = Math.floor(ms / 1000)
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+  return ms < 1000 ? "<1s" : clock(Math.floor(ms / 1000))
 }
 
 function argPreview(args: unknown): string {
