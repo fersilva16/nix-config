@@ -35,7 +35,10 @@ let
       elif [ "$(tmux display-message -p -t "$pane" '#{window_id}')" != "$(tmux display-message -p '#{window_id}')" ]; then
         tmux join-pane -h -s "$pane"
       elif [ "$(tmux display-message -p '#{window_panes}')" -gt 1 ]; then
-        tmux break-pane -d -s "$pane" -n lazygit
+        # @hidden_window keeps the parked window out of the status bar's
+        # window list (flexoki-bar.conf).
+        win=$(tmux break-pane -d -P -F '#{window_id}' -s "$pane" -n lazygit)
+        tmux set-option -w -t "$win" @hidden_window 1
       else
         # Standing in lazygit's own background window: nothing to split from.
         tmux last-window
