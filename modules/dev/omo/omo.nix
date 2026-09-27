@@ -32,6 +32,14 @@ let
       mainProgram = "omo";
     };
   };
+
+  # Agent PATH (dev/agent-path): tool calls, and the shared RPC host omo
+  # spawns, see ~/.agents/bin first. The process still execs as `omo`, so
+  # tmux's agent-commands match, window icon and resurrect are unaffected.
+  omoWithAgentPath = pkgs.writeShellScriptBin "omo" ''
+    export PATH="$HOME/.agents/bin:$PATH"
+    exec -a omo ${omo}/bin/omo "$@"
+  '';
 in
 mkUserModule {
   name = "omo";
@@ -46,7 +54,7 @@ mkUserModule {
       '';
 
       home = {
-        packages = [ omo ];
+        packages = [ (if userCfg.agent-path.enable then omoWithAgentPath else omo) ];
 
         file = lib.mkMerge [
           # The opencode notifier's contract, published from omo's own events:

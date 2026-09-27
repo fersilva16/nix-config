@@ -44,6 +44,7 @@ mkUser {
   codex.enable = true;
   opencode.enable = true;
   omo.enable = true;
+  agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
   opencode-manager.enable = true;
