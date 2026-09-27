@@ -1,7 +1,7 @@
 // opencode-style tool blocks (a card bar on each row) plus the compact eval
 // renderer. The row hooks live in core/host.ts.
 import { compactEval, type EvalRenderers } from "./codemode.ts"
-import { cardInner, cardRow } from "./core/card.ts"
+import { CHROME, cardInner, cardRow } from "./core/card.ts"
 import { onToolRow, replaceToolRenderers, requestRender, type ToolRow } from "./core/host.ts"
 import type { Ctx, Theme } from "./core/types.ts"
 
@@ -47,7 +47,7 @@ export default function tools(pi: Pi) {
     }
     const lines = render(cardInner(width))
     if (!theme || lines.length === 0) return lines
-    const style = { bar: theme.bg(blockBackground(row), theme.fg(row.result?.isError ? "error" : "border", "│")) }
+    const style = { bar: theme.bg(blockBackground(row), theme.fg(row.result?.isError ? "error" : "border", CHROME.thin)) }
     return [...lines.map((line, i) => (i === 0 && line === "" ? line : cardRow(style, line, width))), ""]
   })
 

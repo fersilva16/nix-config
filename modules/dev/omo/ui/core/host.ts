@@ -2,7 +2,8 @@
 // not cover (the fullscreen layout root, frame compositing, text selection,
 // tool rows). Feature files call these helpers, so an omo upgrade that moves
 // an internal breaks here and nowhere else.
-import { InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
+import { highlightCode, InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
+import { Markdown, TuiAltScreen } from "@earendil-works/pi-tui"
 import type { Component, Theme, Tui } from "./types.ts"
 
 type Method = (this: any, ...args: any[]) => any
@@ -204,6 +205,68 @@ export function onWidget(key: string, take: () => boolean): void {
   patch(mode, "setExtensionWidget", (original) =>
     function (this: unknown, k: string, content: unknown, options: unknown) {
       return original.call(this, k, k === key && take() ? undefined : content, options)
+    },
+  )
+}
+
+// Markdown code blocks. Markdown.renderCodeBlock(lines, code, lang, indent)
+// pushes a ``` fence, the highlighted lines and a closing fence; it is not
+// given the width, so renderToken(token, width, ...) (which calls it, and
+// recurses for lists and quotes) records the width it was called with.
+export type CodeBlock = {
+  code: string
+  lang: string | undefined
+  width: number
+  // Syntax-highlighted lines: omo's cached highlighter through the markdown
+  // theme, or the exported highlightCode when the theme has none.
+  highlight(): string[]
+}
+type CodeBlockHook = (block: CodeBlock) => string[] | undefined
+type MarkdownInternals = {
+  theme: { highlightCode?: unknown; codeBlock(text: string): string }
+  highlightCodeBlock(code: string, lang: string | undefined): string[] | undefined
+  [TOKEN_WIDTH]?: number
+}
+
+const TOKEN_WIDTH = Symbol.for("omo-ui.markdown.width")
+let codeBlockHook: CodeBlockHook | undefined
+
+export function onCodeBlock(hook: CodeBlockHook): void {
+  codeBlockHook = hook
+  const proto = Markdown.prototype as object
+  patch(proto, "renderToken", (original) =>
+    function (this: MarkdownInternals, token: unknown, width: number, ...rest: unknown[]) {
+      const outer = this[TOKEN_WIDTH]
+      this[TOKEN_WIDTH] = width
+      try {
+        return original.call(this, token, width, ...rest)
+      } finally {
+        this[TOKEN_WIDTH] = outer
+      }
+    },
+  )
+  patch(proto, "renderCodeBlock", (original) =>
+    function (this: MarkdownInternals, lines: string[], code: string, lang: string | undefined, indent: string) {
+      const width = this[TOKEN_WIDTH]
+      const highlight = () =>
+        this.highlightCodeBlock(code, lang) ??
+        // No theme highlighter, or the block is over omo's highlight cap.
+        (this.theme.highlightCode ? code.split("\n").map((l) => this.theme.codeBlock(l)) : highlightCode(code, lang))
+      const rendered = width === undefined ? undefined : codeBlockHook?.({ code, lang, width, highlight })
+      if (rendered) lines.push(...rendered)
+      else original.call(this, lines, code, lang, indent)
+    },
+  )
+}
+
+// Copying a mouse selection. TuiAltScreen.getActiveSelectionText slices the
+// rendered rows by column and strips escapes, so any chrome glyph we draw is
+// copied; the hook rewrites that plain text before it reaches the clipboard.
+export function onSelectionText(rewrite: (text: string) => string): void {
+  patch(TuiAltScreen.prototype as object, "getActiveSelectionText", (original) =>
+    function (this: unknown) {
+      const text: string | undefined = original.call(this)
+      return text === undefined ? undefined : rewrite(text) || undefined
     },
   )
 }

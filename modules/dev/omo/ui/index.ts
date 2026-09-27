@@ -4,7 +4,9 @@
 // omo -e ~/nix-config/modules/dev/omo/ui/index.ts
 import type { ExtensionAPI } from "@code-yeongyu/senpi"
 import backdrop from "./backdrop.ts"
-import { initHost } from "./core/host.ts"
+import code from "./code.ts"
+import { stripChrome } from "./core/card.ts"
+import { initHost, onSelectionText } from "./core/host.ts"
 import { initStore } from "./core/store.ts"
 import footer from "./footer.ts"
 import prompt from "./prompt.ts"
@@ -23,4 +25,6 @@ export default function (pi: ExtensionAPI) {
   sidebar(pi)
   sessions(pi)
   backdrop()
+  code(pi)
+  onSelectionText(stripChrome)
 }
