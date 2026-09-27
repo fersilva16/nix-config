@@ -5,7 +5,7 @@
 // not extension API: only this file and tools.ts touch omo internals.
 import { spawnSync } from "node:child_process"
 import { HStack, VStack, visibleWidth } from "@earendil-works/pi-tui"
-import { BACKDROP } from "./sessions.ts"
+import { BACKDROP } from "./backdrop.ts"
 import { type Ctx, contextUsage, type Entry, homePath, paint, sessionCost, type Theme } from "./stats.ts"
 
 const WIDTH = 40

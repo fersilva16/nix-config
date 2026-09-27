@@ -2,6 +2,7 @@
 // directory as ~/.omo/agent/extensions/ui. To try an edit before rebuilding:
 // omo -e ~/nix-config/modules/dev/omo/ui/index.ts
 import type { ExtensionAPI } from "@code-yeongyu/senpi"
+import backdrop from "./backdrop.ts"
 import footer from "./footer.ts"
 import prompt from "./prompt.ts"
 import sessions from "./sessions.ts"
@@ -16,4 +17,5 @@ export default function (pi: ExtensionAPI) {
   tools(pi)
   sidebar(pi)
   sessions(pi)
+  backdrop(pi)
 }
