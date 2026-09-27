@@ -558,6 +558,12 @@ add_layer() {
   echo "added layer $l ($b) at $lp"
 }
 
+# A branch's latest PR as "<number> <state>", or "".
+pr_of() (
+  cd "$root" && gh pr list --head "$1" --state all --json number,state \
+    --jq '.[0] // empty | "\(.number) \(.state)"' 2>/dev/null || true
+)
+
 rm_layer() {
   local l="" force=0 i b lp p child tip pr="" merged=0 rc=0 s
   for a in "$@"; do
@@ -573,15 +579,20 @@ rm_layer() {
   b=${order[$i]} lp=${lpath[$b]} p=$(parent "$i") child=${order[$i + 1]:-$root_b}
   ((force)) || ! dirty "$lp" || die "$l has uncommitted changes: commit or move them, or wts rm $l --force"
   tip=$(git rev-parse "$b")
-  pr=$(cd "$root" && gh pr list --head "$b" --state all --json number,state \
-    --jq '.[0] // empty | "\(.number) \(.state)"' 2>/dev/null || true)
+  pr=$(pr_of "$b")
   [ "${pr#* }" = MERGED ] && merged=1
 
   git branch -q --set-upstream-to="$p" "$child"
   # Merged: its commits are already in the parent (trunk, after a fetch), so
   # drop them from the child. Unmerged: the child keeps them — a fold. A child
   # that's someone else's PR is theirs to restack; wts sync picks that up.
-  if ((merged)) && [ "$child" != "$root_b" ] && [ -n "$(owner "$child")" ]; then
+  # Nothing to drop from a child that already left this layer, or whose own
+  # PR merged too (a stack merged at once): its commits are in trunk as a
+  # squash, and replaying them onto it only conflicts. wts rm it next.
+  if ((merged)) && [ "$child" != "$root_b" ] &&
+    { ! git merge-base --is-ancestor "$tip" "$child" || [ "$(pr_of "$child" | cut -d' ' -f2)" = MERGED ]; }; then
+    :
+  elif ((merged)) && [ "$child" != "$root_b" ] && [ -n "$(owner "$child")" ]; then
     echo "$(lname "$child") (@$(owner "$child")'s) still carries $l's commits until they restack it; wts sync picks that up"
   elif ((merged)) && [ "$child" != "$root_b" ]; then
     ((i)) || fetch_origin || die "git fetch origin failed"
