@@ -4,6 +4,8 @@
 import { Key, matchesKey } from "@earendil-works/pi-tui"
 
 export type Intent<E> = {
+  // Names what the binding does (e.g. "agent.cycle"), for readers of the table.
+  id?: string
   // A single character matches itself; anything else is a pi-tui key id
   // such as "tab" or "ctrl+o".
   key: string
