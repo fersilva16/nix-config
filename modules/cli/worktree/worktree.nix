@@ -695,7 +695,10 @@ mkUserModule {
               "'${wt-enter}/bin/wt-enter' '$main_root' '$wt_path' '$branch' '$base_branch' '$session_name' '$enter_setup'"
           end
 
-          command tmux switch-client -t "=$session_name"
+          # WT_DETACH is for callers that start the session on someone else's
+          # behalf — the omo orchestrator spawning an agent — and must leave
+          # the user in the session they are looking at.
+          set -q WT_DETACH; or command tmux switch-client -t "=$session_name"
 
           # Restock and fetch, detached, after you have already been switched.
           # Unconditional: it is also what keeps refs/remotes warm for the next

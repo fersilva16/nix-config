@@ -12,6 +12,7 @@ const BG = "selectedBg"
 type Pi = {
   on(event: "session_start", handler: (event: unknown, ctx: Ctx & { ui: Ui }) => void): void
   getThinkingLevel(): string
+  events: { on(channel: "agents:active", handler: (agent: string) => void): void }
 }
 type Ui = {
   theme: Theme
@@ -24,10 +25,11 @@ type Prompt = {
   forward(data: string): void
 }
 
-// opencode-style ctrl+x leader: l opens /sessions, y replays ctrl+x for omo's
-// own copy.
+// opencode-style ctrl+x leader: l opens /sessions, a cycles /agent, y replays
+// ctrl+x for omo's own copy.
 const INTENTS: Intent<Prompt>[] = [
   { leader: true, key: "l", run: (editor) => submitCommand(editor, "/sessions") },
+  { leader: true, key: "a", run: (editor) => submitCommand(editor, "/agent") },
   { leader: true, key: "y", run: (editor, _data, leader) => leader && editor.forward(leader) },
 ]
 
@@ -40,6 +42,11 @@ function isBorder(line: string): boolean {
 }
 
 export default function prompt(pi: Pi) {
+  // Published by the agents extension; stays "OmO" without it.
+  let agent = "OmO"
+  pi.events.on("agents:active", (name) => {
+    agent = name === "omo" ? "OmO" : name
+  })
   pi.on("session_start", (_e, ctx) => {
     const theme = ctx.ui.theme
     const style: CardStyle = { bar: theme.fg("accent", "┃"), fill: { theme, token: BG } }
@@ -47,7 +54,7 @@ export default function prompt(pi: Pi) {
       const m = ctx.model
       const thinking = pi.getThinkingLevel()
       return [
-        theme.fg("accent", "OmO"),
+        theme.fg("accent", agent),
         m ? `${m.name ?? m.id} ${theme.fg("muted", m.provider ?? "")}` : theme.fg("muted", "no model"),
         thinking === "off" ? "" : theme.fg("warning", thinking),
       ]
