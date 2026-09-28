@@ -330,6 +330,13 @@ mkUserModule {
           bind-key '"' split-window -c "#{pane_current_path}"
           bind-key % split-window -h -c "#{pane_current_path}"
 
+          # Pane navigation without the prefix: Option+hjkl (Ghostty sends
+          # Option as Alt). Not nvim-aware: inside nvim these switch tmux panes.
+          bind-key -n M-h select-pane -L
+          bind-key -n M-j select-pane -D
+          bind-key -n M-k select-pane -U
+          bind-key -n M-l select-pane -R
+
           # Session picker. When the session-picker part is enabled it owns
           # prefix+s (fzf popup) and keeps choose-tree on prefix+S; otherwise
           # choose-tree stays on prefix+s. Conditional rather than rebinding to
