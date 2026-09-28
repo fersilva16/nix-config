@@ -4,7 +4,24 @@
 # settings.json is seeded once, not managed: Vicinae rewrites it from its GUI.
 mkUserModule {
   name = "vicinae";
-  system.homebrew.casks = [ "vicinae" ];
+  system = {
+    homebrew.casks = [ "vicinae" ];
+    # Vicinae unpacks extension-manager.js into $TMPDIR/vicinae only at launch, and
+    # macOS dirhelper (daily 03:35) deletes $TMPDIR files older than 3 days, which
+    # crashes the extension manager for good ("Extension manager is not running").
+    # Keep the files fresh until upstream re-extracts or moves them.
+    launchd.user.agents.vicinae-tmp-keepalive = {
+      script = ''
+        d="$(/usr/bin/getconf DARWIN_USER_TEMP_DIR)vicinae"
+        [ -d "$d" ] && /usr/bin/find "$d" -type f -exec /usr/bin/touch {} +
+        exit 0
+      '';
+      serviceConfig = {
+        RunAtLoad = true;
+        StartInterval = 6 * 60 * 60;
+      };
+    };
+  };
   home =
     { userCfg, ... }:
     {
