@@ -1,4 +1,12 @@
 { pkgs, lib }:
+let
+  agents = "${
+    pkgs.writeShellApplication {
+      name = "tmux-resurrect-agents";
+      text = builtins.readFile ./resurrect-agents.sh;
+    }
+  }/bin/tmux-resurrect-agents";
+in
 {
   home.programs.tmux = {
     plugins = [
@@ -9,10 +17,15 @@
           set -g @resurrect-strategy-nvim 'session'
           set -g @resurrect-restore-cwd 'on'
           # Agents are saved under their versioned store/runtime path with
-          # per-pane args, so match the binary name and resume the cwd's last
-          # session instead of replaying a path that a rebuild may have removed.
-          # `( |$)` keeps e.g. `nvim …/omo.nix` from matching.
-          set -g @resurrect-processes '"~/omo( |$)->omo --continue" "~/opencode( |$)->opencode --continue"'
+          # per-pane args, so match the binary name and resume the pane's own
+          # session (saved from @oc-sid, see resurrect-agents.sh) instead of
+          # replaying a path that a rebuild may have removed. `( |$)` keeps
+          # e.g. `nvim …/omo.nix` from matching.
+          set -g @resurrect-processes '"~/omo( |$)->${agents} resume omo" "~/opencode( |$)->${agents} resume opencode"'
+          # Hooks are eval'd inside resurrect's scripts, so $(last_resurrect_file)
+          # expands there to its `last` symlink.
+          set -g @resurrect-hook-post-save-all '${agents} save "$(last_resurrect_file)"'
+          set -g @resurrect-hook-pre-restore-pane-processes '${agents} restore "$(last_resurrect_file)"'
         '';
       }
     ];
