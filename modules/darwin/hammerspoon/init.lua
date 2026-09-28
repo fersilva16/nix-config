@@ -632,11 +632,12 @@ local secureInputTicks = 0
 local SECURE_INPUT_ALERT_TICKS = 5   -- first alert after 10s (5 × 2s)
 local SECURE_INPUT_REMIND_TICKS = 15 -- re-alert every 30s while stuck
 
--- Proactive tap recreation. macOS can silently invalidate a CGEventTap's
--- Mach port in ways that isEnabled() doesn't detect. Periodically destroying
--- and recreating the tap gets a fresh Mach port as prevention.
-local lastRecreate = hs.timer.secondsSinceEpoch()
-local RECREATE_INTERVAL = 30 -- 30 seconds (was 300; kept short to cap outage window)
+-- No proactive (timed) tap recreation. It was a stopgap from before the GC
+-- retention (#447) and App Nap / power-event (#441) fixes found the real
+-- causes of tap death. At a 30s cadence it caused periodic keyboard hitches
+-- (tap teardown + a synchronous hidutil fork on the run loop), and the
+-- reactive check below never fired once it was redundant. If a tap ever dies
+-- silently with isEnabled() still true, re-add it at a long interval (300s).
 
 -- Stuck-hyper threshold. If hyperDown has been true for longer than this,
 -- it's almost certainly stuck (missed F18 keyUp). Force-reset it.
@@ -654,11 +655,10 @@ local lastHealthTickTime = nil
 local HEALTH_HEARTBEAT_EVERY = 15  -- log a TICK marker every 30s (15 × 2s)
 local HEALTH_DRIFT_THRESHOLD = 1.0 -- log immediately if a tick is >1s late
 
--- Monitor eventtap health every 2 seconds with four layers of protection:
+-- Monitor eventtap health every 2 seconds with three layers of protection:
 -- 1. Reactive:    detect tap disabled by macOS and recreate.
--- 2. Proactive:   recreate every 30s to get a fresh Mach port.
--- 3. Stuck hyper: detect hyperDown stuck for >5s and force-reset.
--- 4. Secure Input: detect when events are blocked despite a "healthy" tap.
+-- 2. Stuck hyper: detect hyperDown stuck for >5s and force-reset.
+-- 3. Secure Input: detect when events are blocked despite a "healthy" tap.
 -- The entire callback is pcall-wrapped so the recovery mechanism itself
 -- cannot die from an unexpected error.
 -- Retained via _G.__hsHyperRetain — see GC warning at top of file.
@@ -682,21 +682,11 @@ retain.healthCheck = hs.timer.new(2, function()
       log("HEALTH", string.format("REACTIVE: tap disabled — recreating (last_evt=%.1fs ago)", lastEvtAgo))
       hs.alert.show("⌨️ Hyper key recovered", 1.5)
       recreateWatcher("reactive:tap_disabled")
-      lastRecreate = now
       secureInputTicks = 0
       return
     end
 
-    -- 2. Proactive: recreate every RECREATE_INTERVAL seconds
-    if now - lastRecreate >= RECREATE_INTERVAL then
-      log("HEALTH", string.format(
-        "PROACTIVE: %ds elapsed — recreating (last_evt=%.1fs ago, events=%d)",
-        RECREATE_INTERVAL, lastEvtAgo, tapEventCount))
-      recreateWatcher("proactive:" .. RECREATE_INTERVAL .. "s")
-      lastRecreate = now
-    end
-
-    -- 3. Stuck hyper: hyperDown is true but no events flowing through the tap.
+    -- 2. Stuck hyper: hyperDown is true but no events flowing through the tap.
     --    Active use (holding hyper + pressing hjkl) keeps lastEventTime fresh,
     --    so this only fires when the tap died mid-hold and stopped receiving
     --    events entirely.
@@ -712,7 +702,7 @@ retain.healthCheck = hs.timer.new(2, function()
       end
     end
 
-    -- 4. Secure Input: alert user with culprit process name.
+    -- 3. Secure Input: alert user with culprit process name.
     --    isEnabled() returns true under Secure Input, so this is the only
     --    way to detect this failure mode.
     if hs.eventtap.isSecureInputEnabled() then
@@ -824,7 +814,6 @@ retain.caffeinate = caffeinateWatcher.new(function(event)
       -- disabled.
       hs.timer.doAfter(0.5, function()
         recreateWatcher("power:" .. eventName)
-        lastRecreate = hs.timer.secondsSinceEpoch()
         secureInputTicks = 0
       end)
     end
