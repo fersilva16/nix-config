@@ -54,7 +54,7 @@ mkUserModule {
   home =
     { userCfg, ... }:
     {
-      home.packages = lib.optionals userCfg.tmux.enable [ tmux-lazygit ];
+      home.packages = [ pkgs.delta ] ++ lib.optionals userCfg.tmux.enable [ tmux-lazygit ];
       programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
         bind-key l run-shell '${tmux-lazygit}/bin/tmux-lazygit'
       '';
@@ -96,8 +96,44 @@ mkUserModule {
               loadingText = "Creating and merging PR...";
             }
           ];
+          # lazygit 0.65 renamed git.paging/git.pagers to git.diffRenderers;
+          # `|` cycles through the entries. --light matches Flexoki Light and
+          # picks delta's GitHub syntax theme. Unified by default: the pane is
+          # usually a half-width tmux split, too narrow for side-by-side.
+          git = {
+            diffRenderers = [
+              { command = "delta --light --paging=never"; }
+              {
+                name = "delta side-by-side";
+                command = "delta --light --paging=never --side-by-side";
+              }
+            ];
+            log.showGraph = "always";
+          };
           gui = {
             nerdFontsVersion = "3";
+            showBottomLine = false;
+            showCommandLog = false;
+            showPanelJumps = false;
+            showListFooter = false;
+            animateExplosion = false;
+            # Three panels instead of five: status, submodules and tags are
+            # dropped; stash becomes a tab next to commits and reflog.
+            sidePanels = [
+              [
+                "files"
+                "worktrees"
+              ]
+              [
+                "branches"
+                "remotes"
+              ]
+              [
+                "commits"
+                "reflog"
+                "stash"
+              ]
+            ];
             theme = {
               activeBorderColor = [
                 "#205EA6"
