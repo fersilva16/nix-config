@@ -95,9 +95,9 @@ mkUserModule {
           "tmux-opencode-manager/agent-commands".text = "^omo$";
         })
         # Appends to the `icons:` map cli/tmux/theme.nix writes, so it must
-        # land after it. md-creation (U+F0674).
+        # land after it. Glyph is U+F51B, chosen by hand: keep it.
         (lib.mkIf userCfg.tmux.enable {
-          "tmux/tmux-nerd-font-window-name.yml".text = lib.mkAfter "  omo: \"󰙴\"";
+          "tmux/tmux-nerd-font-window-name.yml".text = lib.mkAfter "  omo: \"\"";
         })
       ];
     };
