@@ -114,6 +114,9 @@ mkUserModule {
             nerdFontsVersion = "3";
             showBottomLine = false;
             showCommandLog = false;
+            showPanelJumps = false;
+            showListFooter = false;
+            animateExplosion = false;
             theme = {
               activeBorderColor = [
                 "#205EA6"
