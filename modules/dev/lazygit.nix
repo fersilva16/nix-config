@@ -117,6 +117,23 @@ mkUserModule {
             showPanelJumps = false;
             showListFooter = false;
             animateExplosion = false;
+            # Three panels instead of five: status, submodules and tags are
+            # dropped; stash becomes a tab next to commits and reflog.
+            sidePanels = [
+              [
+                "files"
+                "worktrees"
+              ]
+              [
+                "branches"
+                "remotes"
+              ]
+              [
+                "commits"
+                "reflog"
+                "stash"
+              ]
+            ];
             theme = {
               activeBorderColor = [
                 "#205EA6"
