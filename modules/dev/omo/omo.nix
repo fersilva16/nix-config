@@ -5,7 +5,7 @@
   ...
 }:
 let
-  version = "5.0.0";
+  version = "5.1.2";
 
   # OmO Native: the standalone `omo` (senpi engine + OMO extension), not the
   # opencode plugin in opencode/omo.nix. The release binary is bun-compiled and
@@ -17,7 +17,7 @@ let
     inherit version;
     src = pkgs.fetchurl {
       url = "https://github.com/code-yeongyu/oh-my-openagent/releases/download/v${version}/omo-darwin-arm64";
-      hash = "sha256-W5MMs+6YDGn4N2ryFnkBXBxI3VV+6wGtkVnWfv/o0as=";
+      hash = "sha256-XhIoawigjoxlmYfHqhWYFsFygC6tEzUVHgz+PTXsV48=";
     };
     dontUnpack = true;
     # The bun payload is appended to the executable; stripping would drop it.
@@ -30,7 +30,7 @@ let
     # On the Claude Agent SDK route, omo hands its tools to the model through
     # jsonSchemaToZodShape, which drops every property description. Nothing then
     # tells the model eval's `summary` is required, so eval runs fail with
-    # "eval run requires summary" (still unfixed upstream as of v5.1.0). The patch
+    # "eval run requires summary" (still unfixed upstream as of v5.1.2). The patch
     # keeps descriptions and marks `summary` (only eval has one) required. It must
     # keep the same byte length because the bun payload is laid out by offset.
     patchFrom = "function jsonSchemaToZodShape(schema){const object=schema??{};const properties=object.properties??{};const required=new Set(object.required??[]);const shape={};for(const[key,value]of Object.entries(properties)){const converted=schemaToZod(value);shape[key]=required.has(key)?converted:converted.optional()}return shape}";
