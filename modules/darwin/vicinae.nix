@@ -24,7 +24,51 @@ mkUserModule {
   };
   home =
     { userCfg, ... }:
+    let
+      # A window outline with the target half filled in.
+      snapIcon =
+        side:
+        builtins.toFile "${side}-half.svg" ''
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+            <rect width="64" height="64" rx="14" fill="#3B82F6"/>
+            <rect x="12" y="16" width="40" height="32" rx="4" fill="none" stroke="#fff" stroke-width="4"/>
+            <rect x="${if side == "left" then "12" else "32"}" y="16" width="20" height="32" fill="#fff"/>
+          </svg>
+        '';
+      snapScript = side: title: {
+        executable = true;
+        text = ''
+          #!/bin/sh
+          # @vicinae.schemaVersion 1
+          # @vicinae.title ${title}
+          # @vicinae.mode silent
+          # @vicinae.icon ${snapIcon side}
+          # @vicinae.keywords ["snap", "window", "tile"]
+          exec /usr/bin/open -g "hammerspoon://snap?side=${side}"
+        '';
+      };
+    in
     {
+      # Nix-owned settings live in an imported file Vicinae only reads; settings.json
+      # (GUI-written) still wins on conflict. Vicinae keeps `imports` when it rewrites.
+      home.file = {
+        ".config/vicinae/nix.json".text = builtins.toJSON {
+          providers.applications.entrypoints."com.apple.PhotoBooth".alias = "camera";
+        };
+
+        # "Left Half" / "Right Half" script commands; Hammerspoon does the move
+        # through the hammerspoon://snap handler in vicinae-snap.lua.
+        ".hammerspoon/extras/vicinae-snap.lua" = lib.mkIf userCfg.hammerspoon.enable {
+          source = ./vicinae-snap.lua;
+        };
+        ".local/share/vicinae/scripts/left-half.sh" = lib.mkIf userCfg.hammerspoon.enable (
+          snapScript "left" "Left Half"
+        );
+        ".local/share/vicinae/scripts/right-half.sh" = lib.mkIf userCfg.hammerspoon.enable (
+          snapScript "right" "Right Half"
+        );
+      };
+
       home.activation.vicinaeHotkey = {
         after = [ "writeBoundary" ];
         before = [ ];
@@ -32,7 +76,12 @@ mkUserModule {
           cfg="$HOME/.config/vicinae/settings.json"
           if [ ! -e "$cfg" ]; then
             mkdir -p "$(dirname "$cfg")"
-            echo '{ "global_shortcuts": { "toggle": "cmd+space" } }' > "$cfg"
+            echo '{ "imports": [ "./nix.json" ], "global_shortcuts": { "toggle": "cmd+space" } }' > "$cfg"
+          elif ! grep -q '"imports"' "$cfg"; then
+            /usr/bin/awk '!done && sub(/[{]/, "{ \"imports\": [ \"./nix.json\" ],") { done = 1 } 1' "$cfg" > "$cfg.tmp"
+            mv "$cfg.tmp" "$cfg"
+          elif ! grep -q 'nix\.json' "$cfg"; then
+            echo "vicinae: settings.json has its own imports; add \"./nix.json\" to them by hand" >&2
           fi
         ''
         + lib.optionalString userCfg.raycast.enable ''
