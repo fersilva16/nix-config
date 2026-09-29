@@ -18,6 +18,14 @@ const ORCHESTRATOR = readFileSync(new URL("./orchestrator.md", import.meta.url),
 const RELAYED =
   "A user message that starts with `[orchestrator]` was sent by the user's orchestrator session on the user's behalf. Treat it as the user's own message."
 
+// A `## <title>` section of orchestrator.md, heading included.
+function section(title: string): string {
+  const start = ORCHESTRATOR.indexOf(`## ${title}\n`)
+  if (start < 0) throw new Error(`orchestrator.md has no "## ${title}" section`)
+  const end = ORCHESTRATOR.indexOf("\n## ", start + 1)
+  return ORCHESTRATOR.slice(start, end < 0 ? undefined : end).trim()
+}
+
 type Entry = { type: string; customType?: string; data?: { agent?: string } }
 const isAgent = (name: unknown): name is Agent => AGENTS.includes(name as Agent)
 
@@ -62,6 +70,26 @@ export default function (pi: ExtensionAPI) {
       }
       switchTo(agent)
       ctx.ui.notify(`Agent: ${agent}`, "info")
+    },
+  })
+
+  // One-shot handoff from a plain session: spawn an agent for a fix found
+  // mid-research, briefed from this conversation, without switching modes.
+  // Sent as a real user message: a system-prompt switch alone gets outweighed
+  // by the transcript. Plain agents learn about the `agent` CLI only here.
+  pi.registerCommand("orchestrate", {
+    description: "Hand a fix to a new agent (worktree + PR), briefed from this conversation",
+    handler: async (args, ctx) => {
+      const task = args?.trim() || "the issue we just found"
+      const message = `Hand this off to a new agent instead of doing it here: ${task}
+
+Write a self-contained brief from what this conversation already established (the problem, files, repro, what done looks like; default: open a PR), start one agent with \`agent spawn\`, and tell me its name and how to reach it. Do not make the change in this checkout, and do not wait on or check the agent afterwards. Then continue what we were doing before this message.
+
+${section("The `agent` CLI")}
+
+${section("Briefs")}`
+      if (ctx.isIdle()) pi.sendUserMessage(message)
+      else pi.sendUserMessage(message, { deliverAs: "steer" })
     },
   })
 
