@@ -1,4 +1,4 @@
-// Compact rows for built-in and MCP tools, in the style of the compact eval
+// Compact rows for built-in, MCP and omo plugin tools, in the style of the compact eval
 // row: one header line (status mark, tool, key argument, badges) and a few
 // output lines. ctrl+o (expanded) hands back to the tool's own renderer.
 // read/grep/find/ls keep omo's renderers, since omo only groups rows that do;
@@ -8,6 +8,7 @@ import { header, lines, statusMark } from "./codemode.ts"
 import type { RowRenderers, RowSnapshot } from "./core/host.ts"
 import { homePath, paint, stripAnsi } from "./core/style.ts"
 import type { Component, Theme } from "./core/types.ts"
+import { isPluginTool, PLUGIN_TOOLS } from "./plugins.ts"
 
 const MAX_OUTPUT_LINES = 3
 const TOOLS = new Set([
@@ -40,10 +41,11 @@ type Status = "pending" | "error" | "complete"
 type Spec = {
   arg(args: Args, cwd: string): string
   done?(result: Result, args: Args, theme: Theme): { badges?: string[]; output?: string[] }
+  failed?(result: Result): boolean
 }
 
 export function isCompactTool(toolName: string): boolean {
-  return TOOLS.has(toolName) || toolName.startsWith("mcp_")
+  return TOOLS.has(toolName) || toolName.startsWith("mcp_") || isPluginTool(toolName)
 }
 
 const str = (value: unknown): string => (typeof value === "string" ? value : "")
@@ -158,7 +160,17 @@ const SPECS: Record<string, Spec> = {
   },
 }
 
-const specOf = (toolName: string): Spec => SPECS[toolName] ?? { arg: genericArg }
+function specOf(toolName: string): Spec {
+  const plugin = PLUGIN_TOOLS[toolName]
+  if (SPECS[toolName] || !plugin) return SPECS[toolName] ?? { arg: genericArg }
+  const { badges, failed } = plugin
+  const details = (result: Result): Args => result.details ?? {}
+  return {
+    arg: (args, cwd) => plugin.arg(args, (path) => shortPath(path, cwd)),
+    done: badges && ((result, args, theme) => ({ badges: badges(details(result), args), output: preview(theme, text(result)) })),
+    failed: failed && ((result) => failed(details(result))),
+  }
+}
 
 export const BACKGROUND: Record<Status, string> = { pending: "toolPendingBg", error: "toolErrorBg", complete: "toolSuccessBg" }
 
@@ -206,7 +218,7 @@ export function compactRow(original: RowRenderers, toolName: string) {
       if (original.renderResult) return original.renderResult(result, options, theme, theirs(context))
       return own(lines(() => text(result).split("\n").map((l) => theme.fg("toolOutput", clean(l)))))
     }
-    const status: Status = options.isPartial ? "pending" : context.isError ? "error" : "complete"
+    const status: Status = options.isPartial ? "pending" : context.isError || spec.failed?.(result) ? "error" : "complete"
     const body = text(result)
     const done = status === "complete" ? (spec.done?.(result, context.args, theme) ?? { output: preview(theme, body) }) : {}
     const output = status === "error" ? preview(theme, body, "head", "error") : status === "pending" ? preview(theme, body, "tail") : (done.output ?? [])
