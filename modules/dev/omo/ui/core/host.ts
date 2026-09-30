@@ -775,3 +775,106 @@ function patchQuestions(): void {
     },
   )
 }
+
+// Status above the prompt. omo draws its working, retry, compaction and
+// branch-summary indicators (Loader subclasses, one at a time, kept on
+// activeStatusIndicator) into statusContainer and each running tool hook into
+// hookStatusContainer; compaction adds its indicator without going through
+// showStatusIndicator, so the containers are hooked, not the methods that
+// fill them. They are fields of the InteractiveMode instance, reached through
+// renderWidgets, which omo runs whenever a widget is set (initHost sets one
+// on every session start). The instance outlives /reload; patch() keeps the
+// containers' own render under a symbol, so each copy of this module wraps it
+// once. While anything is active the hook draws both containers as one block
+// (the hook container then draws nothing); otherwise omo's render stands.
+export type StatusSnapshot = {
+  indicator?: { kind: string; message: string; elapsedSeconds?: number; progress?: string }
+  hooks: { name: string; message?: string; elapsedSeconds: number }[]
+  interruptKey: string
+}
+type StatusHost = {
+  statusContainer: Component
+  hookStatusContainer: Component
+  pendingMessagesContainer: { clear(): void; addChild(component: Component): void }
+  activeStatusIndicator?: { kind: string; message: string; progressText?: string }
+  activeWorkingIndicatorEmbedded?: boolean
+  activeToolHooks: Map<string, { hookName: string; statusMessage?: string; startedAt: number }>
+  getWorkingElapsedSeconds(): number
+  getAllQueuedMessages(): { steering: string[]; followUp: string[] }
+  getAppKeyDisplay(action: string): string
+  sessionManager: { getCwd(): string; getSessionName(): string | undefined }
+}
+type StatusHook = (status: StatusSnapshot, width: number) => string[]
+let statusHook: StatusHook | undefined
+
+export function onStatusLine(draw: StatusHook): void {
+  statusHook = draw
+  patch(mode, "renderWidgets", (original) =>
+    function (this: StatusHost, ...args: unknown[]) {
+      patchStatus(this)
+      return original.apply(this, args)
+    },
+  )
+}
+
+function statusSnapshot(host: StatusHost): StatusSnapshot | undefined {
+  const active = host.activeWorkingIndicatorEmbedded ? undefined : host.activeStatusIndicator
+  const now = Date.now()
+  const hooks = [...host.activeToolHooks.values()].map((h) => ({
+    name: h.hookName,
+    message: h.statusMessage || undefined,
+    elapsedSeconds: Math.max(0, Math.floor((now - h.startedAt) / 1000)),
+  }))
+  if (!active && hooks.length === 0) return undefined
+  const indicator = active && {
+    kind: active.kind,
+    message: active.message,
+    elapsedSeconds: active.kind === "working" ? host.getWorkingElapsedSeconds() : undefined,
+    progress: active.progressText || undefined,
+  }
+  return { indicator, hooks, interruptKey: host.getAppKeyDisplay("app.interrupt") }
+}
+
+function patchStatus(host: StatusHost): void {
+  patch(host.statusContainer, "render", (original) =>
+    function (this: Component, width: number) {
+      const status = statusHook && statusSnapshot(host)
+      return status ? statusHook!(status, width) : original.call(this, width)
+    },
+  )
+  patch(host.hookStatusContainer, "render", (original) =>
+    function (this: Component, width: number) {
+      return statusHook ? [] : original.call(this, width)
+    },
+  )
+}
+
+// Queued steering and follow-up messages. omo rebuilds pendingMessagesContainer
+// from its queues in updatePendingMessagesDisplay (and clears it first, as
+// here); the hook returns the component drawn in its place.
+export type QueuedMessages = { steering: string[]; followUp: string[]; dequeueKey: string }
+let queueHook: ((queued: QueuedMessages) => Component) | undefined
+
+export function onQueuedMessages(draw: (queued: QueuedMessages) => Component): void {
+  queueHook = draw
+  patch(mode, "updatePendingMessagesDisplay", (original) =>
+    function (this: StatusHost, ...args: unknown[]) {
+      if (!queueHook) return original.apply(this, args)
+      this.pendingMessagesContainer.clear()
+      const { steering, followUp } = this.getAllQueuedMessages()
+      if (steering.length === 0 && followUp.length === 0) return
+      this.pendingMessagesContainer.addChild(queueHook({ steering, followUp, dequeueKey: this.getAppKeyDisplay("app.message.dequeue") }))
+    },
+  )
+}
+
+// Terminal title when nothing more specific holds it: omo prefers a running
+// tool or hook, then a pending question, then ctx.ui.setTitle, then this.
+// ctx.ui.setTitle(undefined) re-applies it.
+export function onTerminalTitle(make: (session: { name?: string; cwd: string }) => string): void {
+  patch(mode, "getNormalTerminalTitle", () =>
+    function (this: StatusHost) {
+      return make({ name: this.sessionManager.getSessionName() || undefined, cwd: this.sessionManager.getCwd() })
+    },
+  )
+}
