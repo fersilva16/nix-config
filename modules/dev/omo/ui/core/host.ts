@@ -608,6 +608,22 @@ export function onSelector(name: string, present: SelectorHook): void {
   )
 }
 
+// /rename and /name without a name (and app.session.renameCurrent) put an
+// ExtensionInputComponent in the editor's place directly, not through
+// showExtensionInput, so onDialog never sees it. This hands it to the same
+// dialog hook; omo's hideExtensionInput closes it as for any input dialog.
+export function renameAsDialog(): void {
+  patch(mode, "showSessionRenameInput", (original) =>
+    function (this: DialogHost, ...args: unknown[]) {
+      const before = this.extensionInput
+      const result = original.apply(this, args)
+      const stock = this.extensionInput
+      if (stock && stock !== before) presentDialog(this, { kind: "input", title: "Rename session", stock } as ExtensionDialog)
+      return result
+    },
+  )
+}
+
 // Thinking level changes (shift+tab, /thinking). omo reports each one as a
 // "Thinking level: x" status line; a hook that returns true takes it instead
 // (`saved` when it was also made the default), and omo still repaints the
