@@ -81,6 +81,10 @@ mkUserModule {
           (lib.mkIf userCfg.opencode-manager.enable {
             ".omo/agent/extensions/tmux-notifier.ts".source = ./tmux-notifier.ts;
           })
+          # /fork opens the fork in a new, focused tmux window.
+          (lib.mkIf userCfg.tmux.enable {
+            ".omo/agent/extensions/tmux-fork.ts".source = ./tmux-fork.ts;
+          })
           # Flexoki light, matching ghostty/kitty/nvim/tmux/opencode.
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
           # opencode-style prompt, status line, sidebar and tool blocks.
