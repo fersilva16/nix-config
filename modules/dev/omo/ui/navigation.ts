@@ -1,5 +1,5 @@
-// omo's session navigation pickers as opencode-style dialogs, like /sessions:
-// /tree, /fork and /resume (and their keys; omo's /sessions is /resume too).
+// omo's session navigation pickers as opencode-style dialogs: /tree, /fork and
+// /resume (and their keys; omo's /sessions and ctrl+x l are /resume too).
 // omo still builds each picker and owns its keys, filters, folding, labels and
 // navigation; these only draw it in the dialog chrome from core/modal.ts.
 // /rename's input goes to the dialog hook in dialogs.ts, and the branch
