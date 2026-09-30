@@ -1,4 +1,5 @@
-// opencode-style status line: cwd on the left, context and spend on the right.
+// opencode-style status line: cwd:branch on the left, context and spend on the
+// right. Model and thinking level are on the prompt's info line.
 // Extension statuses (ctx.ui.setStatus) sit between them when they fit, else
 // on a line below. The store re-renders it when session state changes.
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui"
@@ -9,7 +10,7 @@ import type { Ctx, Theme } from "./core/types.ts"
 type Pi = {
   on(event: "session_start", handler: (event: unknown, ctx: Ctx & { ui: Ui }) => void): void
 }
-type FooterData = { getExtensionStatuses(): ReadonlyMap<string, string> }
+type FooterData = { getExtensionStatuses(): ReadonlyMap<string, string>; getGitBranch(): string | null }
 type Ui = {
   setFooter(
     factory: (tui: unknown, theme: Theme, data: FooterData) => { render(width: number): string[]; invalidate(): void },
@@ -37,7 +38,8 @@ export default function footer(pi: Pi) {
         ]
           .filter(Boolean)
           .join(" · ")
-        const left = ` ${theme.fg("muted", homePath(ctx.cwd))}`
+        const branch = data.getGitBranch()
+        const left = ` ${theme.fg("muted", homePath(ctx.cwd))}${branch ? `${theme.fg("dim", ":")}${theme.fg("warning", branch)}` : ""}`
         const right = `${theme.fg("muted", usage)}  ${theme.bold("ctrl+l")} ${theme.fg("muted", "models")} `
         const status = statuses(data, theme)
         if (!status) return ["", spread(left, right, width)]
