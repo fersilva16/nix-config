@@ -27,6 +27,9 @@ wts — stacked PRs, one worktree per PR. Run from the stack root or any layer.
                            origin to origin; rebase each layer onto the one below;
                            move the root onto the top. --main also moves the
                            bottom onto the latest trunk
+  wts up                   just move the root onto the top layer's latest
+                           commit: no fetch, no restack. On conflict the root
+                           is left as it was
   wts pull [pr#] [--root <name>] [<layer name>...]
                            check out an open PR's whole stack, one layer per PR,
                            root at its top PR. Without names it lists the PRs;
@@ -661,7 +664,21 @@ sync() {
     git -C "$lp" rebase -q --autostash --fork-point "$p" ||
       die "conflict restacking $(lname "$b") onto $(lname "$p"): resolve in $lp, git -C $lp rebase --continue, then wts sync"
   done
+  follow_top
+  status
+}
 
+# Root onto the top layer as it is locally: no fetch, no restack.
+up() {
+  (($# == 0)) || die "usage: wts up"
+  load
+  ((${#order[@]})) || die "$name is not a stack"
+  follow_top
+  status
+}
+
+follow_top() {
+  local top old new
   top=${order[-1]}
   git branch -q --set-upstream-to="$top" "$root_b"
   if in_rebase "$root"; then
@@ -680,7 +697,6 @@ sync() {
       echo "root: its own commits don't replay onto $(lname "$top"); left untouched — move what's missing into layers, then wts sync" >&2
     }
   fi
-  status
 }
 
 pull() {
@@ -893,6 +909,7 @@ case "$cmd" in
 add) add "$@" ;;
 rm) rm_layer "$@" ;;
 sync) sync "$@" ;;
+up) up "$@" ;;
 _key) key ;;
 *) usage >&2 && exit 2 ;;
 esac
