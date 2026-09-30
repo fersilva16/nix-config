@@ -13,6 +13,7 @@ import dialogs from "./dialogs.ts"
 import entries from "./entries.ts"
 import footer from "./footer.ts"
 import navigation from "./navigation.ts"
+import panels from "./panels.ts"
 import pickers from "./pickers.ts"
 import prompt from "./prompt.ts"
 import question from "./question.ts"
@@ -38,6 +39,7 @@ export default function (pi: ExtensionAPI) {
   btw()
   dialogs(pi)
   pickers()
+  panels(pi)
   backdrop()
   code(pi)
   entries()
