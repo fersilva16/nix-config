@@ -18,7 +18,7 @@ const ENTRIES = new Set(["cache-keepalive", "goal-cache-warmup", "loop-tick", "r
 
 // A card line: text and the theme token it is coloured with. The first line
 // is the title, and its tone colours the card's bar.
-type Line = { tone: string; text: string }
+export type Line = { tone: string; text: string }
 
 // omo's notice renderers build their box from a title, a reason and extra
 // lines, colouring each with theme.fg as they go. Running one against a theme
@@ -39,7 +39,7 @@ function capture(render: CustomRenderer, item: never, options: { expanded: boole
   return { component: render(item, options, recording), lines }
 }
 
-function noticeCard(lines: Line[], theme: Theme): Component {
+export function noticeCard(lines: Line[], theme: Theme): Component {
   const style: CardStyle = { bar: theme.bg(BG, theme.fg(lines[0].tone, CHROME.thin)), fill: { theme, token: BG } }
   return {
     render(width) {

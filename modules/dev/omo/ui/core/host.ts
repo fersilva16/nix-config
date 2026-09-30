@@ -5,6 +5,15 @@
 import { ExtensionRunner, highlightCode, InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
 import { Markdown, Spacer, Text, TuiAltScreen } from "@earendil-works/pi-tui"
 import type { Component, Theme, Tui } from "./types.ts"
+import {
+  AssistantMessageComponent,
+  BashExecutionComponent,
+  BranchSummaryMessageComponent,
+  CompactionSummaryMessageComponent,
+  SkillInvocationMessageComponent,
+  UserMessageComponent,
+} from "@code-yeongyu/senpi"
+import { stripAnsi } from "./style.ts"
 
 type Method = (this: any, ...args: any[]) => any
 
@@ -1147,4 +1156,100 @@ function watchEditorContainer(host: TakeoverHost): void {
       return original.call(this)
     },
   )
+}
+
+// Transcript entries omo draws with its own components, outside the
+// renderer API: user messages (also the pending echo shown before the
+// session accepts one), `!cmd` runs, compaction and branch summaries and
+// skill invocations. Each class is exported, so its prototype's render is
+// wrapped; the hook gets omo's content and draws the frame around it. For a
+// `!cmd` run the content is the command, output and status without omo's
+// border rules.
+export type TranscriptEntry =
+  | { kind: "user" | "compaction" | "branch" | "skill" }
+  | { kind: "bash"; status: "running" | "complete" | "error" | "cancelled" }
+type EntryHook = (entry: TranscriptEntry, render: (width: number) => string[], width: number) => string[]
+type BashInternals = { status: "running" | "complete" | "error" | "cancelled"; contentContainer: Component }
+
+let entryHook: EntryHook | undefined
+
+export function onTranscriptEntry(hook: EntryHook): void {
+  entryHook = hook
+  const route = (proto: object, entry: (self: never) => TranscriptEntry, content?: (self: never, width: number) => string[]) =>
+    patch(proto, "render", (original) =>
+      function (this: never, width: number) {
+        if (!entryHook) return original.call(this, width)
+        return entryHook(entry(this), (w) => (content ? content(this, w) : original.call(this, w)), width)
+      },
+    )
+  route(UserMessageComponent.prototype, () => ({ kind: "user" }))
+  route(CompactionSummaryMessageComponent.prototype, () => ({ kind: "compaction" }))
+  route(BranchSummaryMessageComponent.prototype, () => ({ kind: "branch" }))
+  route(SkillInvocationMessageComponent.prototype, () => ({ kind: "skill" }))
+  route(
+    BashExecutionComponent.prototype,
+    (self: BashInternals) => ({ kind: "bash", status: self.status }),
+    (self: BashInternals, w) => self.contentContainer.render(w),
+  )
+}
+
+// Thinking blocks. AssistantMessageComponent builds one child per part of
+// the message; a thinking run is a label ("Thought: 3s", or the hidden
+// label ctrl+t leaves) and, when shown, its markdown body. The child keeps
+// omo's click-to-toggle handler, so its render is replaced in place.
+type ThinkingBlockHook = (part: "label" | "body", render: (width: number) => string[], width: number) => string[]
+let thinkingBlockHook: ThinkingBlockHook | undefined
+
+export function onThinkingBlock(hook: ThinkingBlockHook): void {
+  thinkingBlockHook = hook
+  patch(AssistantMessageComponent.prototype as object, "createRenderChild", (original) =>
+    function (this: unknown, descriptor: { kind: string }) {
+      const child: Component = original.call(this, descriptor)
+      const part = descriptor.kind === "thinking-label" ? "label" : descriptor.kind === "thinking-md" ? "body" : undefined
+      if (!part) return child
+      const render = child.render.bind(child)
+      child.render = (width) => (thinkingBlockHook ? thinkingBlockHook(part, render, width) : render(width))
+      return child
+    },
+  )
+}
+
+// Inline transcript notices: turn errors (showError; network errors go to
+// omo's own provider-error block and never reach the hook), cache-miss and
+// compaction-cost notices, session-continuity notices, assistant diagnostics
+// and the untrusted-project warning. Each InteractiveMode method appends a
+// plain Text to the transcript; while it runs, that Text goes through the
+// hook, whose component (undefined keeps omo's) is added instead.
+export type TranscriptNotice = { tone: "error" | "warning" | "muted"; text: string }
+const NOTICE_METHODS: Record<string, TranscriptNotice["tone"]> = {
+  showError: "error",
+  addCacheMissNotice: "warning",
+  addCompactionCostNotice: "warning",
+  addContinuityNotice: "muted",
+  maybeShowAssistantDiagnostics: "warning",
+  renderProjectTrustWarningIfNeeded: "warning",
+}
+type NoticeHook = (notice: TranscriptNotice) => Component | undefined
+let noticeHook: NoticeHook | undefined
+
+export function onTranscriptNotice(hook: NoticeHook): void {
+  noticeHook = hook
+  for (const [name, tone] of Object.entries(NOTICE_METHODS))
+    patch(mode, name, (original) =>
+      function (this: ChatHost, ...args: unknown[]) {
+        // Shadowed on the instance for this call only, like refreshAsyncWidget.
+        const chat = this.chatContainer
+        const add = chat.addChild
+        chat.addChild = function (this: unknown, component: Component) {
+          const text = component instanceof Text ? stripAnsi((component as Component & { text: string }).text) : undefined
+          const notice = text && { tone, text: tone === "error" ? text.replace(/^Error: /, "") : text }
+          return add.call(this, (notice && noticeHook?.(notice)) || component)
+        }
+        try {
+          return original.apply(this, args)
+        } finally {
+          delete (chat as Partial<ChatHost["chatContainer"]>).addChild
+        }
+      },
+    )
 }

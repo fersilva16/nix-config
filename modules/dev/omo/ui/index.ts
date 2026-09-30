@@ -22,6 +22,7 @@ import settings from "./settings.ts"
 import sidebar from "./sidebar.ts"
 import status from "./status.ts"
 import tools from "./tools.ts"
+import transcript from "./transcript.ts"
 import turn from "./turn.ts"
 import widgets from "./widgets.ts"
 
@@ -46,5 +47,6 @@ export default function (pi: ExtensionAPI) {
   code(pi)
   entries()
   widgets()
+  transcript(pi)
   onSelectionText(stripChrome)
 }
