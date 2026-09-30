@@ -17,7 +17,6 @@ import panels from "./panels.ts"
 import pickers from "./pickers.ts"
 import prompt from "./prompt.ts"
 import question from "./question.ts"
-import sessions from "./sessions.ts"
 import settings from "./settings.ts"
 import sidebar from "./sidebar.ts"
 import status from "./status.ts"
@@ -36,7 +35,6 @@ export default function (pi: ExtensionAPI) {
   turn(pi)
   tools(pi)
   sidebar(pi)
-  sessions(pi)
   navigation()
   btw()
   dialogs(pi)

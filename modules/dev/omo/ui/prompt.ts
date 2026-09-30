@@ -6,7 +6,7 @@ import { cardInner, cardRow, promptStyle } from "./core/card.ts"
 import { copySelection } from "./core/host.ts"
 import { type Intent, Keymap, submitCommand } from "./core/intents.ts"
 import { confirm, type ModalCtx } from "./core/modal.ts"
-import { stripAnsi } from "./core/style.ts"
+import { fill, sgr, stripAnsi } from "./core/style.ts"
 import type { Ctx, Theme } from "./core/types.ts"
 
 type Session = Ctx & { ui: Ui; isIdle(): boolean; abort(): void; shutdown(): void }
@@ -33,7 +33,7 @@ type Prompt = {
 // Key table. Tab on an empty draft cycles the primary agent, as in opencode;
 // with text (or an open autocomplete) it stays omo's completion. ctrl+c copies
 // a mouse selection, else clears the draft, else exits (asking first while
-// the agent works). The ctrl+x leader: l opens /sessions, a cycles the agent,
+// the agent works). The ctrl+x leader: l opens /resume, a cycles the agent,
 // y replays ctrl+x for omo's own copy.
 function intents(pi: Pi, ctx: Session): Intent<Prompt>[] {
   const cycleAgent = () => pi.events.emit("agents:cycle")
@@ -67,7 +67,7 @@ function intents(pi: Pi, ctx: Session): Intent<Prompt>[] {
         void exitOrConfirm()
       },
     },
-    { leader: true, key: "l", run: (editor) => submitCommand(editor, "/sessions") },
+    { leader: true, key: "l", run: (editor) => submitCommand(editor, "/resume") },
     { id: "agent.cycle", leader: true, key: "a", run: cycleAgent },
     { leader: true, key: "y", run: (editor, _data, leader) => leader && editor.forward(leader) },
   ]
@@ -107,6 +107,7 @@ export default function prompt(pi: Pi) {
       declare setText: Prompt["setText"]
       declare onSubmit: Prompt["onSubmit"]
       contentRows = 0
+      suggestionRows = 0
       declare isShowingAutocomplete: Prompt["isShowingAutocomplete"]
       keys = new Keymap<Prompt>("ctrl+x", intents(pi, ctx))
 
@@ -128,7 +129,10 @@ export default function prompt(pi: Pi) {
         const scrolled = (line: string) => stripAnsi(line).replace(/─/g, "").trim()
         const top = scrolled(lines[0])
         const below = scrolled(lines[bottom])
+        const suggestions = lines.slice(bottom + 1)
+        this.suggestionRows = suggestions.length > 0 ? suggestions.length + 1 : 0
         return [
+          ...(suggestions.length > 0 ? [row(""), ...suggestions.map((line) => this.suggestion(line, width))] : []),
           row(top ? theme.fg("dim", `  ${top}`) : ""),
           // omo's layout slicer counts the IME cursor marker (an APC escape)
           // as 5 columns, cutting the row short once the sidebar sits to its
@@ -137,20 +141,41 @@ export default function prompt(pi: Pi) {
           row(below ? theme.fg("dim", `  ${below}`) : ""),
           row(truncateToWidth(`  ${info()}`, inner)),
           row(""),
-          ...lines.slice(bottom + 1),
         ]
       }
 
-      // render() adds a 1-column bar and two rows after the base Editor's
-      // bottom border (info line, padding); map clicks back to the base
-      // layout [top, content x n, bottom, autocomplete...] so cursor and
+      // omo lists completions (slash commands, @files) under the editor as
+      // "→ label   description" rows and an "(i/n)" counter. They are drawn at
+      // the top of the card instead, as opencode does: the selected row as
+      // an accent bar, descriptions muted.
+      suggestion(line: string, width: number): string {
+        const text = stripAnsi(line)
+        const item = /^\s*(→ |  )(\S.*?)(?:(\s{2,})(.*))?$/.exec(text)
+        if (!item) return cardRow(style, theme.fg("dim", `  ${text.trim()}`), width)
+        const [, marker, label, gap = "", description = ""] = item
+        if (marker.startsWith("→")) {
+          const accent = sgr(theme, "accent", "fg", "bg")
+          const ink = sgr(theme, "selectedBg", "bg", "fg")
+          return style.bar + fill(accent, `  ${ink}\x1b[1m${label}${gap}${description}`, cardInner(width))
+        }
+        return cardRow(style, `  ${label}${gap}${theme.fg("muted", description)}`, width)
+      }
+
+      // render() adds a 1-column bar, the suggestions (plus a padding row)
+      // above the card, and two rows after the base Editor's bottom border
+      // (info line, padding); map clicks back to the base layout
+      // [top, content x n, bottom, autocomplete...] so cursor and
       // autocomplete clicks still land.
       handleMouse(event: { x: number; y: number; width: number }) {
         const n = this.contentRows
-        const { y } = event
+        const above = this.suggestionRows
+        if (event.y < above) {
+          if (event.y === 0) return { handled: true, focus: true }
+          return super.handleMouse({ ...event, x: event.x - 1, y: n + 2 + event.y - 1, width: Math.max(1, event.width - 1) })
+        }
+        const y = event.y - above
         if (y === n + 2 || y === n + 3) return { handled: true, focus: true }
-        const baseY = y <= n + 1 ? y : y - 2
-        return super.handleMouse({ ...event, x: event.x - 1, y: baseY, width: Math.max(1, event.width - 1) })
+        return super.handleMouse({ ...event, x: event.x - 1, y, width: Math.max(1, event.width - 1) })
       }
     }
 
