@@ -51,6 +51,9 @@ let
     gpt = "openai/gpt-5.6-terra";
     claude = "anthropic/claude-sonnet-5";
   };
+  # One entry of a Native `models` chain (5.x shape).
+  rung = model: reasoning: { inherit model reasoning; };
+
   # Hand-built because haiku-4-5 exposes no effort levels, so its rung can't
   # carry the chain's variant. Nothing needs a Claude-led low tier yet.
   low.gpt = variant: {
@@ -171,37 +174,69 @@ in
         # lands on terra ($2/$12 per Mtok).
         "unspecified-low" = mid.gpt "high";
       };
-      # OmO Native reads this same file but its own scope, and the only login
-      # it has is the anthropic subscription: `omo doctor` serves 7 of the 10
-      # builtin categories from that, and a `task` delegation to one of the
-      # missing three dies with "none of its fallback-chain providers are
-      # connected (chatgpt-subscription, openai, github-copilot, opencode)".
-      # These pins are that missing third, mapped onto the tiers above —
-      # deep-low takes the same rung as "[opencode]".deep, its 5.x name.
-      #
-      # No gpt counterpart: it has nothing to authenticate with here. The
-      # second rung is anthropic anyway, which mkTier's reasoning would
-      # normally reject — but the failure it guards against is a provider-wide
-      # outage, and this one is a catalog miss: the subscription does not serve
-      # every Claude id. Measured on this host, a session that opened on
-      # opus-5-5 was demoted to opus-5 by the runtime fallback 20s in
-      # (model_change reason "fallback", 2026-09-27T01:48:17Z), so each pin
-      # keeps a rung that is known to answer.
+      # OmO Native reads this same file but its own scope. These are omo
+      # 5.1.2's builtin chains (plugin/extensions/omo-task.js), copied so
+      # they can be tuned here, keeping only the rungs our two logins reach:
+      # anthropic-subscription and chatgpt-subscription. Rungs that differ
+      # only by an unreachable provider (copilot, opencode) are collapsed.
+      # Written in 5.x `models = [{ model, reasoning }]` shape, which Native
+      # reads natively; the 4.19.4 plugin never sees this scope.
       # `[native]`, not the older `[senpi]` spelling: native reads both, but
       # its harness-native-rename migration would try to rewrite the latter.
-      "[native]".categories = {
-        "deep-low" = chain [
-          "anthropic/claude-opus-5-5"
-          "anthropic/claude-opus-5"
-        ] "medium";
-        "deep-high" = chain [
-          "anthropic/claude-fable-5-1"
-          "anthropic/claude-opus-5"
-        ] "high";
-        ultrabrain = chain [
-          "anthropic/claude-fable-5-1"
-          "anthropic/claude-opus-5"
-        ] "max";
+      "[native]" = {
+        agents = {
+          explore.models = [
+            (rung "openai/gpt-6-luna-fast" "low")
+            "anthropic/claude-haiku-4-5"
+          ];
+          librarian.models = [
+            (rung "openai/gpt-6-luna-fast" "low")
+            "anthropic/claude-haiku-4-5"
+          ];
+          "plan-consultant".models = [
+            (rung "anthropic/claude-fable-5-1" "max")
+            (rung "anthropic/claude-opus-5-5" "max")
+          ];
+          "plan-reviewer".models = [
+            (rung "openai/gpt-6-astra" "xhigh")
+            (rung "openai/gpt-6-astra" "high")
+            (rung "anthropic/claude-opus-5-5" "max")
+          ];
+        };
+        categories = {
+          "visual-engineering".models = [
+            (rung "anthropic/claude-fable-5-1" "max")
+            (rung "anthropic/claude-opus-5-5" "max")
+          ];
+          architect.models = [ (rung "anthropic/claude-fable-5-1" "max") ];
+          ultrabrain.models = [
+            (rung "openai/gpt-6-astra" "max")
+            (rung "openai/gpt-5.6-sol" "max")
+          ];
+          "deep-low".models = [
+            (rung "openai/gpt-5.6-sol" "medium")
+            (rung "openai/gpt-5.6-sol-fast" "medium")
+          ];
+          "deep-high".models = [ (rung "openai/gpt-6-astra" "xhigh") ];
+          artistry.models = [
+            (rung "anthropic/claude-fable-5-1" "max")
+            (rung "anthropic/claude-opus-5-5" "max")
+          ];
+          quick.models = [
+            (rung "openai/gpt-6-luna-fast" "low")
+            (rung "anthropic/claude-haiku-4-5" "off")
+          ];
+          "unspecified-low".models = [
+            (rung "anthropic/claude-sonnet-5-5" "medium")
+            (rung "openai/gpt-5.6-terra" "high")
+            (rung "anthropic/claude-sonnet-5" "low")
+          ];
+          "unspecified-high".models = [ (rung "anthropic/claude-opus-5-5" "medium") ];
+          writing.models = [
+            (rung "anthropic/claude-opus-5-5" "low")
+            (rung "anthropic/claude-opus-4-6" "max")
+          ];
+        };
       };
     };
   };
