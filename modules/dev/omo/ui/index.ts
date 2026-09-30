@@ -12,6 +12,7 @@ import { initStore } from "./core/store.ts"
 import dialogs from "./dialogs.ts"
 import entries from "./entries.ts"
 import footer from "./footer.ts"
+import navigation from "./navigation.ts"
 import pickers from "./pickers.ts"
 import prompt from "./prompt.ts"
 import question from "./question.ts"
@@ -33,6 +34,7 @@ export default function (pi: ExtensionAPI) {
   tools(pi)
   sidebar(pi)
   sessions(pi)
+  navigation()
   btw()
   dialogs(pi)
   pickers()
