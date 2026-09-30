@@ -1,6 +1,24 @@
 {
   description = "My NixOS configuration";
 
+  # Binary caches the hosts need, declared at the flake level so they apply to
+  # the very first build of this flake too — a module's nix.settings only lands
+  # in nix.conf AFTER the switch that introduces it, so a fresh install (or the
+  # rebuild that adds a module) would otherwise compile from source. Nix asks
+  # once per machine to trust these; answer y to both prompts. The owning
+  # modules (noctalia.nix, ollama.nix) still set them in nix.settings so the
+  # running system keeps them for non-flake use.
+  nixConfig = {
+    extra-substituters = [
+      "https://noctalia.cachix.org"
+      "https://cache.nixos-cuda.org"
+    ];
+    extra-trusted-public-keys = [
+      "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
+      "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M="
+    ];
+  };
+
   inputs = {
     nixpkgs = {
       url = "github:nixos/nixpkgs/nixpkgs-unstable";
