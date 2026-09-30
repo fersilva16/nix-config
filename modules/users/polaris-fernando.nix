@@ -29,6 +29,13 @@ mkUser {
   git.enable = true;
   lazygit.enable = true;
   opencode.enable = true;
+  ollama = {
+    enable = true;
+    models = [
+      "gpt-oss:20b" # agents/opencode: reliable tool calling
+      "gemma4:26b-a4b-qat" # general: smartest fit for 16 GB, 4B-active MoE
+    ];
+  };
 
   # Editors
   nvim.enable = true;
