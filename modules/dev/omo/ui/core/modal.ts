@@ -2,6 +2,7 @@
 // backdrop comes from backdrop.ts). `modalFrame` draws the panel rows,
 // `openModal` shows any component in one, `confirm` is a ready-made dialog.
 import { Key, matchesKey, truncateToWidth } from "@earendil-works/pi-tui"
+import { ownOverlay } from "./host.ts"
 import { fill, sgr, spread } from "./style.ts"
 import type { Component, Theme, Tui } from "./types.ts"
 
@@ -26,7 +27,7 @@ export function openModal<T>(ctx: ModalCtx, factory: (tui: Tui, theme: Theme, do
   return ctx.ui.custom<T>(
     (tui, theme, _keys, done) => {
       columns = tui.terminal.columns
-      return factory(tui, theme, done)
+      return ownOverlay(factory(tui, theme, done))
     },
     { overlay: true, overlayOptions: () => ({ width: Math.min(width, columns - 4), anchor: "center" }) },
   )

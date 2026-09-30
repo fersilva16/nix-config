@@ -3,7 +3,7 @@
 // tool rows). Feature files call these helpers, so an omo upgrade that moves
 // an internal breaks here and nowhere else.
 import { ExtensionRunner, highlightCode, InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
-import { Markdown, TuiAltScreen } from "@earendil-works/pi-tui"
+import { Markdown, Spacer, Text, TuiAltScreen } from "@earendil-works/pi-tui"
 import type { Component, Theme, Tui } from "./types.ts"
 
 type Method = (this: any, ...args: any[]) => any
@@ -552,7 +552,7 @@ function presentDialog(host: DialogHost, dialog: ExtensionDialog): void {
   host.editorContainer.detachAll()
   host.editorContainer.addChild(host.editor)
   const width = Math.min(shown.width, host.ui.terminal.columns - 4)
-  const overlay = host.ui.showOverlay(shown.component, { width, anchor: "center" })
+  const overlay = host.ui.showOverlay(ownOverlay(shown.component), { width, anchor: "center" })
   ;(host[DIALOG_OVERLAYS] ??= {})[dialog.kind] = { overlay, stock: dialog.stock }
 }
 
@@ -891,6 +891,169 @@ export function onTerminalTitle(make: (session: { name?: string; cwd: string }) 
   patch(mode, "getNormalTerminalTitle", () =>
     function (this: StatusHost) {
       return make({ name: this.sessionManager.getSessionName() || undefined, cwd: this.sessionManager.getCwd() })
+    },
+  )
+}
+
+// Stock overlays: every tui.showOverlay call (ctx.ui.custom overlays such as
+// /help, /history, /diff and /files, and the fullscreen transcript search the
+// alt-screen tui opens on itself). Our own modals are marked and pass through.
+// The hook may return a component (and options) to show instead; it should
+// forward input and focus to the stock one, which keeps its keys and result.
+// `help` is omo's HelpPanel, which sizes its scroll viewport to the terminal:
+// `reserveRows` shrinks that viewport by the rows the replacement adds.
+// `search` is the transcript search bar, whose mouse hit-test reads rows and
+// columns of the stock layout, so a replacement must keep that geometry.
+const OWN_OVERLAY = Symbol.for("omo-ui.overlay.own")
+export type StockOverlay = { kind: "help" | "search" | "panel"; component: Component; options: Record<string, unknown> | undefined }
+type OverlayHook = (overlay: StockOverlay, tui: Tui) => { component: Component; options?: Record<string, unknown>; reserveRows?: number } | undefined
+type HelpShape = Component & { viewportHeight?: () => number; maxOffset?: () => number }
+
+export function ownOverlay<C extends object>(component: C): C {
+  return Object.assign(component, { [OWN_OVERLAY]: true })
+}
+
+let overlayHook: OverlayHook | undefined
+
+export function onOverlay(hook: OverlayHook): void {
+  overlayHook = hook
+  onTui((t) =>
+    patch(t, "showOverlay", (original) =>
+      function (this: HostTui, component: Component & { [OWN_OVERLAY]?: boolean }, options?: Record<string, unknown>) {
+        if (component[OWN_OVERLAY] || options?.nonCapturing || !overlayHook) return original.call(this, component, options)
+        const c = component as HelpShape & { getNavigationDirectionAt?: unknown }
+        const kind = typeof c.getNavigationDirectionAt === "function" ? "search" : typeof c.viewportHeight === "function" && typeof c.maxOffset === "function" ? "help" : "panel"
+        const shown = overlayHook({ kind, component, options }, this)
+        if (!shown) return original.call(this, component, options)
+        if (kind === "help" && shown.reserveRows) {
+          const viewport = c.viewportHeight!.bind(c)
+          const reserve = shown.reserveRows
+          c.viewportHeight = () => Math.max(1, viewport() - reserve)
+        }
+        return original.call(this, shown.component, shown.options ?? options)
+      },
+    ),
+  )
+  // ctx.ui.custom without `overlay` (omo's /diff and /files) puts the
+  // component in the editor's place. When the hook takes it, it is shown as
+  // an overlay instead and the editor's place gets a stand-in that draws the
+  // editor and hands keys to omo's component; closing hides the overlay.
+  patch(mode, "showExtensionCustom", (original) =>
+    function (this: { ui: HostTui & { showOverlay(c: Component, o?: unknown): Overlay }; editor: Component }, factory: CustomFactory, options?: { overlay?: boolean }) {
+      if (options?.overlay || !overlayHook) return original.call(this, factory, options)
+      const host = this
+      let overlay: Overlay | undefined
+      const wrapped: CustomFactory = (t, theme, keys, done) => {
+        const close = (value: unknown) => {
+          overlay?.hide()
+          overlay = undefined
+          done(value)
+        }
+        return Promise.resolve(factory(t, theme, keys, close)).then((c) => {
+          const shown = c && overlayHook?.({ kind: "panel", component: c, options: undefined }, host.ui)
+          if (!shown) return c
+          overlay = host.ui.showOverlay(ownOverlay(shown.component), shown.options)
+          const stock = c as Component & { dispose?(): void }
+          return {
+            render: (width: number) => host.editor.render(width),
+            invalidate: () => stock.invalidate(),
+            handleInput: (data: string) => stock.handleInput?.(data),
+            dispose: () => stock.dispose?.(),
+          }
+        })
+      }
+      return original.call(this, wrapped, options)
+    },
+  )
+}
+type CustomFactory = (tui: unknown, theme: unknown, keys: unknown, done: (value: unknown) => void) => Component | Promise<Component>
+
+// Commands omo answers by appending text to the transcript: /hotkeys,
+// /session and /changelog. While one runs, the text, spacer, markdown and
+// border components it appends are held back; the hook gets a render of them
+// and returns true to take them (omo's copy is then never added). Anything
+// else appended meanwhile (a streaming reply during /session's await) passes
+// through untouched.
+export type TranscriptPanel = "hotkeys" | "session" | "changelog"
+type PanelHook = (panel: TranscriptPanel, render: (width: number) => string[]) => boolean
+type ChatHost = { chatContainer: { addChild(component: Component): void } }
+const PANEL_METHODS: Record<TranscriptPanel, string> = {
+  hotkeys: "handleHotkeysCommand",
+  session: "handleSessionCommand",
+  changelog: "handleChangelogCommand",
+}
+
+let panelHook: PanelHook | undefined
+
+const isPanelPart = (c: Component) => c instanceof Text || c instanceof Spacer || c instanceof Markdown || c.constructor?.name === "DynamicBorder"
+
+export function onTranscriptPanel(hook: PanelHook): void {
+  panelHook = hook
+  for (const [panel, name] of Object.entries(PANEL_METHODS) as [TranscriptPanel, string][]) {
+    patch(mode, name, (original) =>
+      function (this: ChatHost, ...args: unknown[]) {
+        const chat = this.chatContainer
+        const add = chat.addChild
+        const held: Component[] = []
+        // Shadowed on the instance for this call; deleting it restores the
+        // prototype's addChild.
+        chat.addChild = (c: Component) => (isPanelPart(c) ? void held.push(c) : add.call(chat, c))
+        const finish = () => {
+          delete (chat as Partial<ChatHost["chatContainer"]>).addChild
+          const render = (width: number) => held.flatMap((c) => c.render(width))
+          if (held.length > 0 && !panelHook?.(panel, render)) for (const c of held) add.call(chat, c)
+        }
+        let result: unknown
+        try {
+          result = original.apply(this, args)
+        } catch (error) {
+          finish()
+          throw error
+        }
+        if (result instanceof Promise) return result.finally(finish)
+        finish()
+        return result
+      },
+    )
+  }
+}
+
+// The "?" shortcut hint omo shows when "?" is typed into an empty editor.
+// omo adds it to the header container, which in fullscreen is the top of the
+// transcript and scrolled out of view in any real session. The hook gets a
+// render of omo's lines and returns what to show instead as a non-capturing
+// overlay (the editor keeps its keys); it closes when omo hides the hint, on
+// the next edit.
+const SHORTCUT_OVERLAY = Symbol.for("omo-ui.shortcut-overlay.handle")
+type ShortcutHook = (render: (width: number) => string[]) => { component: Component; options: Record<string, unknown> } | undefined
+type ShortcutHost = {
+  shortcutOverlay?: Component
+  headerContainer: { removeChild(component: Component): void }
+  ui: { showOverlay(component: Component, options: Record<string, unknown>): Overlay }
+  [SHORTCUT_OVERLAY]?: Overlay
+}
+let shortcutHook: ShortcutHook | undefined
+
+export function onShortcutOverlay(hook: ShortcutHook): void {
+  shortcutHook = hook
+  patch(mode, "updateShortcutOverlay", (original) =>
+    function (this: ShortcutHost, ...args: unknown[]) {
+      const before = this.shortcutOverlay
+      const result = original.apply(this, args)
+      const hint = this.shortcutOverlay
+      const shown = hint && hint !== before ? shortcutHook?.(hint.render.bind(hint)) : undefined
+      if (hint && shown) {
+        this.headerContainer.removeChild(hint)
+        this[SHORTCUT_OVERLAY] = this.ui.showOverlay(ownOverlay(shown.component), { ...shown.options, nonCapturing: true })
+      }
+      return result
+    },
+  )
+  patch(mode, "hideShortcutOverlay", (original) =>
+    function (this: ShortcutHost, ...args: unknown[]) {
+      this[SHORTCUT_OVERLAY]?.hide()
+      delete this[SHORTCUT_OVERLAY]
+      return original.apply(this, args)
     },
   )
 }
