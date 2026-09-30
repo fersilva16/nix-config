@@ -20,6 +20,7 @@ import sidebar from "./sidebar.ts"
 import status from "./status.ts"
 import tools from "./tools.ts"
 import turn from "./turn.ts"
+import widgets from "./widgets.ts"
 
 export default function (pi: ExtensionAPI) {
   initHost(pi)
@@ -38,5 +39,6 @@ export default function (pi: ExtensionAPI) {
   backdrop()
   code(pi)
   entries()
+  widgets()
   onSelectionText(stripChrome)
 }
