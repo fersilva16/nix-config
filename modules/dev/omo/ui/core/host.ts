@@ -2,7 +2,7 @@
 // not cover (the fullscreen layout root, frame compositing, text selection,
 // tool rows). Feature files call these helpers, so an omo upgrade that moves
 // an internal breaks here and nowhere else.
-import { highlightCode, InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
+import { ExtensionRunner, highlightCode, InteractiveMode, ToolExecutionComponent } from "@code-yeongyu/senpi"
 import { Markdown, TuiAltScreen } from "@earendil-works/pi-tui"
 import type { Component, Theme, Tui } from "./types.ts"
 
@@ -366,6 +366,27 @@ export function onWidgetContent(key: string, hook: WidgetHook): void {
       return original.call(this, k, hook ? hook(content) : content, options)
     },
   )
+}
+
+// Transcript entries. A custom message or entry is drawn by the renderer the
+// first-loaded extension registered for its type, and omo's built-in
+// extensions load before this one, so registering our own never wins.
+// ExtensionRunner looks the renderer up each time an item is added to the
+// transcript; the hook may replace what the lookup returns (undefined keeps
+// omo's, which may itself be undefined: a message with no renderer).
+export type CustomRenderer = (item: never, options: { expanded: boolean }, theme: Theme) => Component | undefined
+type RendererHook = (kind: "message" | "entry", customType: string, original: CustomRenderer | undefined) => CustomRenderer | undefined
+
+export function onCustomRenderer(hook: RendererHook): void {
+  const route = (name: string, kind: "message" | "entry") =>
+    patch(ExtensionRunner.prototype as object, name, (original) =>
+      function (this: unknown, customType: string) {
+        const renderer: CustomRenderer | undefined = original.call(this, customType)
+        return hook(kind, customType, renderer) ?? renderer
+      },
+    )
+  route("getMessageRenderer", "message")
+  route("getEntryRenderer", "entry")
 }
 
 // Markdown code blocks. Markdown.renderCodeBlock(lines, code, lang, indent)

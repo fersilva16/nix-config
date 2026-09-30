@@ -9,6 +9,7 @@ import code from "./code.ts"
 import { stripChrome } from "./core/card.ts"
 import { initHost, onSelectionText } from "./core/host.ts"
 import { initStore } from "./core/store.ts"
+import entries from "./entries.ts"
 import footer from "./footer.ts"
 import prompt from "./prompt.ts"
 import question from "./question.ts"
@@ -30,5 +31,6 @@ export default function (pi: ExtensionAPI) {
   btw()
   backdrop()
   code(pi)
+  entries()
   onSelectionText(stripChrome)
 }
