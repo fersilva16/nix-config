@@ -63,6 +63,7 @@ commands in your own shell, in the main checkout.
   fixes on top of a shared core): a wts stack. Spawn one agent per layer with
   `agent spawn --stack <root> <layer>`, bottom layer first. Layer names are
   short: lowercase letters, digits and `-`, at most 16 characters.
+  - `--after <layer>` slots a layer right above `<layer>` instead of on top.
   - The root worktree `<root>` combines every layer. It is where the user
     tests the whole stack; no agent works there.
   - Run `wts` from the root (`cd <repo>.worktrees/<root>`) to see the stack:
@@ -71,8 +72,8 @@ commands in your own shell, in the main checkout.
   - Layers merge bottom-up. After a merge, run `wts sync --main` from the root
     once; it restacks every layer. Do not ask agents to rebase.
 - **Work that must wait for other work**: add `--needs <name>[,<name>]` to the
-  spawn. The agent's worktree and session exist at once, but omo only starts
-  once every named agent is done (idle, clean worktree, commits of its own); a
+  spawn (a stack layer's name is `<root>/<layer>`). The agent's worktree and
+  session exist at once, but omo only starts once every named agent is done (idle, clean worktree, commits of its own); a
   stack layer is first moved onto its parent's finished commits. So you can
   lay out a whole multi-step workflow in one turn and end it: nobody has to
   come back to say "continue". `agent ls` shows such agents as `waiting`.
