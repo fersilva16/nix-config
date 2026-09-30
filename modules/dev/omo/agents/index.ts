@@ -73,19 +73,21 @@ export default function (pi: ExtensionAPI) {
     },
   })
 
-  // One-shot handoff from a plain session: spawn an agent for a fix found
+  // One-shot handoff from a plain session: spawn agents for work found
   // mid-research, briefed from this conversation, without switching modes.
   // Sent as a real user message: a system-prompt switch alone gets outweighed
   // by the transcript. Plain agents learn about the `agent` CLI only here.
   pi.registerCommand("orchestrate", {
-    description: "Hand a fix to a new agent (worktree + PR), briefed from this conversation",
+    description: "Hand work to new agents (worktrees + PRs), briefed from this conversation",
     handler: async (args, ctx) => {
       const task = args?.trim() || "the issue we just found"
-      const message = `Hand this off to a new agent instead of doing it here: ${task}
+      const message = `Hand this off to agents instead of doing it here: ${task}
 
-Write a self-contained brief from what this conversation already established (the problem, files, repro, what done looks like; default: open a PR), start one agent with \`agent spawn\`, and tell me its name and how to reach it. Do not make the change in this checkout, and do not wait on or check the agent afterwards. Then continue what we were doing before this message.
+Split it as "Independent and dependent work" below describes and spawn the agents yourself, each briefed from what this conversation established (default: open a PR). Tell me their names and how to reach them. Don't make the change here or check on the agents afterwards; then continue what we were doing.
 
 ${section("The `agent` CLI")}
+
+${section("Independent and dependent work")}
 
 ${section("Briefs")}`
       if (ctx.isIdle()) pi.sendUserMessage(message)
