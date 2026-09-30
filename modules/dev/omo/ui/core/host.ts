@@ -934,12 +934,20 @@ export function onOverlay(hook: OverlayHook): void {
       },
     ),
   )
-  // ctx.ui.custom without `overlay` (omo's /diff and /files) puts the
-  // component in the editor's place. When the hook takes it, it is shown as
-  // an overlay instead and the editor's place gets a stand-in that draws the
-  // editor and hands keys to omo's component; closing hides the overlay.
+  patchCustom()
+}
+
+// ctx.ui.custom without `overlay` (omo's /diff and /files) puts the
+// component in the editor's place. When the hook takes it, it is shown as
+// an overlay instead and the editor's place gets a stand-in that draws the
+// editor and hands keys to omo's component; closing hides the overlay.
+// The settings takeover (/llama) also watches the editor container here and
+// gets first claim on the component: patch() wraps omo's original,
+// so onOverlay and onTakeover must share this one wrapper.
+function patchCustom(): void {
   patch(mode, "showExtensionCustom", (original) =>
     function (this: { ui: HostTui & { showOverlay(c: Component, o?: unknown): Overlay }; editor: Component }, factory: CustomFactory, options?: { overlay?: boolean }) {
+      if (takeoverHook) watchEditorContainer(this as unknown as TakeoverHost)
       if (options?.overlay || !overlayHook) return original.call(this, factory, options)
       const host = this
       let overlay: Overlay | undefined
@@ -950,7 +958,8 @@ export function onOverlay(hook: OverlayHook): void {
           done(value)
         }
         return Promise.resolve(factory(t, theme, keys, close)).then((c) => {
-          const shown = c && overlayHook?.({ kind: "panel", component: c, options: undefined }, host.ui)
+          const claimed = c && takeoverHook?.({ name: c.constructor?.name ?? "", stock: c }, host.ui as unknown as Tui)
+          const shown = c && !claimed && overlayHook?.({ kind: "panel", component: c, options: undefined }, host.ui)
           if (!shown) return c
           overlay = host.ui.showOverlay(ownOverlay(shown.component), shown.options)
           const stock = c as Component & { dispose?(): void }
@@ -1054,6 +1063,88 @@ export function onShortcutOverlay(hook: ShortcutHook): void {
       this[SHORTCUT_OVERLAY]?.hide()
       delete this[SHORTCUT_OVERLAY]
       return original.apply(this, args)
+    },
+  )
+}
+
+// Screens omo puts in the editor's place: /settings, /trust, /login and
+// /logout (their pickers, the login dialog and its prompts) and /llama.
+// Some go through showSelector, some add themselves to the editor container
+// directly, and the login dialog is re-added after each auth prompt, so the
+// hook watches the container itself: every component added to it (other
+// than the editor and extension dialogs, which onDialog owns) is offered to
+// the hook, which may return a component drawn in its place as a centred
+// overlay. omo focuses the screen, or a part of it (/settings focuses its
+// list), right after adding it; that component becomes the takeover's
+// `target`, which the overlay forwards keys to. omo's own clear() of the container,
+// which every one of these screens ends with, closes the overlay and
+// disposes the screen as it would have. The container is patched the first
+// time one of the screens opens.
+type Focusable = Component & { focused?: boolean }
+export type Takeover = { name: string; stock: Focusable & { dispose?(): void }; target?: Focusable }
+type TakeoverHook = (takeover: Takeover, tui: Tui) => { component: Component; width: number } | undefined
+type TakeoverOverlay = Overlay & { focus(): void }
+type TakeoverHost = DialogHost & { [TAKEOVER]?: { overlay: TakeoverOverlay; stock: Takeover["stock"] } }
+const TAKEOVER = Symbol.for("omo-ui.takeover.overlay")
+const TAKEOVER_ENTRIES = [
+  "showSettingsSelector",
+  "showTrustSelector",
+  "showLoginAuthTypeSelector",
+  "showLoginProviderSelector",
+  "showOAuthSelector",
+  "showLoginDialog",
+  "showApiKeyLoginDialog",
+  "showAmbientAuthDialog",
+  "showAuthSelect",
+]
+let takeoverHook: TakeoverHook | undefined
+
+export function onTakeover(present: TakeoverHook): void {
+  takeoverHook = present
+  for (const name of TAKEOVER_ENTRIES) {
+    patch(mode, name, (original) =>
+      function (this: TakeoverHost, ...args: unknown[]) {
+        watchEditorContainer(this)
+        return original.apply(this, args)
+      },
+    )
+  }
+  patchCustom()
+}
+
+function closeTakeover(host: TakeoverHost): void {
+  const open = host[TAKEOVER]
+  if (!open) return
+  delete host[TAKEOVER]
+  open.overlay.hide()
+  open.stock.dispose?.()
+}
+
+function watchEditorContainer(host: TakeoverHost): void {
+  const box = host.editorContainer as object
+  patch(box, "addChild", (original) =>
+    function (this: unknown, component: Takeover["stock"]) {
+      if (component === host.editor || component === host.extensionSelector) return original.call(this, component)
+      const takeover: Takeover = { name: component?.constructor?.name ?? "", stock: component }
+      const shown = takeoverHook?.(takeover, host.ui)
+      if (!shown) return original.call(this, component)
+      closeTakeover(host)
+      original.call(this, host.editor)
+      const width = Math.min(shown.width, host.ui.terminal.columns - 4)
+      const overlay = host.ui.showOverlay(ownOverlay(shown.component), { width, anchor: "center" }) as TakeoverOverlay
+      host[TAKEOVER] = { overlay, stock: component }
+      queueMicrotask(() => {
+        if (host[TAKEOVER]?.overlay !== overlay) return
+        const focused = (host.ui as { focusedComponent?: Focusable }).focusedComponent
+        if (focused && focused !== shown.component) takeover.target = focused
+        overlay.focus()
+      })
+    },
+  )
+  patch(box, "clear", (original) =>
+    function (this: unknown) {
+      closeTakeover(host)
+      return original.call(this)
     },
   )
 }
