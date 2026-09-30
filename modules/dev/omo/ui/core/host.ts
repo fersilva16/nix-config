@@ -178,12 +178,41 @@ export function replaceToolRenderers(toolName: string, make: (original: Renderer
   patchRows()
 }
 
+export type RowRenderers = Partial<Renderers> & { renderShell?: string }
+type MatchedMake = (original: RowRenderers, toolName: string) => Renderers
+let matchedSwap: { match: (toolName: string) => boolean; make: MatchedMake } | undefined
+
+// Like replaceToolRenderers, for every tool `match` accepts that has no
+// replaceToolRenderers swap, including tools without renderers of their own
+// (`original` then lacks them and omo would draw its plain fallback). A later
+// call replaces the earlier one. `renderShell: "self"` means the tool draws
+// its own box, and the swapped renderers must too.
+export function replaceToolRenderersWhere(match: (toolName: string) => boolean, make: MatchedMake): void {
+  matchedSwap = { match, make }
+  patchRows()
+}
+
+// Built-in tools can share omo's renderer objects, which also draw the nested
+// calls in eval rows, so these swaps go on a per-row copy of the definition.
+// The row keeps omo's definition under ROW_DEFINITION, so after /reload the
+// new copy of this module swaps from it rather than from the old copy.
+const ROW_DEFINITION = Symbol.for("omo-ui.tool-row.definition")
+function swapMatched(row: ToolRow): void {
+  const identity = row.identity as ToolRow["identity"] & { [ROW_DEFINITION]?: RowRenderers }
+  const def = (identity[ROW_DEFINITION] ??= identity.toolDefinition as RowRenderers | undefined)
+  if (!def || !matchedSwap?.match(identity.toolName) || refreshed.has(row)) return
+  identity.toolDefinition = { ...def, ...matchedSwap.make(def, identity.toolName) }
+  refreshed.add(row)
+  row.invalidate()
+}
+
 // Rows restored with a session may have rendered (and cached) before the swap,
 // so each affected row is invalidated once to rebuild with the new renderers.
 function swapRenderers(row: ToolRow): void {
   const make = rendererSwaps.get(row.identity.toolName)
   const def = row.identity.toolDefinition
-  if (!make || !def?.renderCall || !def.renderResult || refreshed.has(row)) return
+  if (!make) return swapMatched(row)
+  if (!def?.renderCall || !def.renderResult || refreshed.has(row)) return
   if (!swapped.has(def)) {
     Object.assign(def, make({ renderCall: def.renderCall, renderResult: def.renderResult }))
     swapped.add(def)
@@ -198,6 +227,71 @@ function patchRows(): void {
       swapRenderers(this)
       const render = (w: number): string[] => original.call(this, w)
       return rowHook ? rowHook(this, render, width) : render(width)
+    },
+  )
+}
+
+// Exploration groups. omo folds each run of read/grep/find/ls rows that keep
+// their stock renderers into an ExplorationGroup, which draws a summary
+// instead of the rows until they are expanded. Neither the group class nor
+// the transcript container that builds groups is exported: the container is
+// InteractiveMode's chatContainer, reached when omo creates a tool row, and
+// its render reaches the group class once a group exists. The hook draws
+// collapsed groups; undefined leaves one to omo.
+export type RowSnapshot = {
+  toolName: string
+  cwd: string
+  args: Record<string, unknown>
+  isPartial: boolean
+  result?: { content?: { type: string; text?: string; audience?: string }[]; details?: Record<string, unknown>; isError?: boolean }
+}
+type GroupHook = (calls: RowSnapshot[], rules: number, width: number) => string[] | undefined
+type Snapshotted = { presentationSnapshot: { identity: { toolName: string; cwd: string }; state: Omit<RowSnapshot, "toolName" | "cwd"> } }
+type Group = Component & { calls: { component: Snapshotted }[]; rules: unknown[]; expanded: boolean }
+type GroupContainer = Component & { display?: { children?: unknown[] } }
+
+let groupHook: GroupHook | undefined
+let containerPatched = false
+let groupPatched = false
+
+export function onExplorationGroup(hook: GroupHook): void {
+  groupHook = hook
+  patch(InteractiveMode.prototype as object, "createToolExecutionComponent", (original) =>
+    function (this: { chatContainer?: object }, ...args: unknown[]) {
+      if (!containerPatched && this.chatContainer) patchContainer(Object.getPrototypeOf(this.chatContainer))
+      return original.apply(this, args)
+    },
+  )
+}
+
+function patchContainer(proto: object): void {
+  containerPatched = true
+  patch(proto, "render", (original) =>
+    function (this: GroupContainer, width: number) {
+      const lines = original.call(this, width)
+      const group = groupPatched ? undefined : this.display?.children?.find(isGroup)
+      if (!group) return lines
+      patchGroup(Object.getPrototypeOf(group))
+      return original.call(this, width)
+    },
+  )
+}
+
+function isGroup(c: unknown): c is Group {
+  const g = c as (Partial<Group> & { setMembers?: unknown }) | undefined
+  return typeof g?.setMembers === "function" && Array.isArray(g.calls)
+}
+
+function patchGroup(proto: object): void {
+  groupPatched = true
+  patch(proto, "render", (original) =>
+    function (this: Group, width: number) {
+      if (!groupHook || this.expanded) return original.call(this, width)
+      const calls = this.calls.map(({ component }) => {
+        const { identity, state } = component.presentationSnapshot
+        return { ...state, toolName: identity.toolName, cwd: identity.cwd }
+      })
+      return groupHook(calls, new Set(this.rules).size, width) ?? original.call(this, width)
     },
   )
 }
