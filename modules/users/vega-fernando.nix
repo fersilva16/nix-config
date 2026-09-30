@@ -48,7 +48,6 @@ mkUser {
   openclaw.enable = true;
   playwright-cli.enable = true;
   opencode-manager.enable = true;
-  antiburn.enable = true;
   # rtk.enable = true;
   ollama.enable = true;
   # hermes.enable = true;
