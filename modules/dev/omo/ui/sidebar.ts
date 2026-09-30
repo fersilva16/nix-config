@@ -9,9 +9,10 @@
 // the transcript.
 import { HStack, Key, matchesKey, VStack, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui"
 import { afterSelection, isModalFrame, onHeader, onNotice, onTui, onUpdate, onWidget, requestRender, wrapLayout } from "./core/host.ts"
+import { type Account, limits, startLimits } from "./core/limits.ts"
 import { modalFrame, openModal } from "./core/modal.ts"
 import { refresh, refreshLive, type Snapshot, store, type TodoPhase } from "./core/store.ts"
-import { ESCAPE_AT_START, homePath, paint } from "./core/style.ts"
+import { ESCAPE_AT_START, homePath, paint, spread } from "./core/style.ts"
 import type { Component, Ctx, Theme, Tui } from "./core/types.ts"
 
 const WIDTH = 40
@@ -94,7 +95,155 @@ function todoSection(phases: TodoPhase[], theme: Theme, inner: number): string[]
   return lines
 }
 
-function renderPanel(state: Snapshot, theme: Theme, width: number, rows: number): { lines: string[]; warningsRow: number | undefined } {
+// Brand colour per provider, as raw truecolour: the theme has no token for
+// them. Claude's orange and OpenAI's green.
+const LIMIT_COLORS: Record<string, string> = {
+  claude: "217;119;87",
+  codex: "16;163;127",
+}
+
+// Nerd Font glyph per provider, drawn in its brand colour. An empty slot falls
+// back to a dot.
+// Pooled providers the user expanded with a click. Per process, like /sidebar.
+const openLimits = new Set<string>()
+
+const LIMIT_ICONS: Record<string, string> = {
+  claude: " ",
+  codex: " ",
+}
+
+// antiburn's pace: the burn rate over the rate that would land exactly on 100%
+// at reset, in its bands. The rate is the window's average so far rather than
+// antiburn's last two hours of samples, so it needs no history, and above 1.0
+// means exactly "runs out before reset". Skipped for the first 5% of a
+// window, where a handful of requests reads as a wild ratio.
+const PACE: [below: number, word: string, token: string][] = [
+  [0.8, "comfortable", "success"],
+  [1.1, "on pace", "muted"],
+  [1.5, "running hot", "warning"],
+  [Number.POSITIVE_INFINITY, "at risk", "error"],
+]
+
+function pace(w: Account["windows"][number], now: number) {
+  if (!w.seconds || !w.resetsAt) return undefined
+  const elapsed = w.seconds - (w.resetsAt - now) / 1000
+  if (elapsed < w.seconds * 0.05) return undefined
+  const expected = Math.min(1, elapsed / w.seconds)
+  const [, word, token] = PACE.find(([below]) => w.percent / (expected * 100) < below) ?? PACE[PACE.length - 1]
+  const out = w.percent > 0 && w.percent < 100 ? now + ((100 - w.percent) / w.percent) * elapsed * 1000 : undefined
+  return { expected, word, token, out: out !== undefined && out < w.resetsAt ? out : undefined }
+}
+
+// Providers with several accounts (both Claude logins) pool them into one
+// bucket: each window averages the members' usage, and their reset times too,
+// so pace sees the average share of the window elapsed. omo spreads load across
+// the logins, so the pool is what is actually left. Clicking a pooled title
+// (its row is in `toggles`) swaps the pool for one section per account.
+//
+// Green while there is headroom, warning from half spent, error from 90%. The
+// hottest window's reset joins the header from 75%.
+function limitsSection(
+  accounts: Account[],
+  theme: Theme,
+  inner: number,
+  open: Set<string>,
+): { lines: string[]; toggles: Map<number, string> } {
+  type Windows = Account["windows"]
+  const now = Date.now()
+  const tone = (p: number) => (p >= 90 ? "error" : p >= 50 ? "warning" : "success")
+  const when = (at: number) =>
+    at - now < 86_400_000
+      ? new Date(at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+      : new Date(at).toLocaleDateString("en-US", { weekday: "short" })
+  const live = (a: Account) => a.windows.filter((w) => w.resetsAt === undefined || w.resetsAt > now)
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+  const pool = (members: Account[]): Windows =>
+    [...new Set(members.flatMap((m) => live(m).map((w) => w.label)))].map((label) => {
+      const ws = members.flatMap((m) => live(m).filter((w) => w.label === label))
+      const resets = ws.flatMap((w) => (w.resetsAt ? [w.resetsAt] : []))
+      return { label, percent: avg(ws.map((w) => w.percent)), resetsAt: resets.length > 0 ? avg(resets) : undefined, seconds: ws[0].seconds }
+    })
+  const status = (errors: string[], windows: Windows) => {
+    const hottest = windows.reduce<Windows[number] | undefined>((h, w) => (!h || w.percent > h.percent ? w : h), undefined)
+    return errors.length > 0
+      ? theme.fg("warning", windows.length > 0 ? "stale" : errors[0])
+      : hottest && hottest.percent >= 75 && hottest.resetsAt
+        ? theme.fg("muted", `↻ ${when(hottest.resetsAt)}`)
+        : ""
+  }
+  // spread() would measure the left side itself, and visibleWidth takes a Nerd
+  // Font glyph for two cells where the terminal draws one; callers pass it.
+  const header = (left: string, width: number, right: string) =>
+    right ? `${left}${" ".repeat(Math.max(1, inner - width - visibleWidth(right)))}${right}` : left
+
+  // A cache written before accounts carried a provider falls back to the name
+  // until the next fetch rewrites it.
+  const groups = new Map<string, Account[]>()
+  for (const a of accounts) groups.set(a.provider ?? a.name, [...(groups.get(a.provider ?? a.name) ?? []), a])
+
+  const lines: string[] = []
+  const toggles = new Map<number, string>()
+  for (const [provider, members] of groups) {
+    if (lines.length > 0) lines.push("")
+    const pooled = members.length > 1
+    const expanded = pooled && open.has(provider)
+    const rgb = LIMIT_COLORS[provider]
+    const glyph = LIMIT_ICONS[provider] || "●"
+    const icon = rgb ? `\x1b[38;2;${rgb}m${glyph}\x1b[39m` : glyph
+    const fold = pooled ? theme.fg("muted", expanded ? " ▾" : " ▸") : ""
+    // No separator: a full cell reads as too wide a gap, and a terminal has
+    // nothing narrower. The glyph's own side bearing is the gap.
+    const title = `${icon}${provider[0].toUpperCase()}${provider.slice(1)}${fold}`
+    const titleWidth = 1 + provider.length + (pooled ? 2 : 0)
+    // +2 for the blank line and heading prepended below.
+    if (pooled) toggles.set(lines.length + 2, provider)
+    if (expanded) {
+      lines.push(title)
+      for (const m of members) {
+        lines.push(header(`  ${theme.fg("muted", m.name)}`, m.name.length + 2, status(m.error ? [m.error] : [], live(m))))
+        bars(live(m), 4)
+      }
+      continue
+    }
+    const windows = pooled ? pool(members) : live(members[0])
+    lines.push(header(title, titleWidth, status(members.flatMap((m) => (m.error ? [m.error] : [])), windows)))
+    bars(windows, 2)
+  }
+  return { lines: lines.length > 0 ? ["", theme.bold("Limits"), ...lines] : [], toggles }
+
+  function bars(windows: Windows, indent: number): void {
+    const pad = " ".repeat(indent)
+    for (const w of windows) {
+      const percent = Math.min(100, Math.max(0, w.percent))
+      const label = `${Math.round(w.percent)}%`.padStart(4)
+      // indent + "5h " + bar + " " + label
+      const bar = inner - indent - 2 - w.label.length - label.length
+      const filled = Math.round((percent / 100) * bar)
+      const seg = (from: number, to: number) =>
+        theme.fg(tone(percent), "━".repeat(Math.max(0, Math.min(to, filled) - from))) +
+        theme.fg("borderMuted", "─".repeat(Math.max(0, to - Math.max(from, filled))))
+      const p = pace(w, now)
+      // ┃ marks where usage would be at an even burn, in the pace band's
+      // colour: fill past it is ahead of pace.
+      const mark = p ? Math.min(bar - 1, Math.round(p.expected * bar)) : -1
+      const track = p ? `${seg(0, mark)}${theme.fg(p.token, "┃")}${seg(mark + 1, bar)}` : seg(0, bar)
+      lines.push(`${pad}${theme.fg("muted", w.label)} ${track} ${theme.fg(percent >= 50 ? tone(percent) : "muted", label)}`)
+      // Comfortable and on pace need no words; the marker already says so.
+      if (p && (p.token === "warning" || p.token === "error")) {
+        const under = " ".repeat(indent + w.label.length + 1)
+        const out = p.out ? theme.fg(p.token, `out ${when(p.out)}`) : ""
+        lines.push(spread(`${under}${theme.fg(p.token, p.word)}`, out, inner))
+      }
+    }
+  }
+}
+
+function renderPanel(
+  state: Snapshot,
+  theme: Theme,
+  width: number,
+  rows: number,
+): { lines: string[]; warningsRow: number | undefined; toggles: Map<number, string> } {
   const body: string[] = []
   const line = (text = "") => body.push(text)
   const muted = (text: string) => line(theme.fg("muted", text))
@@ -107,6 +256,9 @@ function renderPanel(state: Snapshot, theme: Theme, width: number, rows: number)
   muted(`${state.tokens === undefined ? "?" : state.tokens.toLocaleString("en-US")} tokens`)
   muted(`${state.percent === undefined ? "?" : `${Math.round(state.percent)}%`} used`)
   muted(`$${state.cost.toFixed(2)} spent`)
+  const limitsAt = body.length
+  const limitRows = limitsSection(limits.accounts, theme, width - 2 * PAD, openLimits)
+  body.push(...limitRows.lines)
   body.push(...todoSection(state.todos, theme, width - 2 * PAD))
   if (state.files.length > 0) {
     line()
@@ -124,6 +276,7 @@ function renderPanel(state: Snapshot, theme: Theme, width: number, rows: number)
   return {
     lines: [...body, ...Array(filler).fill(""), ...footer].map((text) => paint(theme, BG, text ? `${" ".repeat(PAD)}${text}` : "", width)),
     warningsRow: warnings.length > 0 ? body.length + filler : undefined,
+    toggles: new Map([...limitRows.toggles].map(([row, provider]) => [row + limitsAt, provider])),
   }
 }
 
@@ -171,6 +324,7 @@ export default function sidebar(pi: Pi) {
   let tui: Tui | undefined
   let ctx: SessionCtx | undefined
   let warningsRow: number | undefined
+  let toggles = new Map<number, string>()
 
   // Startup notices (config diagnostics) arrive before the sidebar mounts;
   // they are taken on the assumption that the tui will be fullscreen.
@@ -181,11 +335,19 @@ export default function sidebar(pi: Pi) {
       if (!store.snapshot || !theme || !tui) return []
       const out = renderPanel(store.snapshot, theme, width, tui.terminal.rows)
       warningsRow = out.warningsRow
+      toggles = out.toggles
       return out.lines
     },
     invalidate() {},
     handleMouse: (event: Mouse) => {
-      if (event.type !== "press" || event.button !== "left" || event.y !== warningsRow || !ctx) return
+      if (event.type !== "press" || event.button !== "left") return
+      const provider = toggles.get(event.y)
+      if (provider) {
+        if (!openLimits.delete(provider)) openLimits.add(provider)
+        requestRender()
+        return { handled: true }
+      }
+      if (event.y !== warningsRow || !ctx) return
       void showNotices(ctx)
       return { handled: true }
     },
@@ -229,6 +391,9 @@ export default function sidebar(pi: Pi) {
   onTui((t, th) => {
     tui = t
     theme = th
+    // Polls only where there is a screen to show it: headless workers never
+    // mount a tui.
+    startLimits()
     fullscreen = wrapLayout(t, (inner) => {
       // A bottom margin under the main column only; the panel spans full height.
       const main = new VStack([
