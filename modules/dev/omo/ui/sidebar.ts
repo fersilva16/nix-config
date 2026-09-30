@@ -223,10 +223,10 @@ function limitsSection(
         theme.fg(tone(percent), "━".repeat(Math.max(0, Math.min(to, filled) - from))) +
         theme.fg("borderMuted", "─".repeat(Math.max(0, to - Math.max(from, filled))))
       const p = pace(w, now)
-      // ┃ marks where usage would be at an even burn, in the pace band's
+      // ❙ marks where usage would be at an even burn, in the pace band's
       // colour: fill past it is ahead of pace.
       const mark = p ? Math.min(bar - 1, Math.round(p.expected * bar)) : -1
-      const track = p ? `${seg(0, mark)}${theme.fg(p.token, "┃")}${seg(mark + 1, bar)}` : seg(0, bar)
+      const track = p ? `${seg(0, mark)}${theme.fg(p.token, "❙")}${seg(mark + 1, bar)}` : seg(0, bar)
       lines.push(`${pad}${theme.fg("muted", w.label)} ${track} ${theme.fg(percent >= 50 ? tone(percent) : "muted", label)}`)
       // Comfortable and on pace need no words; the marker already says so.
       if (p && (p.token === "warning" || p.token === "error")) {
