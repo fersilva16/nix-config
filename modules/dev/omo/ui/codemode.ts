@@ -32,7 +32,7 @@ type RenderCall = (args: Args, theme: Theme, context: Context) => Component
 type RenderResult = (result: Result, options: { expanded: boolean; isPartial: boolean }, theme: Theme, context: Context) => Component
 export type EvalRenderers = { renderCall: RenderCall; renderResult: RenderResult }
 
-function lines(render: (width: number) => string[]): Component {
+export function lines(render: (width: number) => string[]): Component {
   return { render: (width) => render(width).map((line) => truncateToWidth(line, width)), invalidate() {} }
 }
 
@@ -49,7 +49,7 @@ function argPreview(args: unknown): string {
   return text.replace(/\s+/g, " ")
 }
 
-function statusMark(status: string, theme: Theme, frame: number | undefined): string {
+export function statusMark(status: string, theme: Theme, frame: number | undefined): string {
   switch (status) {
     case "complete":
       return theme.fg("success", "✓")
@@ -64,7 +64,7 @@ function statusMark(status: string, theme: Theme, frame: number | undefined): st
   }
 }
 
-function header(theme: Theme, mark: string, language: string, summary: string | undefined, badges: string[]): string {
+export function header(theme: Theme, mark: string, language: string, summary: string | undefined, badges: string[]): string {
   const dot = theme.fg("dim", " · ")
   const title = `${mark} ${theme.bold(language)}`
   return [summary ? `${title} ${theme.fg("muted", summary.split("\n")[0])}` : title, ...badges.map((b) => theme.fg("dim", b))].join(dot)
