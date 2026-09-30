@@ -13,7 +13,6 @@ import {
   SkillInvocationMessageComponent,
   UserMessageComponent,
 } from "@code-yeongyu/senpi"
-import { Text } from "@earendil-works/pi-tui"
 import { stripAnsi } from "./style.ts"
 
 type Method = (this: any, ...args: any[]) => any
@@ -1231,7 +1230,6 @@ const NOTICE_METHODS: Record<string, TranscriptNotice["tone"]> = {
   renderProjectTrustWarningIfNeeded: "warning",
 }
 type NoticeHook = (notice: TranscriptNotice) => Component | undefined
-type ChatHost = { chatContainer: { addChild(component: Component): void } }
 let noticeHook: NoticeHook | undefined
 
 export function onTranscriptNotice(hook: NoticeHook): void {
