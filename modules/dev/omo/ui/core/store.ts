@@ -40,6 +40,9 @@ export const store = {
   // Whether omo's per-model optimized system prompt is applied.
   promptOptimized: false,
   todoOwed: undefined as TodoOwed | undefined,
+  // The nested AGENTS.md files omo's /nested-agents widget lists, while the
+  // sidebar holds it.
+  nestedContext: [] as { path: string; truncated: boolean }[],
 }
 
 let pi: Pi | undefined
@@ -137,8 +140,10 @@ export function initStore(api: Pi): void {
   api.on("input", () => {
     store.todoOwed = undefined
   })
+  // omo drops every widget with the session, without a setWidget per key.
   api.on("session_shutdown", () => {
     live = undefined
+    store.nestedContext = []
   })
   api.on("session_start", (_e, ctx) => {
     store.todoOwed = undefined

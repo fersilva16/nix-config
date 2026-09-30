@@ -347,9 +347,23 @@ export function onHeader(take: (text: string | undefined) => boolean): void {
 
 // A taken widget is removed instead of set, so omo's copy never shows.
 export function onWidget(key: string, take: () => boolean): void {
+  onWidgetContent(key, (content) => (take() ? undefined : content))
+}
+
+// Widgets any extension sets above or below the prompt (ctx.ui.setWidget).
+// The hook sees every set (and clear, as undefined) of its key and returns
+// what omo shows instead: the same content, a restyled factory, or undefined
+// for nothing. One hook per key; all share one wrap of setExtensionWidget.
+export type WidgetContent = string[] | ((tui: Tui, theme: Theme) => Component)
+type WidgetHook = (content: WidgetContent | undefined) => WidgetContent | undefined
+const widgetHooks = new Map<string, WidgetHook>()
+
+export function onWidgetContent(key: string, hook: WidgetHook): void {
+  widgetHooks.set(key, hook)
   patch(mode, "setExtensionWidget", (original) =>
-    function (this: unknown, k: string, content: unknown, options: unknown) {
-      return original.call(this, k, k === key && take() ? undefined : content, options)
+    function (this: unknown, k: string, content: WidgetContent | undefined, options: unknown) {
+      const hook = widgetHooks.get(k)
+      return original.call(this, k, hook ? hook(content) : content, options)
     },
   )
 }

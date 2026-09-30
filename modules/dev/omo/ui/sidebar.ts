@@ -5,14 +5,26 @@
 //
 // While the sidebar is shown it also takes over omo's transcript notices
 // (status lines, warnings, notice boxes, the update notice, the optimized
-// prompt header) and the todo widget above the prompt. Turn errors stay in
-// the transcript.
+// prompt header) and the todo and nested AGENTS.md widgets above the prompt.
+// Turn errors stay in the transcript.
 import { HStack, Key, matchesKey, VStack, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui"
-import { afterSelection, isModalFrame, onHeader, onNotice, onTui, onUpdate, onWidget, requestRender, wrapLayout } from "./core/host.ts"
+import {
+  afterSelection,
+  isModalFrame,
+  onHeader,
+  onNotice,
+  onTui,
+  onUpdate,
+  onWidget,
+  onWidgetContent,
+  requestRender,
+  type WidgetContent,
+  wrapLayout,
+} from "./core/host.ts"
 import { type Account, limits, startLimits } from "./core/limits.ts"
 import { modalFrame, openModal } from "./core/modal.ts"
 import { refresh, refreshLive, type Snapshot, store, type TodoPhase } from "./core/store.ts"
-import { ESCAPE_AT_START, homePath, paint, spread } from "./core/style.ts"
+import { ESCAPE_AT_START, homePath, paint, spread, stripAnsi } from "./core/style.ts"
 import type { Component, Ctx, Theme, Tui } from "./core/types.ts"
 
 const WIDTH = 40
@@ -28,6 +40,7 @@ const MAX_NOTICES = 50
 const TODO_REMINDERS = 2
 const TODO_STOPPED = /^Agent stopped with \d+ open todo tasks/
 const OPTIMIZED = /^Optimized system prompt applied: /
+const NESTED_WIDGET = "ext:nested-agents:widget"
 const MARKS: Record<string, [token: string, mark: string]> = {
   completed: ["success", "✓"],
   in_progress: ["accent", "•"],
@@ -36,7 +49,7 @@ const MARKS: Record<string, [token: string, mark: string]> = {
 }
 
 type ModalCtx = Parameters<typeof openModal>[0]
-type SessionCtx = Ctx & ModalCtx & { ui: { setWidget(key: string, content: undefined): void } }
+type SessionCtx = Ctx & ModalCtx & { ui: { setWidget(key: string, content: WidgetContent | undefined): void } }
 type Pi = {
   on(event: "session_start", handler: (event: unknown, ctx: SessionCtx) => void): void
   registerCommand(name: string, options: { description: string; handler: (args: string, ctx: SessionCtx) => Promise<void> }): void
@@ -265,6 +278,11 @@ function renderPanel(
     line(theme.bold("Modified Files"))
     for (const f of state.files) muted(f)
   }
+  if (store.nestedContext.length > 0) {
+    line()
+    line(theme.bold("Nested Context"))
+    for (const f of store.nestedContext) line(f.truncated ? theme.fg("warning", `${f.path} (truncated)`) : theme.fg("muted", f.path))
+  }
 
   const notices = store.notices
   const alert = notices.some((n) => n.kind !== "status")
@@ -387,6 +405,17 @@ export default function sidebar(pi: Pi) {
     refreshLive()
     return shown()
   })
+  // omo's /nested-agents widget: ["Nested Context:", "  path",
+  // "  path (truncated)", ...]. Its last content is re-set on /sidebar, so it
+  // moves between omo's spot above the prompt and the panel.
+  let nested: WidgetContent | undefined
+  onWidgetContent(NESTED_WIDGET, (content) => {
+    nested = content
+    const files = Array.isArray(content) ? content.slice(1).map((l) => stripAnsi(l).trim()) : []
+    store.nestedContext = files.map((f) => ({ path: f.replace(/ \(truncated\)$/, ""), truncated: f.endsWith(" (truncated)") }))
+    requestRender()
+    return Array.isArray(content) && shown() ? undefined : content
+  })
 
   onTui((t, th) => {
     tui = t
@@ -433,6 +462,7 @@ export default function sidebar(pi: Pi) {
     handler: async (_args, c) => {
       visible = !visible
       if (shown()) c.ui.setWidget("todo-sidebar", undefined)
+      c.ui.setWidget(NESTED_WIDGET, nested)
       refresh(c)
     },
   })
