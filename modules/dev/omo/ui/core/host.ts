@@ -556,6 +556,98 @@ function presentDialog(host: DialogHost, dialog: ExtensionDialog): void {
   ;(host[DIALOG_OVERLAYS] ??= {})[dialog.kind] = { overlay, stock: dialog.stock }
 }
 
+// Built-in pickers (/model, /thinking, /scoped-models, /favorite-models, and
+// any other omo selector). omo builds each one through showSelector, which
+// puts it in the editor's place. A hook registered for the component's class
+// name gets it right after and returns a component drawn in its place as a
+// centred overlay; that component forwards keys to omo's, so selection,
+// saving and favorites stay omo's. The picker's own close (done) and
+// disposeActiveSelector (a replacing picker, session switch) hide it.
+// Undefined, or no hook for the class, leaves omo's picker as is.
+export type Selector = { name: string; stock: Component & { focused?: boolean } }
+type SelectorHook = (selector: Selector, tui: Tui) => { component: Component; width: number } | undefined
+type Created = { component: Component; focus: Component; dispose?: () => void }
+type SelectorHost = DialogHost & { ui: { setFocus(component: Component): void }; [SELECTOR_OVERLAY]?: Overlay }
+const SELECTOR_OVERLAY = Symbol.for("omo-ui.selector.overlay")
+const selectorHooks = new Map<string, SelectorHook>()
+
+export function onSelector(name: string, present: SelectorHook): void {
+  selectorHooks.set(name, present)
+  patch(mode, "disposeActiveSelector", (original) =>
+    function (this: SelectorHost, ...args: unknown[]) {
+      this[SELECTOR_OVERLAY]?.hide()
+      delete this[SELECTOR_OVERLAY]
+      return original.apply(this, args)
+    },
+  )
+  patch(mode, "showSelector", (original) =>
+    function (this: SelectorHost, create: (done: () => void) => Created) {
+      let stock: Component | undefined
+      let overlay: Overlay | undefined
+      const result = original.call(this, (done: () => void) => {
+        const created = create(() => {
+          overlay?.hide()
+          if (this[SELECTOR_OVERLAY] === overlay) delete this[SELECTOR_OVERLAY]
+          done()
+        })
+        stock = created.component
+        return created
+      })
+      const name = stock?.constructor?.name ?? ""
+      const shown = stock && selectorHooks.get(name)?.({ name, stock }, this.ui)
+      if (!shown) return result
+      this.editorContainer.detachAll()
+      this.editorContainer.addChild(this.editor)
+      // The overlay hands focus back to the editor, not the detached picker.
+      this.ui.setFocus(this.editor)
+      const width = Math.min(shown.width, this.ui.terminal.columns - 4)
+      overlay = this.ui.showOverlay(shown.component, { width, anchor: "center" })
+      this[SELECTOR_OVERLAY] = overlay
+      return result
+    },
+  )
+}
+
+// Thinking level changes (shift+tab, /thinking). omo reports each one as a
+// "Thinking level: x" status line; a hook that returns true takes it instead
+// (`saved` when it was also made the default), and omo still repaints the
+// footer and editor border.
+type ThinkingHost = {
+  isInitialized?: boolean
+  footer: { invalidate(): void }
+  updateEditorBorderColor(): void
+  showStatus(text: string): void
+}
+let thinkingHook: ((level: string, saved: boolean) => boolean) | undefined
+
+export function onThinkingChange(take: (level: string, saved: boolean) => boolean): void {
+  thinkingHook = take
+  patch(mode, "handleEvent", (original) =>
+    function (this: ThinkingHost, event: { type?: string; level?: string }, ...rest: unknown[]) {
+      if (event?.type !== "thinking_level_changed" || !this.isInitialized || !event.level || !thinkingHook?.(event.level, false)) {
+        return original.call(this, event, ...rest)
+      }
+      this.footer.invalidate()
+      this.updateEditorBorderColor()
+    },
+  )
+  // Picking a level also emits the event above, then writes its own status;
+  // that second status is taken here, marking a level saved with ctrl+s.
+  patch(mode, "selectThinkingLevel", (original) =>
+    function (this: ThinkingHost, level: string, persist: boolean, ...rest: unknown[]) {
+      const show = this.showStatus
+      this.showStatus = function (this: ThinkingHost, text: string) {
+        if (!text.endsWith(`hinking level: ${level}`) || !thinkingHook?.(level, !!persist)) show.call(this, text)
+      }
+      try {
+        return original.call(this, level, persist, ...rest)
+      } finally {
+        delete (this as Partial<ThinkingHost>).showStatus
+      }
+    },
+  )
+}
+
 // Questions. The ask-user tool has no styling API. A blocking question (or
 // an expanded non-blocking one) replaces the editor with an
 // AskUserQuestionComponent that InteractiveMode keeps on `askUserQuestion`;
