@@ -17,6 +17,7 @@ import prompt from "./prompt.ts"
 import question from "./question.ts"
 import sessions from "./sessions.ts"
 import sidebar from "./sidebar.ts"
+import status from "./status.ts"
 import tools from "./tools.ts"
 import turn from "./turn.ts"
 
@@ -26,6 +27,7 @@ export default function (pi: ExtensionAPI) {
   prompt(pi)
   question(pi)
   footer(pi)
+  status(pi)
   turn(pi)
   tools(pi)
   sidebar(pi)
