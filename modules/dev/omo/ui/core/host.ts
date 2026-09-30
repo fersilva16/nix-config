@@ -325,6 +325,31 @@ export function onNotice(take: (notice: Notice) => boolean): void {
   route("showExtensionNotify", (text: string, type?: string) => (type === "error" ? { kind: "error", text } : undefined))
 }
 
+// ctx.ui.notify, before it becomes a status, warning or error. A method takes
+// one wrapper and onNotice holds showExtensionNotify, so the notify of each
+// extension UI context is wrapped where omo builds the context. The context
+// has getters (theme), so it is changed in place rather than copied. omo
+// builds a context before /reload loads the new extensions, so a context can
+// outlive the copy of this module that wrapped it; each call asks for the
+// latest hook, kept on the prototype under a global symbol.
+type NotifyHook = (message: string, type?: string) => boolean
+const NOTIFY = Symbol.for("omo-ui.notify.hook")
+
+export function onNotify(take: NotifyHook): void {
+  const slots = mode as { [NOTIFY]?: NotifyHook }
+  slots[NOTIFY] = take
+  patch(mode, "createExtensionUIContext", (original) =>
+    function (this: unknown, ...args: unknown[]) {
+      const ui: { notify(message: string, type?: string): void } = original.apply(this, args)
+      const notify = ui.notify
+      ui.notify = (message, type) => {
+        if (!slots[NOTIFY]?.(message, type)) notify(message, type)
+      }
+      return ui
+    },
+  )
+}
+
 export function onUpdate(take: (version: string) => boolean): void {
   patch(mode, "showNewVersionNotification", (original) =>
     function (this: unknown, version: string) {
@@ -449,6 +474,86 @@ export function onSelectionText(rewrite: (text: string) => string): void {
       return text === undefined ? undefined : rewrite(text) || undefined
     },
   )
+}
+
+// Extension dialogs: ctx.ui.select (and confirm, a Yes/No select), input and
+// editor. omo builds the dialog component and puts it in the editor's place;
+// right after, the hook gets it and returns a component drawn in its place as
+// a centred overlay, which forwards keys to omo's so its keys, countdown and
+// answer stay omo's. The editor goes back under the overlay, and omo's hide
+// methods close the overlay.
+type Labeled = { text: string }
+export type ExtensionDialog =
+  | {
+      kind: "select"
+      title: string
+      stock: Component & { options: string[]; selectedIndex: number; maxVisibleOptions: number; titleText: Labeled }
+    }
+  | { kind: "input"; title: string; stock: Component & { input: Component; titleText: Labeled } }
+  | { kind: "editor"; title: string; stock: Component & { editor: Component } }
+type DialogKind = ExtensionDialog["kind"]
+type DialogHook = (dialog: ExtensionDialog, tui: Tui) => { component: Component; width: number } | undefined
+type Overlay = { hide(): void }
+const DIALOG_OVERLAYS = Symbol.for("omo-ui.dialog.overlays")
+type DialogHost = {
+  ui: HostTui & { showOverlay(component: Component, options: Record<string, unknown>): Overlay }
+  editor: Component
+  editorContainer: { detachAll(): void; addChild(component: Component): void }
+  extensionSelector?: Component
+  extensionInput?: Component
+  extensionEditor?: Component
+  [DIALOG_OVERLAYS]?: Partial<Record<DialogKind, { overlay: Overlay; stock: Component & { dispose?(): void } }>>
+}
+const DIALOGS: Record<DialogKind, [show: string, hide: string, field: "extensionSelector" | "extensionInput" | "extensionEditor"]> = {
+  select: ["showExtensionSelector", "hideExtensionSelector", "extensionSelector"],
+  input: ["showExtensionInput", "hideExtensionInput", "extensionInput"],
+  editor: ["showExtensionEditor", "hideExtensionEditor", "extensionEditor"],
+}
+
+let dialogHook: DialogHook | undefined
+
+export function onDialog(present: DialogHook): void {
+  dialogHook = present
+  for (const [kind, [show, hide, field]] of Object.entries(DIALOGS) as [DialogKind, (typeof DIALOGS)[DialogKind]][]) {
+    patch(mode, show, (original) =>
+      function (this: DialogHost, title: string, ...rest: unknown[]) {
+        const before = this[field]
+        const result = original.call(this, title, ...rest)
+        const stock = this[field]
+        if (stock && stock !== before) presentDialog(this, { kind, title, stock } as ExtensionDialog)
+        return result
+      },
+    )
+    patch(mode, hide, (original) =>
+      function (this: DialogHost, ...args: unknown[]) {
+        closeDialog(this, kind)
+        return original.apply(this, args)
+      },
+    )
+  }
+}
+
+function closeDialog(host: DialogHost, kind: DialogKind, dispose = false): void {
+  const overlays = host[DIALOG_OVERLAYS]
+  const open = overlays?.[kind]
+  if (!overlays || !open) return
+  open.overlay.hide()
+  if (dispose) open.stock.dispose?.()
+  delete overlays[kind]
+}
+
+// Clearing a container disposes its children, which stops omo's countdown,
+// so the dialog is detached from the editor's place instead. A new dialog
+// replaces whichever one was up, as omo's own clear() would, and disposes it.
+function presentDialog(host: DialogHost, dialog: ExtensionDialog): void {
+  const shown = dialogHook?.(dialog, host.ui)
+  if (!shown) return
+  for (const kind of Object.keys(DIALOGS) as DialogKind[]) closeDialog(host, kind, true)
+  host.editorContainer.detachAll()
+  host.editorContainer.addChild(host.editor)
+  const width = Math.min(shown.width, host.ui.terminal.columns - 4)
+  const overlay = host.ui.showOverlay(shown.component, { width, anchor: "center" })
+  ;(host[DIALOG_OVERLAYS] ??= {})[dialog.kind] = { overlay, stock: dialog.stock }
 }
 
 // Questions. The ask-user tool has no styling API. A blocking question (or
