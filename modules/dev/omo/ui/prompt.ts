@@ -1,7 +1,7 @@
 // opencode-style prompt: a filled card with an accent bar on the left and an
 // "agent · model provider · thinking" line in place of the bottom border.
 import { CustomEditor } from "@code-yeongyu/senpi"
-import { CURSOR_MARKER, truncateToWidth } from "@earendil-works/pi-tui"
+import { truncateToWidth } from "@earendil-works/pi-tui"
 import { cardInner, cardRow, promptStyle } from "./core/card.ts"
 import { copySelection } from "./core/host.ts"
 import { type Intent, Keymap, submitCommand } from "./core/intents.ts"
@@ -134,10 +134,9 @@ export default function prompt(pi: Pi) {
         return [
           ...(suggestions.length > 0 ? [row(""), ...suggestions.map((line) => this.suggestion(line, width))] : []),
           row(top ? theme.fg("dim", `  ${top}`) : ""),
-          // omo's layout slicer counts the IME cursor marker (an APC escape)
-          // as 5 columns, cutting the row short once the sidebar sits to its
-          // right. The block cursor is drawn separately, so drop the marker.
-          ...lines.slice(1, bottom).map((line) => row(line.replaceAll(CURSOR_MARKER, ""))),
+          // Rows keep the cursor marker: omo puts the terminal's own cursor
+          // there (showHardwareCursor, set in omo.nix) instead of a block.
+          ...lines.slice(1, bottom).map(row),
           row(below ? theme.fg("dim", `  ${below}`) : ""),
           row(truncateToWidth(`  ${info()}`, inner)),
           row(""),

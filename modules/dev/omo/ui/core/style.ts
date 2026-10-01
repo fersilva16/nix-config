@@ -4,8 +4,8 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui"
 import type { Theme } from "./types.ts"
 
 // Every escape omo emits: CSI (colours, cursor), OSC (hyperlinks) and APC
-// (the IME cursor marker).
-export const ESCAPES = /\x1b\[[0-9;:?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b_[^\x1b]*\x1b\\/g
+// (the IME cursor marker, which ends in BEL).
+export const ESCAPES = /\x1b\[[0-9;:?]*[A-Za-z]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b_[^\x07\x1b]*(?:\x07|\x1b\\)/g
 export const ESCAPE_AT_START = new RegExp(`^(?:${ESCAPES.source})`)
 
 export function stripAnsi(text: string): string {

@@ -4,7 +4,7 @@
 // one-liners keep going to the sidebar. ctx.ui.select, confirm, input and
 // editor (permission gate, MCP forms, /fallback, /goal, project trust) are
 // drawn as dialogs too; omo still owns their keys, countdowns and answers.
-import { CURSOR_MARKER, Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui"
+import { Key, matchesKey, wrapTextWithAnsi } from "@earendil-works/pi-tui"
 import { cardInner, cardRow, promptStyle } from "./core/card.ts"
 import { type ExtensionDialog, onDialog, onNotify, onTui } from "./core/host.ts"
 import { MODAL_WIDTH, type ModalCtx, modalFrame, openModal } from "./core/modal.ts"
@@ -80,11 +80,9 @@ function heading(dialog: ExtensionDialog, theme: Theme, f: Frame, tui: Tui, rese
   ]
 }
 
-// An input or editor field as a small prompt card. omo's layout slicer counts
-// the IME cursor marker as columns (see prompt.ts); the block cursor is drawn
-// separately, so the marker goes.
+// An input or editor field as a small prompt card.
 function field(lines: string[], theme: Theme, f: Frame): string[] {
-  return lines.map((l) => f.line(cardRow(promptStyle(theme), ` ${l.replaceAll(CURSOR_MARKER, "")}`, f.inner)))
+  return lines.map((l) => f.line(cardRow(promptStyle(theme), ` ${l}`, f.inner)))
 }
 
 const isBorder = (line: string) => stripAnsi(line).startsWith("─")
