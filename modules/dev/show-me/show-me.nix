@@ -1,4 +1,4 @@
-{ lib }:
+{ mkUserModule, lib, ... }:
 # show-me: `/show-me` explains the current topic visually — pseudocode, call
 # trees, component trees, shallow file trees, Mermaid, and diffs *of* those
 # shapes rather than of code.
@@ -14,12 +14,15 @@
 # skill, because its description ("help the user understand the current topic
 # visually") carries no trigger phrases — as a skill opencode's matcher would
 # fire it arbitrarily or never.  Explicit `/show-me` is the intent anyway.
-{
+mkUserModule {
+  name = "show-me";
   home =
     { userCfg, ... }:
     {
       # Discovered under `{command,commands}/**/*.md` in the config dir.
-      xdg.configFile."opencode/commands/show-me.md".source = ./show-me.md;
+      xdg.configFile."opencode/commands/show-me.md" = lib.mkIf userCfg.opencode.enable {
+        source = ./show-me.md;
+      };
       # Same file as an omo prompt template: same frontmatter, no
       # opencode-only syntax.
       home.file = lib.mkIf userCfg.omo.enable {

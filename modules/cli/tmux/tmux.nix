@@ -182,6 +182,26 @@ let
   # session-picker.nix: sessions only, zoomed, sorted by name (worktree sessions
   # stay grouped with parent).
   choose-tree-picker = "choose-tree -sZO name";
+
+  agentRule = ''
+    ## I work in tmux
+
+    You are running inside my tmux server and can use it. `tmux
+    display-message -p '#S'` tells you which session you are in; a
+    `parent/branch` name means it is a git worktree on that branch.
+
+    Create your own windows, panes, and sessions freely — dev servers, log
+    tails, anything long-running or interactive that would block your shell.
+    Name every session `agents/<name>`, always detached, running POSIX sh:
+    `tmux new-session -d -s agents/<name> '/bin/sh -l'` (you are already
+    inside tmux, so an attached `new-session` errors). Windows you add to
+    an `agents/*` session get sh too, so everything you run in one is
+    POSIX, never fish.
+
+    Sessions named `agents/*` are yours: use and kill them freely, including
+    leftovers from earlier runs. Every other session is mine — never kill,
+    rename, detach, or send-keys to one.
+  '';
 in
 mkUserModule {
   name = "tmux";
@@ -210,26 +230,12 @@ mkUserModule {
       # inside a tmux server. Tell them the layout and that they can use it.
       # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates
       # onto opencode's global AGENTS.md.
-      xdg.configFile."opencode/AGENTS.md".text = lib.mkIf userCfg.opencode.enable ''
-
-        ## I work in tmux
-
-        You are running inside my tmux server and can use it. `tmux
-        display-message -p '#S'` tells you which session you are in; a
-        `parent/branch` name means it is a git worktree on that branch.
-
-        Create your own windows, panes, and sessions freely — dev servers, log
-        tails, anything long-running or interactive that would block your shell.
-        Name every session `agents/<name>`, always detached, running POSIX sh:
-        `tmux new-session -d -s agents/<name> '/bin/sh -l'` (you are already
-        inside tmux, so an attached `new-session` errors). Windows you add to
-        an `agents/*` session get sh too, so everything you run in one is
-        POSIX, never fish.
-
-        Sessions named `agents/*` are yours: use and kill them freely, including
-        leftovers from earlier runs. Every other session is mine — never kill,
-        rename, detach, or send-keys to one.
-      '';
+      xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
+        text = "\n" + agentRule;
+      };
+      home.file.".omo/rules/tmux.md" = lib.mkIf userCfg.omo.enable {
+        text = "---\nalwaysApply: true\n---\n\n" + agentRule;
+      };
 
       programs.tmux = {
         enable = true;

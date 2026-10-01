@@ -1,4 +1,9 @@
-{ pkgs, lib }:
+{
+  mkUserModule,
+  pkgs,
+  lib,
+  ...
+}:
 let
   # autoresearch-opencode: autonomous experiment loop skill + slash command +
   # context-injection plugin.  Upstream is shipped as plain markdown and
@@ -14,17 +19,18 @@ let
     hash = "sha256-P7ZZxmFiS6X5QrH14Dhi3TAKeZ6u7dKI7Az+FSFHhYA=";
   };
 in
-{
+mkUserModule {
+  name = "autoresearch";
   home =
     { userCfg, ... }:
     {
       # Plugin loads via file:// URL — opencode resolves TypeScript directly via
       # Bun, no compilation needed (matches direnv-plugin pattern).
-      programs.opencode.settings.plugin = [
+      programs.opencode.settings.plugin = lib.mkIf userCfg.opencode.enable [
         "file://${autoresearch-src}/plugins/autoresearch-context.ts"
       ];
 
-      xdg.configFile = {
+      xdg.configFile = lib.mkIf userCfg.opencode.enable {
         # Skill: autonomous experiment-loop instructions.  Discovered by
         # opencode under `{skill,skills}/**/SKILL.md` in the config dir.
         "opencode/skills/autoresearch/SKILL.md".source = "${autoresearch-src}/skills/autoresearch/SKILL.md";

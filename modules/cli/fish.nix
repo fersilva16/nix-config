@@ -5,6 +5,15 @@
   pkgs,
   ...
 }:
+let
+  agentRule = ''
+    ## My shell is fish
+
+    My interactive shell is fish 4.x — commands you hand me to run must be
+    valid fish. Your own tool calls are unaffected: those run in `/bin/sh`,
+    so keep them POSIX, same for scripts you write with a non-fish shebang.
+  '';
+in
 mkUserModule {
   name = "fish";
   user = _: {
@@ -24,14 +33,12 @@ mkUserModule {
       # Outbound integration: opencode agents default to bash syntax, so tell
       # them the interactive shell is fish. `xdg.configFile.<name>.text` is
       # `types.lines`, so this concatenates onto opencode's global AGENTS.md.
-      xdg.configFile."opencode/AGENTS.md".text = lib.mkIf userCfg.opencode.enable ''
-
-        ## My shell is fish
-
-        My interactive shell is fish 4.x — commands you hand me to run must be
-        valid fish. Your own tool calls are unaffected: those run in `/bin/sh`,
-        so keep them POSIX, same for scripts you write with a non-fish shebang.
-      '';
+      xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
+        text = "\n" + agentRule;
+      };
+      home.file.".omo/rules/fish.md" = lib.mkIf userCfg.omo.enable {
+        text = "---\nalwaysApply: true\n---\n\n" + agentRule;
+      };
 
       programs.fish = {
         enable = true;

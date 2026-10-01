@@ -1,4 +1,9 @@
-{ pkgs, lib }:
+{
+  mkUserModule,
+  pkgs,
+  lib,
+  ...
+}:
 let
   # ponytail: makes the agent think like the laziest senior dev — YAGNI,
   # stdlib/native over dependencies, shortest working diff.  Shipped as plain
@@ -61,15 +66,16 @@ let
     ]) names
   );
 in
-{
+mkUserModule {
+  name = "ponytail";
   home =
     { userCfg, ... }:
     {
-      programs.opencode.settings.plugin = [
+      programs.opencode.settings.plugin = lib.mkIf userCfg.opencode.enable [
         "file://${ponytail-src}/.opencode/plugins/ponytail.mjs"
       ];
 
-      xdg.configFile = commandFiles // skillFiles;
+      xdg.configFile = lib.mkIf userCfg.opencode.enable (commandFiles // skillFiles);
       home.file = lib.mkIf userCfg.omo.enable omoFiles;
     };
 }
