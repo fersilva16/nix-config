@@ -31,19 +31,31 @@ let
     # jsonSchemaToZodShape, which drops every property description. Nothing then
     # tells the model eval's `summary` is required, so eval runs fail with
     # "eval run requires summary" (still unfixed upstream as of v5.1.2). The patch
-    # keeps descriptions and marks `summary` (only eval has one) required. It must
-    # keep the same byte length because the bun payload is laid out by offset.
-    patchFrom = "function jsonSchemaToZodShape(schema){const object=schema??{};const properties=object.properties??{};const required=new Set(object.required??[]);const shape={};for(const[key,value]of Object.entries(properties)){const converted=schemaToZod(value);shape[key]=required.has(key)?converted:converted.optional()}return shape}";
-    patchTo = ''function jsonSchemaToZodShape(s){const o=s??{},r=new Set(o.required??[]),h={};for(const[k,v]of Object.entries(o.properties??{})){let c=schemaToZod(v);if(v.description)c=c.describe(v.description);h[k]=r.has(k)||k=="summary"?c:c.optional()}return h}'';
+    # keeps descriptions and marks `summary` (only eval has one) required.
+    zodFrom = "function jsonSchemaToZodShape(schema){const object=schema??{};const properties=object.properties??{};const required=new Set(object.required??[]);const shape={};for(const[key,value]of Object.entries(properties)){const converted=schemaToZod(value);shape[key]=required.has(key)?converted:converted.optional()}return shape}";
+    zodTo = ''function jsonSchemaToZodShape(s){const o=s??{},r=new Set(o.required??[]),h={};for(const[k,v]of Object.entries(o.properties??{})){let c=schemaToZod(v);if(v.description)c=c.describe(v.description);h[k]=r.has(k)||k=="summary"?c:c.optional()}return h}'';
+    # With showHardwareCursor on, the editor emits its cursor marker inside the
+    # text only where it also draws the fake block, so the cursor vanishes as
+    # soon as it leaves the end of the line. Always laying out the block keeps
+    # the marker; the renderer strips the block again when the hardware cursor
+    # is shown (extractCursorPosition).
+    cursorFrom = "cursorInText&&cursor.drawFakeCursor?{";
+    cursorTo = "cursorInText?{";
+    # Every replacement is padded to the same byte length, because the bun
+    # payload is laid out by offset.
     installPhase = ''
       runHook preInstall
       install -Dm755 $src $out/bin/omo
-      perl -0777 -pi -e '
-        BEGIN { $f = $ENV{patchFrom}; $t = $ENV{patchTo}; $p = length($f) - length($t);
-                die "omo patch: replacement too long\n" if $p < 0; substr($t, -1, 0) = " " x $p; }
-        $n += s/\Q$f\E/$t/g;
-        END { die "omo patch: jsonSchemaToZodShape not found, drop or update the patch\n" unless $n; }
-      ' $out/bin/omo
+      bytePatch() {
+        name="$1" from="$2" to="$3" perl -0777 -pi -e '
+          BEGIN { $f = $ENV{from}; $t = $ENV{to}; $p = length($f) - length($t);
+                  die "omo patch $ENV{name}: replacement too long\n" if $p < 0; substr($t, -1, 0) = " " x $p; }
+          $n += s/\Q$f\E/$t/g;
+          END { die "omo patch $ENV{name}: target not found, drop or update the patch\n" unless $n; }
+        ' $out/bin/omo
+      }
+      bytePatch zod "$zodFrom" "$zodTo"
+      bytePatch cursor "$cursorFrom" "$cursorTo"
       runHook postInstall
     '';
     meta = {
@@ -91,9 +103,26 @@ mkUserModule {
           { ".omo/agent/extensions/ui".source = ./ui; }
         ];
 
+        # omo runs from a copy of itself in ~/.omo/binary-runtime/<version>/ and
+        # refreshes that copy only when its size changes, which the same-length
+        # byte patches above never do. Swap a stale copy in the way omo does:
+        # a rename, so running sessions keep the old inode.
+        activation.omoRuntime = {
+          after = [ "writeBoundary" ];
+          before = [ ];
+          data = ''
+            rt="$HOME/.omo/binary-runtime/${version}/omo"
+            if [ -e "$rt" ] && ! cmp -s ${omo}/bin/omo "$rt"; then
+              cp ${omo}/bin/omo "$rt.nix-tmp" && chmod 755 "$rt.nix-tmp" && mv -f "$rt.nix-tmp" "$rt"
+            fi
+          '';
+        };
+
         # omo rewrites settings.json itself (tips history, model picks), so it
         # can't be a store symlink: merge the UI keys in on every activation.
         # opencode-like look: fullscreen, Flexoki, no startup header or tips.
+        # showHardwareCursor swaps omo's drawn block for the terminal cursor,
+        # so it takes the terminal's shape (ghostty/kitty: blinking bar).
         activation.omoSettings = {
           after = [ "writeBoundary" ];
           before = [ ];
@@ -107,7 +136,8 @@ mkUserModule {
               fullscreenExitOutput: "resume-hint",
               quietStartup: true,
               tips: false,
-              collapseChangelog: true
+              collapseChangelog: true,
+              showHardwareCursor: true
             }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
           '';
         };

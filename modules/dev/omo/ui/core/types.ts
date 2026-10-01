@@ -15,7 +15,7 @@ export type Component = {
 
 export type Tui = {
   requestRender(): void
-  terminal: { rows: number; columns: number }
+  terminal: { rows: number; columns: number; write(data: string): void }
 }
 
 type Usage = { cost?: { total?: number } }

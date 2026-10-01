@@ -6,7 +6,7 @@
 // fullscreen transcript search and the "?" shortcut hint get the panel fill
 // in place (the search keeps omo's layout, which its mouse hit-test reads).
 // /tui only sends a one-line notice, which already goes to the sidebar.
-import { CURSOR_MARKER, Key, matchesKey } from "@earendil-works/pi-tui"
+import { Key, matchesKey } from "@earendil-works/pi-tui"
 import { onOverlay, onShortcutOverlay, onTranscriptPanel, onTui, type StockOverlay, type TranscriptPanel } from "./core/host.ts"
 import { MODAL_WIDTH, type ModalCtx, modalFrame, openModal } from "./core/modal.ts"
 import { fill, sgr, stripAnsi } from "./core/style.ts"
@@ -42,7 +42,7 @@ function listRow(f: Frame, line: string): string {
 // A bordered stock panel: [border, title, body…, hints, border].
 function panelRows(stock: Component, theme: Theme, width: number, title?: string, scrollHint = false): string[] {
   const f = modalFrame(theme, width)
-  const lines = stock.render(f.inner).map((l) => l.replaceAll(CURSOR_MARKER, "")).filter((l) => !isBorder(l))
+  const lines = stock.render(f.inner).filter((l) => !isBorder(l))
   const head = title ?? stripAnsi(lines.shift() ?? "").trim()
   const stockHints = lines.length > 1 && isHints(lines.at(-1)!) ? stripAnsi(lines.pop()!).trim() : undefined
   const hints = stockHints ? theme.fg("muted", stockHints.replaceAll(" • ", "   ")) : scrollHint && f.hints([["scroll", "↑↓"]])
@@ -84,7 +84,7 @@ function flatSearch(stock: Component, theme: Theme): Component {
       s.focused = value
     },
     render: (width) =>
-      stock.render(width).map((line) => fill(panel, line.replaceAll(CURSOR_MARKER, "").replace(/[┌┐└┘│─]/g, " "), width)),
+      stock.render(width).map((line) => fill(panel, line.replace(/[┌┐└┘│─]/g, " "), width)),
     invalidate: () => stock.invalidate(),
     handleInput: (data) => stock.handleInput?.(data),
   } as Component
