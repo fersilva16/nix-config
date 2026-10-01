@@ -42,7 +42,8 @@ in
         Stacked PRs are one worktree per PR, run through `wts` (works from sh).
         Run `wts` before any branch, rebase, push or PR work in a worktree: it
         prints the stack, the rules, and the commands to run under `next:`.
-        Those are pre-approved: run them without asking.
+        Those are pre-approved: run them without asking. In a main checkout
+        (not under `<repo>.worktrees/`), skip `wts` entirely.
       '';
     };
 }
