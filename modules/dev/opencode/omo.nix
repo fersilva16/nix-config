@@ -107,6 +107,16 @@ in
       "$schema" =
         "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/omo.schema.json";
       "[opencode]".codegraph.daemon = false;
+      # OmO Native's agent memory: per-cwd stores under ~/.omo/memory that
+      # get injected into prompts, plus background fact extraction,
+      # reflection and recall. Off: one store per worktree name fragments
+      # it, it writes guesses down as rules, and its PR-state notes go stale
+      # within hours. Durable rules live in CLAUDE.md/AGENTS.md instead.
+      # `recall` has its own switch, so it is turned off explicitly too.
+      memory = {
+        enabled = false;
+        recall.enabled = false;
+      };
       # OmO Native runs these rewrites of this file too, and each one it
       # cannot write (read-only store) leaves ~/.omo/.migration-journal.json
       # behind to retry on every start. reasoning-unification converts
