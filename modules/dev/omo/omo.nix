@@ -64,6 +64,34 @@ let
     };
   };
 
+  # Footer status row: keep it subtle and compact. The OMO extension posts two
+  # entries there with no config switch (as of v5.1.2): the
+  # "(😺 OmO Native by Q Kim)" badge on every turn, and a 320 ms
+  # "⚡ ultraworking..." spinner while a goal is active. The badge's handlers
+  # are dropped, and the spinner becomes a dot that pulses between "•" and
+  # "·" beside the word "goal" every 1.2 s.
+  #
+  # omo loads the extension from its unpacked runtime, not from the binary,
+  # and the binary's embedded copy is sha256-checked whenever it unpacks, so
+  # the patch targets the unpacked plugin/extensions/omo.js.
+  footerPatches = [
+    {
+      name = "badge";
+      from = ''r.publish(t)};t.on("session_start",i),t.on("agent_settled",i)}}}'';
+      to = "r.publish(t)}/* nix: badge off */}}}";
+    }
+    {
+      name = "goal-frames";
+      from = ''oce=[`⚡ ultraworking''${"⠀".repeat(3)}`,`⚡ ultraworking.''${"⠀".repeat(2)}`,"⚡ ultraworking..⠀","⚡ ultraworking..."]'';
+      to = ''oce=["• goal","· goal"]'';
+    }
+    {
+      name = "goal-interval";
+      from = "void 0===t&&(c(),t=o.set(u,320))";
+      to = "void 0===t&&(c(),t=o.set(u,1200))";
+    }
+  ];
+
   # Agent PATH (dev/agent-path): tool calls, and the shared RPC host omo
   # spawns, see ~/.agents/bin first. The process still execs as `omo`, so
   # tmux's agent-commands match, window icon and resurrect are unaffected.
@@ -107,39 +135,65 @@ mkUserModule {
         # refreshes that copy only when its size changes, which the same-length
         # byte patches above never do. Swap a stale copy in the way omo does:
         # a rename, so running sessions keep the old inode.
-        activation.omoRuntime = {
-          after = [ "writeBoundary" ];
-          before = [ ];
-          data = ''
-            rt="$HOME/.omo/binary-runtime/${version}/omo"
-            if [ -e "$rt" ] && ! cmp -s ${omo}/bin/omo "$rt"; then
-              cp ${omo}/bin/omo "$rt.nix-tmp" && chmod 755 "$rt.nix-tmp" && mv -f "$rt.nix-tmp" "$rt"
-            fi
-          '';
-        };
+        activation = {
+          omoRuntime = {
+            after = [ "writeBoundary" ];
+            before = [ ];
+            data = ''
+              rt="$HOME/.omo/binary-runtime/${version}/omo"
+              if [ -e "$rt" ] && ! cmp -s ${omo}/bin/omo "$rt"; then
+                cp ${omo}/bin/omo "$rt.nix-tmp" && chmod 755 "$rt.nix-tmp" && mv -f "$rt.nix-tmp" "$rt"
+              fi
+            '';
+          };
 
-        # omo rewrites settings.json itself (tips history, model picks), so it
-        # can't be a store symlink: merge the UI keys in on every activation.
-        # opencode-like look: fullscreen, Flexoki, no startup header or tips.
-        # showHardwareCursor swaps omo's drawn block for the terminal cursor,
-        # so it takes the terminal's shape (ghostty/kitty: blinking bar).
-        activation.omoSettings = {
-          after = [ "writeBoundary" ];
-          before = [ ];
-          data = ''
-            f="$HOME/.omo/agent/settings.json"
-            mkdir -p "$(dirname "$f")"
-            [ -s "$f" ] || echo '{}' > "$f"
-            ${pkgs.jq}/bin/jq '. + {
-              theme: "flexoki",
-              tuiMode: "fullscreen",
-              fullscreenExitOutput: "resume-hint",
-              quietStartup: true,
-              tips: false,
-              collapseChangelog: true,
-              showHardwareCursor: true
-            }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-          '';
+          # Applies footerPatches above. A fresh version unpacks on its first
+          # run, after activation, so the patch then lands on the next rebuild.
+          omoFooter = {
+            after = [ "writeBoundary" ];
+            before = [ ];
+            data = ''
+              js="$HOME/.omo/binary-runtime/${version}/plugin/extensions/omo.js"
+              if [ ! -f "$js" ]; then
+                echo "omo: runtime ${version} not unpacked yet; footer patch applies on the next rebuild"
+              else
+            ''
+            + lib.concatMapStrings (p: ''
+              from=${lib.escapeShellArg p.from} to=${lib.escapeShellArg p.to}
+              if grep -qF -- "$from" "$js"; then
+                from="$from" to="$to" ${pkgs.perl}/bin/perl -0777 -pi -e 's/\Q$ENV{from}\E/$ENV{to}/g' "$js"
+              elif ! grep -qF -- "$to" "$js"; then
+                echo "omo footer patch ${p.name}: target not found, drop or update the patch" >&2
+              fi
+            '') footerPatches
+            + ''
+              fi
+            '';
+          };
+
+          # omo rewrites settings.json itself (tips history, model picks), so it
+          # can't be a store symlink: merge the UI keys in on every activation.
+          # opencode-like look: fullscreen, Flexoki, no startup header or tips.
+          # showHardwareCursor swaps omo's drawn block for the terminal cursor,
+          # so it takes the terminal's shape (ghostty/kitty: blinking bar).
+          omoSettings = {
+            after = [ "writeBoundary" ];
+            before = [ ];
+            data = ''
+              f="$HOME/.omo/agent/settings.json"
+              mkdir -p "$(dirname "$f")"
+              [ -s "$f" ] || echo '{}' > "$f"
+              ${pkgs.jq}/bin/jq '. + {
+                theme: "flexoki",
+                tuiMode: "fullscreen",
+                fullscreenExitOutput: "resume-hint",
+                quietStartup: true,
+                tips: false,
+                collapseChangelog: true,
+                showHardwareCursor: true
+              }' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+            '';
+          };
         };
       };
 
