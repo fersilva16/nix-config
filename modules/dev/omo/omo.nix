@@ -125,6 +125,24 @@ mkUserModule {
           (lib.mkIf userCfg.tmux.enable {
             ".omo/agent/extensions/tmux-fork.ts".source = ./tmux-fork.ts;
           })
+          # Read-only store symlink; change omo config in omo-jsonc.nix.
+          { ".omo/omo.jsonc".source = import ./omo-jsonc.nix { inherit pkgs; }; }
+          # Global instructions. omo applies a ~/.omo/rules file only when its
+          # frontmatter says so; other modules add their own rules here too.
+          {
+            ".omo/rules/github.md".text = ''
+              ---
+              alwaysApply: true
+              ---
+
+              ## Never speak as me on GitHub
+              Never post or reply to comments on GitHub on my behalf. This includes
+              PR/issue comments, review comments and their replies, and reviews —
+              whether via `gh`, the GitHub REST/GraphQL API, or any MCP/tool. PR and
+              issue bodies are fine. Reading GitHub is fine. If a comment/reply
+              genuinely seems needed, draft the text and let me post it myself.
+            '';
+          }
           # Flexoki light, matching ghostty/kitty/nvim/tmux/opencode.
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
           # opencode-style prompt, status line, sidebar and tool blocks.

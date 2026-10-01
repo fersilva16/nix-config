@@ -1,4 +1,4 @@
-_:
+{ mkUserModule, lib, ... }:
 # i-have-adhd: output-style ruleset — answer first, numbered steps, no
 # preamble/recap/closers, plus a pre-send deletion checklist.
 #
@@ -15,8 +15,19 @@ _:
 # `disable-model-invocation: true`: the model can never invoke it, so as a
 # skill in opencode it would be inert.  Upstream's own always-on recipe is to
 # put the rules in AGENTS.md, which is what this does.
-{
-  # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates onto
-  # the global AGENTS.md defined by the parent module.
-  home.xdg.configFile."opencode/AGENTS.md".text = "\n" + builtins.readFile ./i-have-adhd.md;
+mkUserModule {
+  name = "i-have-adhd";
+  home =
+    { userCfg, ... }:
+    {
+      # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates onto
+      # opencode's global AGENTS.md.
+      xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
+        text = "\n" + builtins.readFile ./i-have-adhd.md;
+      };
+      # omo only applies a ~/.omo/rules file whose frontmatter says so.
+      home.file.".omo/rules/i-have-adhd.md" = lib.mkIf userCfg.omo.enable {
+        text = "---\nalwaysApply: true\n---\n\n" + builtins.readFile ./i-have-adhd.md;
+      };
+    };
 }

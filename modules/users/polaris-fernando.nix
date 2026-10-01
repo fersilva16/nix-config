@@ -29,6 +29,10 @@ mkUser {
   git.enable = true;
   lazygit.enable = true;
   opencode.enable = true;
+  i-have-adhd.enable = true;
+  ponytail.enable = true;
+  autoresearch.enable = true;
+  show-me.enable = true;
   ollama = {
     enable = true;
     models = [

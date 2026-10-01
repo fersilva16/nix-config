@@ -42,8 +42,12 @@ mkUser {
   claude.enable = true;
   "claude-code".enable = true;
   codex.enable = true;
-  opencode.enable = true;
+  opencode.enable = false;
   omo.enable = true;
+  i-have-adhd.enable = true;
+  ponytail.enable = true;
+  autoresearch.enable = true;
+  show-me.enable = true;
   agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;

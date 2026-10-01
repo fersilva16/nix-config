@@ -36,46 +36,50 @@ let
 in
 mkUserModule {
   name = "opencode-manager";
-  requires = [
-    "tmux"
-    "opencode"
-  ];
-  home = {
-    home.packages = [
-      tmux-opencode-manager
-    ];
+  # opencode is optional: omo publishes the same notifier contract from its own
+  # extension (dev/omo), so the manager is useful with either agent.
+  requires = [ "tmux" ];
+  home =
+    { userCfg, ... }:
+    {
+      home.packages = [
+        tmux-opencode-manager
+      ];
 
-    xdg.configFile = {
-      "tmux/widgets/10-notify" = {
-        executable = true;
-        text = ''
-          #!/usr/bin/env bash
-          exec ${tmux-opencode-manager}/bin/tmux-opencode-manager widget
-        '';
-      };
+      xdg.configFile = lib.mkMerge [
+        {
+          "tmux/widgets/10-notify" = {
+            executable = true;
+            text = ''
+              #!/usr/bin/env bash
+              exec ${tmux-opencode-manager}/bin/tmux-opencode-manager widget
+            '';
+          };
+        }
+        (lib.mkIf userCfg.opencode.enable {
+          "opencode/plugin/tmux-notifier.ts".source = ./plugins/tmux-notifier.ts;
 
-      "opencode/plugin/tmux-notifier.ts".source = ./plugins/tmux-notifier.ts;
+          # `types.lines`: agents with their own notifier append their
+          # #{pane_current_command} pattern (see scripts/opencode-manager.sh).
+          "tmux-opencode-manager/agent-commands".text = "opencode";
+        })
+      ];
 
-      # `types.lines`: agents with their own notifier append their
-      # #{pane_current_command} pattern (see scripts/opencode-manager.sh).
-      "tmux-opencode-manager/agent-commands".text = "opencode";
+      home.sessionVariables.OPENCODE_TMUX_NOTIFIER_SOUND_DIR = "${mohak34-sounds}";
+
+      programs.tmux.extraConfig = ''
+        # prefix+N drains the notification queue: jumps to the most recent
+        # notification's window and dismisses it, so pressing it repeatedly walks
+        # every pending one. This replaced a `prefix+n` browse-all popup — the
+        # session picker (cli/tmux/session-picker.nix) already shows the same
+        # per-session attention glyph from the same source, and worktree-per-topic
+        # keeps sessions ~1:1 with opencode panes, so a second picker earned
+        # nothing.
+        bind-key 'N' run-shell -b "env TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager notify goto"
+        set-hook -g after-select-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
+        set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
+        set-hook -g after-kill-pane 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-pane \"#{hook_arguments}\""'
+        set-hook -g session-closed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-session #{session_name}"'
+      '';
     };
-
-    home.sessionVariables.OPENCODE_TMUX_NOTIFIER_SOUND_DIR = "${mohak34-sounds}";
-
-    programs.tmux.extraConfig = ''
-      # prefix+N drains the notification queue: jumps to the most recent
-      # notification's window and dismisses it, so pressing it repeatedly walks
-      # every pending one. This replaced a `prefix+n` browse-all popup — the
-      # session picker (cli/tmux/session-picker.nix) already shows the same
-      # per-session attention glyph from the same source, and worktree-per-topic
-      # keeps sessions ~1:1 with opencode panes, so a second picker earned
-      # nothing.
-      bind-key 'N' run-shell -b "env TMUX_OPENCODE_CALLER_TTY='#{client_tty}' ${tmux-opencode-manager}/bin/tmux-opencode-manager notify goto"
-      set-hook -g after-select-window 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
-      set-hook -g client-session-changed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-target #{session_name}:#{window_index}"'
-      set-hook -g after-kill-pane 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-pane \"#{hook_arguments}\""'
-      set-hook -g session-closed 'run-shell -b "${tmux-opencode-manager}/bin/tmux-opencode-manager notify dismiss-session #{session_name}"'
-    '';
-  };
 }

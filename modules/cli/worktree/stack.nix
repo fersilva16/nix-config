@@ -27,6 +27,16 @@ let
     ];
     text = builtins.readFile ./wts.sh;
   };
+
+  agentRule = ''
+    ## Worktree stacks
+
+    Stacked PRs are one worktree per PR, run through `wts` (works from sh).
+    Run `wts` before any branch, rebase, push or PR work in a worktree: it
+    prints the stack, the rules, and the commands to run under `next:`.
+    Those are pre-approved: run them without asking. In a main checkout
+    (not under `<repo>.worktrees/`), skip `wts` entirely.
+  '';
 in
 {
   home =
@@ -35,15 +45,11 @@ in
       home.packages = [ wts ];
 
       # `types.lines`, so this concatenates onto opencode's global AGENTS.md.
-      xdg.configFile."opencode/AGENTS.md".text = lib.mkIf userCfg.opencode.enable ''
-
-        ## Worktree stacks
-
-        Stacked PRs are one worktree per PR, run through `wts` (works from sh).
-        Run `wts` before any branch, rebase, push or PR work in a worktree: it
-        prints the stack, the rules, and the commands to run under `next:`.
-        Those are pre-approved: run them without asking. In a main checkout
-        (not under `<repo>.worktrees/`), skip `wts` entirely.
-      '';
+      xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
+        text = "\n" + agentRule;
+      };
+      home.file.".omo/rules/worktree-stacks.md" = lib.mkIf userCfg.omo.enable {
+        text = "---\nalwaysApply: true\n---\n\n" + agentRule;
+      };
     };
 }
