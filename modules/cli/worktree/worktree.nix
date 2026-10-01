@@ -849,6 +849,50 @@ mkUserModule {
             or return 1
           end
 
+          # A wts stack layer, "<root>/<layer>" (session <parent>/<root>/<layer>):
+          # wts owns layers, so hand it to `wts rm`, which folds the layer's
+          # commits into the one above. Run from the root: a layer can't
+          # remove itself out from under its own cwd.
+          if string match -qr '^[^./][^/]*/[^./][^/]*$' -- "$name"
+            set -l stack (string split -m 1 / -- "$name")
+            set -l root_path "$wt_base/$repo_name.worktrees/$stack[1]"
+            set -l layer_path "$wt_base/$repo_name.worktrees/.stacks/$name"
+            if not test -d "$layer_path"
+              echo "wtrm: no stack layer '$name'"
+              return 1
+            end
+            set -l wflag
+            test $force -eq 1; and set wflag --force
+            if test $force -eq 0; and test -n "$(git -C "$layer_path" status --porcelain 2>/dev/null)"
+              echo "wtrm: stack layer '$name' has changes — use 'wtrm --force $name' to force"
+              return 1
+            end
+            if test $auto_name -eq 1
+              read -P "wtrm: remove stack layer '$name'? [y/N] " confirm
+              string match -qi 'y' -- "$confirm"; or return 0
+            end
+
+            set -l current ""
+            set -q TMUX; and set current (command tmux display-message -p '#{session_name}')
+            if string match -q "*/$name" -- "$current"
+              # Self-remove: wts rm kills this session, so switch to the
+              # root's session (else any other) and run it server-side.
+              set -l back (string replace -r "/$stack[2]\$" "" -- "$current")
+              command tmux has-session -t "=$back" 2>/dev/null
+              or set back (command tmux list-sessions -F '#{session_name}' | grep -vx -- "$current" | head -1)
+              if test -z "$back"
+                echo "wtrm: no other session to switch to"
+                return 1
+              end
+              command tmux switch-client -t "=$back"
+              command tmux run-shell -b -c "$root_path" "{ '"(command -s wts)"' rm '$stack[2]' $wflag; } >/dev/null 2>&1 || true"
+            else
+              string match -q "$layer_path*" -- "$PWD"; and cd "$root_path"
+              sh -c 'cd "$1" && shift && exec wts rm "$@"' sh "$root_path" $stack[2] $wflag
+            end
+            return
+          end
+
           # Guard: $wt_path gets rm -rf'd below, so no traversal in $name
           if string match -qr '(^\.|/)' -- "$name"
             echo "wtrm: invalid worktree name '$name'"
@@ -1022,13 +1066,15 @@ mkUserModule {
           test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
         )'
 
-        # Completion for wtrm: existing worktree names + --force flag
+        # Completion for wtrm: existing worktree names, wts layers as
+        # <root>/<layer>, + --force flag
         complete -f -c wtrm -l force -s f -d "Force remove even with uncommitted changes"
         complete -f -c wtrm -a '(
           set -l mr (git worktree list --porcelain 2>/dev/null | head -1 | string replace "worktree " "")
           set -l rn (basename $mr 2>/dev/null)
           set -l wd (dirname $mr 2>/dev/null)/$rn.worktrees
           test -d $wd 2>/dev/null; and command ls $wd 2>/dev/null
+          test -d $wd/.stacks 2>/dev/null; and string replace "$wd/.stacks/" "" -- $wd/.stacks/*/*
         )'
       '';
     };
