@@ -141,6 +141,11 @@ mkUserModule {
 
   casks = [ "finicky" ];
 
+  # Finicky sits in the path of every link click. As a hidden background app
+  # it gets App Napped when idle, adding seconds to the first link after a
+  # quiet stretch.
+  system.system.defaults.CustomUserPreferences."se.johnste.finicky".NSAppSleepDisabled = true;
+
   home =
     { cfg, lib, ... }:
     let
