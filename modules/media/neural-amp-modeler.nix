@@ -77,8 +77,20 @@ mkUserModule {
     # copyApps puts the app in ~/Applications/Home Manager Apps.
     packages = [ nam ];
 
-    file."Music/NAM/Models".source = models;
-    file."Music/NAM/IRs".source = irs;
+    # The samples are copied rather than linked: /nix is a nobrowse volume, so
+    # NAM's open panel can't browse into store symlinks. Each source gets its
+    # own subfolder (mirrored with --delete), leaving room for your own files.
+    # Runs after linkGeneration so the old store symlinks are already gone.
+    activation.neuralAmpModelerLibrary = {
+      after = [ "linkGeneration" ];
+      before = [ ];
+      data = ''
+        lib="$HOME/Music/NAM"
+        mkdir -p "$lib/Models/pelennor2170" "$lib/IRs/fnpngn"
+        ${pkgs.rsync}/bin/rsync -a --delete --chmod=u+w ${models}/ "$lib/Models/pelennor2170/"
+        ${pkgs.rsync}/bin/rsync -a --delete --chmod=u+w ${irs}/ "$lib/IRs/fnpngn/"
+      '';
+    };
 
     # DAWs scan ~/Library/Audio/Plug-Ins; copy real bundles there (plugin hosts
     # and AU validation don't reliably follow symlinks into the store).
