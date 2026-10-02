@@ -223,9 +223,6 @@ mkUserModule {
         tmux-nvim-park
       ];
 
-      # Outbound: configure ghostty to auto-attach tmux
-      programs.ghostty.settings.command = lib.mkIf userCfg.ghostty.enable "${tmux-attach}/bin/tmux-attach";
-
       # Outbound integration: agents run in /bin/sh and have no idea they're
       # inside a tmux server. Tell them the layout and that they can use it.
       # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates
@@ -237,122 +234,161 @@ mkUserModule {
         text = "---\nalwaysApply: true\n---\n\n" + agentRule;
       };
 
-      programs.tmux = {
-        enable = true;
-        # default-shell is the wrapper tmux uses to run jobs — display-popup
-        # -E, run-shell, if-shell all exec `default-shell -c cmd`
-        # (JOB_DEFAULTSHELL in tmux's job.c). With fish here, every popup
-        # sourced fish's config (~30ms measured) before running its command,
-        # making popups feel laggy next to the in-process display-menu. Use a
-        # bare POSIX sh (~5ms) for the job wrapper; interactive panes still get
-        # login fish via default-command below.
-        shell = "/bin/sh";
-        prefix = "C-space";
-        # Not screen-*: tmux turns italics into standout (reverse video) for
-        # any default-terminal named screen, so italic text gets a solid block.
-        terminal = "tmux-256color";
-        keyMode = "vi";
-        mouse = true;
-        baseIndex = 1;
-        historyLimit = 50000;
-        sensibleOnTop = false;
-        extraConfig = ''
-          # New interactive panes launch login fish (default-shell is /bin/sh
-          # for fast popup/run-shell jobs — see the shell option above). Pane
-          # creation is rare, so the extra sh -c wrapper is irrelevant.
-          set -g default-command "${pkgs.fish}/bin/fish -l"
+      programs = {
+        # Outbound: configure ghostty to auto-attach tmux
+        ghostty.settings.command = lib.mkIf userCfg.ghostty.enable "${tmux-attach}/bin/tmux-attach";
 
-          # ...except agent sessions, which get POSIX sh: agents write
-          # bash-flavoured commands, and their send-keys lines would otherwise
-          # pile up in the fish history I share across every pane. Login sh
-          # (-l) because the tmux server's PATH is only tmux + /usr/bin —
-          # /etc/profile is what pulls the nix profile in. The hook fires after
-          # the session's first pane already started, so the AGENTS.md snippet
-          # above spells the command out for that one; every later window in
-          # the session picks it up from here. Index 10 because the
-          # session-picker part owns session-created[20]. Re-evaluated on
-          # rename, so an agents/* session renamed into a real one drops the
-          # session-local sh and falls back to fish (and vice versa).
-          set-hook -g 'session-created[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\"" "set -u default-command"'
-          set-hook -g 'session-renamed[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\"" "set -u default-command"'
-
-          set -g renumber-windows on
-
-          # Destroying a session (prefix+x on its last pane, wtrm, the picker's
-          # kill bind) switches the client to the most recently active
-          # remaining session instead of detaching — killing a worktree session
-          # drops you back on its parent rather than closing the terminal. The
-          # client still exits when nothing is left, so the last session out
-          # closes Ghostty.
-          set -g detach-on-destroy off
-
-          # Renumber compacts every window with no way to exempt one, so the
-          # nvim window can't just sit at a high index — it gets dragged back
-          # among the real windows. Instead, re-park it last whenever a window
-          # is created; renumber preserves order, so it stays last from then on
-          # and the real windows keep a contiguous 1..N-1.
-          set-hook -g after-new-window 'run-shell -b "${tmux-nvim-park}/bin/tmux-nvim-park \"#{session_name}\""'
-          set -g  escape-time 1
-          set -g display-time 4000
-          set -g status-interval 5
-          set -g focus-events on
-          setw -g aggressive-resize on
-          set -ga terminal-overrides ",*-256color*:Tc"
-
-          # Pass through extended keys (CSI u / kitty keyboard protocol)
-          # Required for Cmd+P, Cmd+Shift+F etc. from Ghostty → tmux → nvim
-          set -g extended-keys on
-          # `extended-keys on` only governs what tmux sends INWARD to panes. To
-          # receive disambiguated keys from the outer terminal, tmux must also
-          # believe that terminal supports them and request it — that is the
-          # `extkeys` feature. Ghostty (TERM=xterm-ghostty) matches the stock
-          # `xterm*` entry, which lacks extkeys, so shift+enter arrives as a
-          # bare CR and is indistinguishable from enter without this line.
-          set -as terminal-features ",xterm-ghostty:extkeys"
-          set -g allow-passthrough on
-
-          # Copy to system clipboard from vi copy mode
-          bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
-          bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
-
-          # Reload config with prefix + R
-          bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
-
-          # Reach a nested tmux: prefix twice. `polaris` attaches polaris's tmux
-          # from inside this one, and both ends run this same config, so without
-          # this every C-Space is eaten by the outer server and the inner one is
-          # uncontrollable.
-          bind-key C-Space send-prefix
-
-          # New windows open at nearest git root; panes inherit current directory.
-          # prefix+c reuses an idle window at that root if one exists (see
-          # tmux-new-window); prefix+C always creates, mirroring the s/S split.
-          # C was tmux's customize-mode, still reachable via prefix+: .
-          # Neither passes #{session_id}: run-shell expands formats into the
-          # command string before /bin/sh parses it, so $101 becomes "01".
-          # run-shell exports TMUX_PANE, so an omitted target is the right one.
-          bind-key c run-shell '${tmux-new-window}/bin/tmux-new-window'
-          bind-key C run-shell 'tmux new-window -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
-          bind-key '"' split-window -c "#{pane_current_path}"
-          bind-key % split-window -h -c "#{pane_current_path}"
-
-          # Pane navigation without the prefix: Option+hjkl (Ghostty sends
-          # Option as Alt). Not nvim-aware: inside nvim these switch tmux panes.
-          bind-key -n M-h select-pane -L
-          bind-key -n M-j select-pane -D
-          bind-key -n M-k select-pane -U
-          bind-key -n M-l select-pane -R
-
-          # Session picker. When the session-picker part is enabled it owns
-          # prefix+s (fzf popup) and keeps choose-tree on prefix+S; otherwise
-          # choose-tree stays on prefix+s. Conditional rather than rebinding to
-          # avoid relying on part/parent extraConfig merge order.
-          ${lib.optionalString (!cfg.session-picker.enable) "bind-key s ${choose-tree-picker}"}
-        '';
-
-        plugins = with pkgs; [
-          tmuxPlugins.better-mouse-mode
+        # Outbound: nvim half of the Option+hjkl navigation below. Normal mode
+        # only, so visual-mode Alt+j/k (move selection) still reaches nvim's map.
+        neovim.plugins = lib.mkIf userCfg.nvim.enable [
+          {
+            plugin = pkgs.vimPlugins.vim-tmux-navigator;
+            config = ''
+              vim.g.tmux_navigator_no_mappings = 1
+              vim.keymap.set('n', '<A-h>', '<cmd>TmuxNavigateLeft<cr>', { desc = 'Window/pane left', silent = true })
+              vim.keymap.set('n', '<A-j>', '<cmd>TmuxNavigateDown<cr>', { desc = 'Window/pane down', silent = true })
+              vim.keymap.set('n', '<A-k>', '<cmd>TmuxNavigateUp<cr>', { desc = 'Window/pane up', silent = true })
+              vim.keymap.set('n', '<A-l>', '<cmd>TmuxNavigateRight<cr>', { desc = 'Window/pane right', silent = true })
+            '';
+          }
         ];
+
+        tmux = {
+          enable = true;
+          # default-shell is the wrapper tmux uses to run jobs — display-popup
+          # -E, run-shell, if-shell all exec `default-shell -c cmd`
+          # (JOB_DEFAULTSHELL in tmux's job.c). With fish here, every popup
+          # sourced fish's config (~30ms measured) before running its command,
+          # making popups feel laggy next to the in-process display-menu. Use a
+          # bare POSIX sh (~5ms) for the job wrapper; interactive panes still get
+          # login fish via default-command below.
+          shell = "/bin/sh";
+          prefix = "C-space";
+          # Not screen-*: tmux turns italics into standout (reverse video) for
+          # any default-terminal named screen, so italic text gets a solid block.
+          terminal = "tmux-256color";
+          keyMode = "vi";
+          mouse = true;
+          baseIndex = 1;
+          historyLimit = 50000;
+          sensibleOnTop = false;
+          extraConfig = ''
+            # New interactive panes launch login fish (default-shell is /bin/sh
+            # for fast popup/run-shell jobs — see the shell option above). Pane
+            # creation is rare, so the extra sh -c wrapper is irrelevant.
+            set -g default-command "${pkgs.fish}/bin/fish -l"
+
+            # ...except agent sessions, which get POSIX sh: agents write
+            # bash-flavoured commands, and their send-keys lines would otherwise
+            # pile up in the fish history I share across every pane. Login sh
+            # (-l) because the tmux server's PATH is only tmux + /usr/bin —
+            # /etc/profile is what pulls the nix profile in. The hook fires after
+            # the session's first pane already started, so the AGENTS.md snippet
+            # above spells the command out for that one; every later window in
+            # the session picks it up from here. Index 10 because the
+            # session-picker part owns session-created[20]. Re-evaluated on
+            # rename, so an agents/* session renamed into a real one drops the
+            # session-local sh and falls back to fish (and vice versa).
+            set-hook -g 'session-created[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\"" "set -u default-command"'
+            set-hook -g 'session-renamed[10]' 'if -F "#{m:agents/*,#{session_name}}" "set default-command \"/bin/sh -l\"" "set -u default-command"'
+
+            set -g renumber-windows on
+
+            # Destroying a session (prefix+x on its last pane, wtrm, the picker's
+            # kill bind) switches the client to the most recently active
+            # remaining session instead of detaching — killing a worktree session
+            # drops you back on its parent rather than closing the terminal. The
+            # client still exits when nothing is left, so the last session out
+            # closes Ghostty.
+            set -g detach-on-destroy off
+
+            # Renumber compacts every window with no way to exempt one, so the
+            # nvim window can't just sit at a high index — it gets dragged back
+            # among the real windows. Instead, re-park it last whenever a window
+            # is created; renumber preserves order, so it stays last from then on
+            # and the real windows keep a contiguous 1..N-1.
+            set-hook -g after-new-window 'run-shell -b "${tmux-nvim-park}/bin/tmux-nvim-park \"#{session_name}\""'
+            set -g  escape-time 1
+            set -g display-time 4000
+            set -g status-interval 5
+            set -g focus-events on
+            setw -g aggressive-resize on
+            set -ga terminal-overrides ",*-256color*:Tc"
+
+            # Pass through extended keys (CSI u / kitty keyboard protocol)
+            # Required for Cmd+P, Cmd+Shift+F etc. from Ghostty → tmux → nvim
+            set -g extended-keys on
+            # `extended-keys on` only governs what tmux sends INWARD to panes. To
+            # receive disambiguated keys from the outer terminal, tmux must also
+            # believe that terminal supports them and request it — that is the
+            # `extkeys` feature. Ghostty (TERM=xterm-ghostty) matches the stock
+            # `xterm*` entry, which lacks extkeys, so shift+enter arrives as a
+            # bare CR and is indistinguishable from enter without this line.
+            set -as terminal-features ",xterm-ghostty:extkeys"
+            set -g allow-passthrough on
+
+            # Copy to system clipboard from vi copy mode
+            bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
+            bind-key -T copy-mode-vi y send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
+
+            # Reload config with prefix + R
+            bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
+
+            # Reach a nested tmux: prefix twice. `polaris` attaches polaris's tmux
+            # from inside this one, and both ends run this same config, so without
+            # this every C-Space is eaten by the outer server and the inner one is
+            # uncontrollable.
+            bind-key C-Space send-prefix
+
+            # New windows open at nearest git root; panes inherit current directory.
+            # prefix+c reuses an idle window at that root if one exists (see
+            # tmux-new-window); prefix+C always creates, mirroring the s/S split.
+            # C was tmux's customize-mode, still reachable via prefix+: .
+            # Neither passes #{session_id}: run-shell expands formats into the
+            # command string before /bin/sh parses it, so $101 becomes "01".
+            # run-shell exports TMUX_PANE, so an omitted target is the right one.
+            bind-key c run-shell '${tmux-new-window}/bin/tmux-new-window'
+            bind-key C run-shell 'tmux new-window -c "$(${tmux-git-root-path}/bin/tmux-git-root-path "#{pane_current_path}")"'
+            bind-key '"' split-window -c "#{pane_current_path}"
+            bind-key % split-window -h -c "#{pane_current_path}"
+
+            # Pane navigation without the prefix: Option+hjkl (Ghostty sends
+            # Option as Alt). nvim-aware via vim-tmux-navigator: when the pane
+            # runs nvim the key is forwarded and nvim moves between its own
+            # splits, falling through to select-pane at the edge. ps (not
+            # pane_current_command) so nvim launched as a child — git commit,
+            # lazygit's editor — still counts.
+            is_vim="ps -o state= -o comm= -t '#{pane_tty}' | grep -iqE '^[^TXZ ]+ +([^ ]+/)?g?\\.?(view|l?n?vim?x?)(diff)?(-wrapped)?$'"
+            bind-key -n M-h if-shell "$is_vim" 'send-keys M-h' 'select-pane -L'
+            bind-key -n M-j if-shell "$is_vim" 'send-keys M-j' 'select-pane -D'
+            bind-key -n M-k if-shell "$is_vim" 'send-keys M-k' 'select-pane -U'
+            bind-key -n M-l if-shell "$is_vim" 'send-keys M-l' 'select-pane -R'
+
+            # Prefixless splits and resizes, same Option layer as navigation:
+            # Option+\ splits side-by-side, Option+- stacks, Option+Shift+hjkl
+            # grows/shrinks the pane by 5 cells (-r not needed: no prefix).
+            bind-key -n 'M-\' split-window -h -c "#{pane_current_path}"
+            bind-key -n M-- split-window -v -c "#{pane_current_path}"
+            bind-key -n M-H resize-pane -L 5
+            bind-key -n M-J resize-pane -D 5
+            bind-key -n M-K resize-pane -U 5
+            bind-key -n M-L resize-pane -R 5
+
+            # prefix+j pulls another window in as a side pane (the inverse of
+            # the built-in prefix+! break-pane).
+            bind-key j choose-tree -Zw "join-pane -h -s '%%'"
+
+            # Session picker. When the session-picker part is enabled it owns
+            # prefix+s (fzf popup) and keeps choose-tree on prefix+S; otherwise
+            # choose-tree stays on prefix+s. Conditional rather than rebinding to
+            # avoid relying on part/parent extraConfig merge order.
+            ${lib.optionalString (!cfg.session-picker.enable) "bind-key s ${choose-tree-picker}"}
+          '';
+
+          plugins = with pkgs; [
+            tmuxPlugins.better-mouse-mode
+          ];
+        };
       };
     };
 }
