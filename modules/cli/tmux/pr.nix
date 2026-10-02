@@ -269,6 +269,8 @@ let
       gh
       gawk
       coreutils
+      git
+      fish
     ];
     text = ''
       CACHE=${cache}
@@ -382,7 +384,7 @@ let
           if [ -n "$s" ]; then tail=" · $z snoozed shown"; else tail=" · $z snoozed"; fi
         fi
         printf '%s · %s · %s%s\n' "''${parts[@]}" "$tail"
-        printf 'enter open · x snooze · s show · u clear · / search · tab view · r refresh · last 14d\n'
+        printf 'enter open · w worktree · x snooze · s show · u clear · / search · tab view · r refresh · last 14d\n'
       }
 
       # ── subcommands driven by fzf binds ──────────────────────────────────
@@ -458,6 +460,58 @@ let
           open "$2" >/dev/null 2>&1 || gh pr view --web "$2" >/dev/null 2>&1 || true
           exit 0
           ;;
+        --worktree)
+          # Hand the PR to wtpr. wtpr resolves a bare number against the repo
+          # it runs in, while this popup spans every repo, so first find the
+          # local clone whose origin is the PR's repo. Matched by remote, not
+          # by directory name: clones live at ~/<name> and ~/<org>/<name>, and
+          # the directory does not always carry the repo's name. Only real
+          # .git dirs count — a worktree's .git is a file, and wtpr finds the
+          # main checkout on its own anyway.
+          url="''${2:-}"
+          case "$url" in https://github.com/*/pull/*) ;; *) exit 0 ;; esac
+          rest=''${url#https://github.com/}
+          repo=''${rest%/pull/*}
+          num=''${rest##*/}
+          case "$num" in "" | *[!0-9]*) exit 0 ;; esac
+
+          dir=""
+          for g in "$HOME"/*/.git "$HOME"/*/*/.git; do
+            [ -d "$g" ] || continue
+            r=$(git -C "''${g%/.git}" remote get-url origin 2>/dev/null) || continue
+            r=''${r%.git}
+            r=''${r%/}
+            r=''${r#*github.com[:/]}
+            if [ "''${r,,}" = "''${repo,,}" ]; then
+              dir=''${g%/.git}
+              break
+            fi
+          done
+          if [ -z "$dir" ]; then
+            printf 'no local clone of %s in ~/* or ~/*/*\n' "$repo"
+            read -rsn1 -p 'press any key' </dev/tty || true
+            exit 0
+          fi
+
+          # wt names the new session <parent>/<name> after the session it runs
+          # from, which from this popup is whatever repo you happened to be
+          # in. Session groups follow the first directory under ~ instead —
+          # ~/telepatia/monobloco is "telepatia", ~/nix-config is
+          # "nix-config". Derived from the path rather than read off tmux:
+          # scanning panes for one inside the repo picked whichever session
+          # had last cd'd there, and the first misnamed session then won
+          # every lookup after it.
+          rel=''${dir#"$HOME"/}
+          parent=''${rel%%/*}
+
+          # wtpr prompts for the worktree name, so it needs the terminal, not
+          # the pipe fzf was fed from. On success it switches the client and
+          # the popup closes with it; on failure keep its error on screen.
+          cd "$dir" || exit 0
+          WT_PARENT_SESSION="$parent" fish -c "wtpr $num" </dev/tty && exit 0
+          read -rsn1 -p 'press any key' </dev/tty || true
+          exit 0
+          ;;
       esac
 
       # Always open on your own PRs with snoozed rows folded away: that is what
@@ -487,6 +541,8 @@ let
       # shellcheck disable=SC2016  # {1} is fzf's placeholder, not a shell var
       b_open='execute-silent('"$self"' --open {1})'
       # shellcheck disable=SC2016
+      b_worktree='become('"$self"' --worktree {1})'
+      # shellcheck disable=SC2016
       b_snooze='execute-silent('"$self"' --snooze {1})+'"$redraw"
       b_show='execute-silent('"$self"' --show-toggle)+'"$redraw"
       b_unignore='execute-silent('"$self"' --unignore-all)+'"$redraw"
@@ -505,10 +561,10 @@ let
       # would quietly build up a "pae" in the prompt that looks like a search
       # doing nothing. Wiping it on change keeps the prompt honest; the bind has
       # to come off in search mode or it would eat the query as you type it.
-      b_search='unbind(change)+unbind(x)+unbind(s)+unbind(u)+unbind(r)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
+      b_search='unbind(change)+unbind(w)+unbind(x)+unbind(s)+unbind(u)+unbind(r)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
       # Back to menu mode: reload repopulates the full list, since disable-search
       # on its own freezes whatever subset the last query left behind.
-      b_esc_back='clear-query+disable-search+change-prompt(❯ )+rebind(change)+rebind(x)+rebind(s)+rebind(u)+rebind(r)+rebind(/)+'"$redraw"
+      b_esc_back='clear-query+disable-search+change-prompt(❯ )+rebind(change)+rebind(w)+rebind(x)+rebind(s)+rebind(u)+rebind(r)+rebind(/)+'"$redraw"
       # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's, not bash's
       b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
 
@@ -523,6 +579,7 @@ let
         --color='pointer:green,prompt:green,info:dim,header:dim' \
         --header="$(header_line "$view" "$show")" \
         --bind "enter:$b_open" \
+        --bind "w:$b_worktree" \
         --bind "x:$b_snooze" \
         --bind "s:$b_show" \
         --bind "u:$b_unignore" \

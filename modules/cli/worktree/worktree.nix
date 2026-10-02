@@ -634,8 +634,12 @@ mkUserModule {
             return 0
           end
 
-          # Use root session name (strip /suffix if called from a worktree session)
-          set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
+          # Use root session name (strip /suffix if called from a worktree session).
+          # WT_PARENT_SESSION is for callers outside the repo's own session —
+          # the tmux PR popup — so the new session still groups with its repo.
+          set parent_session $WT_PARENT_SESSION
+          test -n "$parent_session"
+          or set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
           set session_name "$parent_session/$name"
 
           # Nothing to build: just switch. The is_new check is load-bearing now

@@ -140,70 +140,35 @@
       set wt_base (dirname $main_root)
       set wt_path "$wt_base/$repo_name.worktrees/$name"
 
-      # tmux: switch to existing session if it exists
-      if set -q TMUX
-        set parent_session (command tmux display-message -p '#{session_name}' | string split -m 1 '/')[1]
-        set session_name "$parent_session/$name"
+      # Same-repo PR: the PR's actual head branch, tracking origin, so `git
+      # push`/`git pull` work naturally and the local name matches GitHub.
+      # Fork PR: no push access, and the fork's head branch name may collide
+      # locally (e.g. a fork's `main`), so a namespaced pr-N branch under
+      # wt.prefix, like every branch wt invents.
+      set -l branch $head_branch
+      test "$is_fork" = "false"; or set branch (_wt_prefix)"pr-$pr_num"
 
-        if command tmux has-session -t "=$session_name" 2>/dev/null
-          command tmux switch-client -t "=$session_name"
-          return 0
-        end
-      end
-
-      # Create worktree if missing
-      set -l is_new 0
-      if not test -d "$wt_path"
+      # The fetch is the only part wt can't do: it never touches the network
+      # on its critical path, and a PR branch is exactly what its refs/remotes
+      # may not have yet. Skipped for a worktree that already exists, which wt
+      # just switches to. Re-running wtpr on a fork PR refreshes pr-N; the +
+      # handles force-pushes.
+      if not test -e "$wt_path/.git"
+        echo "wtpr: fetching PR #$pr_num…"
         if test "$is_fork" = "false"
-          # Same-repo PR: check out the PR's actual head branch tracking
-          # origin, so `git push`/`git pull` work naturally and the local
-          # branch name matches GitHub. Using pr-N here breaks push
-          # (local/upstream names differ) and confuses tooling/LLMs.
           git fetch origin "+refs/heads/$head_branch:refs/remotes/origin/$head_branch" 2>/dev/null
           or begin; echo "wtpr: failed to fetch PR branch"; return 1; end
-
-          if git show-ref --verify --quiet "refs/heads/$head_branch"
-            # Local branch already exists: attach the worktree to it.
-            git worktree add "$wt_path" "$head_branch"
-          else
-            # Create local branch tracking origin (mirrors wt's pattern).
-            git worktree add --track -b "$head_branch" "$wt_path" "origin/$head_branch"
-          end
-          or begin; echo "wtpr: failed to create worktree"; return 1; end
         else
-          # Fork PR: no push access, and the fork's head branch name may
-          # collide locally (e.g. a fork's `main`). Fetch pull/N/head into
-          # a namespaced pr-N branch (under wt.prefix, like every branch wt
-          # invents); re-running wtpr refreshes force-pushed PRs. The +
-          # forces fast-forward to handle force-pushes.
-          set -l local_branch (_wt_prefix)"pr-$pr_num"
-          git fetch origin "+pull/$pr_num/head:refs/heads/$local_branch" 2>/dev/null
+          git fetch origin "+pull/$pr_num/head:refs/heads/$branch" 2>/dev/null
           or begin; echo "wtpr: failed to fetch PR"; return 1; end
-
-          git worktree add "$wt_path" "$local_branch"
-          or begin; echo "wtpr: failed to create worktree"; return 1; end
         end
-
-        echo "Created worktree at $wt_path (PR #$pr_num: $head_branch)"
-        direnv allow "$wt_path" 2>/dev/null
-        set is_new 1
       end
 
-      # Create tmux session and switch
-      if set -q TMUX
-        command tmux new-session -d -s "$session_name" -c "$wt_path"
-
-        if test $is_new -eq 1
-          set -l setup_file "$wt_base/$repo_name.worktrees/.setup"
-          if test -f "$setup_file"
-            command tmux send-keys -t "=$session_name" "sh '$setup_file'" Enter
-          end
-        end
-
-        command tmux switch-client -t "=$session_name"
-      else
-        echo "Not in tmux — run: cd $wt_path && opencode"
-      end
+      # Everything else is wt's: pool claim, the checkout inside the new
+      # session, .setup in a detached window, and the pool refill afterwards.
+      # With the branch now local (or in refs/remotes), wt's branch resolution
+      # checks it out instead of forking a new one from HEAD.
+      wt "$name" "$branch"
     '';
   };
 }
