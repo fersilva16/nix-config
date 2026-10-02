@@ -54,16 +54,35 @@ let
     };
   });
   plugins = "${nam}/Library/Audio/Plug-Ins";
+
+  # Starter library, read-only from the store: community amp captures (GPL-3)
+  # and a collection of freely shared cab IR packs (incl. a few more .nam rigs).
+  models = pkgs.fetchFromGitHub {
+    owner = "pelennor2170";
+    repo = "NAM_models";
+    rev = "944ca6718581c60cc5365586d2f378d740e181f3";
+    hash = "sha256-r4gqBzW7bTNly6LGr0/W9rNXc4M3nO0K3mCk0zO8Gbw=";
+  };
+  # The .wav files live in Git LFS; GitHub tarballs only carry the pointers.
+  irs = pkgs.fetchgit {
+    url = "https://github.com/fnpngn/IR";
+    rev = "a8179cf05a84045c3600744ce8f905382a81fb17";
+    fetchLFS = true;
+    hash = "sha256-JxcPejwzSYTKGJU8ojUXth3NLclKAH1k5LPmHQPlLwk=";
+  };
 in
 mkUserModule {
   name = "neural-amp-modeler";
-  home = {
+  home.home = {
     # copyApps puts the app in ~/Applications/Home Manager Apps.
-    home.packages = [ nam ];
+    packages = [ nam ];
+
+    file."Music/NAM/Models".source = models;
+    file."Music/NAM/IRs".source = irs;
 
     # DAWs scan ~/Library/Audio/Plug-Ins; copy real bundles there (plugin hosts
     # and AU validation don't reliably follow symlinks into the store).
-    home.activation.neuralAmpModelerPlugins = {
+    activation.neuralAmpModelerPlugins = {
       after = [ "writeBoundary" ];
       before = [ ];
       data = ''
