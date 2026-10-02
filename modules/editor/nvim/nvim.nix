@@ -78,9 +78,8 @@ mkUserModule {
         -- ║    VS CODE-LIKE KEYBINDINGS              ║
         -- ╚══════════════════════════════════════════╝
 
-        -- Move lines up/down (like Alt+Up/Down in VS Code)
-        vim.keymap.set('n', '<A-j>', ':m .+1<CR>==', { desc = 'Move line down', silent = true })
-        vim.keymap.set('n', '<A-k>', ':m .-2<CR>==', { desc = 'Move line up', silent = true })
+        -- Move selection up/down (like Alt+Up/Down in VS Code). Visual only:
+        -- normal-mode Alt+hjkl is split/pane navigation (tmux module).
         vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { desc = 'Move selection down', silent = true })
         vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { desc = 'Move selection up', silent = true })
 
@@ -169,7 +168,7 @@ mkUserModule {
             '  Cmd+Left/Right          ^ / $      line',
             '  Cmd+Up/Down             gg / G     file',
             '  Opt+Backspace           (insert)   del word',
-            '  Alt+j / Alt+k           move line up/down',
+            '  Alt+h/j/k/l             split / tmux pane',
             s,
             '  Files',
             '  Space ff           find file',
@@ -225,7 +224,7 @@ mkUserModule {
             '  Space Ghb          blame line',
             s,
             '  Editing',
-            '  Alt+j / Alt+k      move line down / up',
+            '  Alt+j / Alt+k      move selection (visual)',
             '  < / >  (visual)    indent and reselect',
             '  gcc                toggle comment',
             '  sa" / sd" / sr"    surround add/del/replace',
