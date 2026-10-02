@@ -138,6 +138,7 @@ mkUser {
   spotify.enable = true;
   stremio.enable = true;
   affinity.enable = true;
+  "neural-amp-modeler".enable = true;
 
   # Productivity
   anki.enable = true;
