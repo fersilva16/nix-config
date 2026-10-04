@@ -49,9 +49,12 @@ chmod +x "$SANDBOX/bin/tmux-slack-later-list"
 fail=0
 snapshot() { printf '%s' "$1" >"$SANDBOX/tmux-slack-later-pane.json"; }
 
+# Flat unless a test says otherwise: most checks are about one row each. The
+# export covers the re-entry commands below that run through sh -c, not run().
+export TMUX_SLACK_LATER_GROUP=flat
 run() {
   PATH="$SANDBOX/bin:$PATH" TMPDIR="$SANDBOX" TMUX_SLACK_LATER_WORKSPACE="$WORKSPACE" \
-    bash "$PANE" "$@" 2>/dev/null
+    TMUX_SLACK_LATER_GROUP="${GROUP:-flat}" bash "$PANE" "$@" 2>/dev/null
 }
 
 # Strips the pane's own SGR codes; only text, ordering and marks are asserted.
@@ -86,7 +89,7 @@ EOF
 snapshot "$full"
 check "header leads with the count" "$(run --header | head -1)" "Later · 3"
 check "header advertises its keys" "$(run --header | sed -n 2p)" \
-  "enter open · / search · r refresh · q quit"
+  "enter open · / search · r refresh · tab by channel · q quit"
 
 snapshot '{"counts":{"uncompleted_count":9},"items":[{"id":"a","title":"t","url":""}],"error":"","truncated":true}'
 check "a partial load says how much of it is on screen" "$(run --header | head -1)" \
@@ -117,6 +120,53 @@ check "control characters never survive into a row" \
   "$(run --list | cut -f2 | grep -c $'\x1b\|\x07')" "0"
 check "the sanitized title is still readable" "$(run --list | plain | cut -f2)" \
   "pwn [31m ]0;title ed"
+
+# ── by channel ────────────────────────────────────────────────────────────
+grouped=$(
+  cat <<EOF
+{"counts":{"uncompleted_count":4},
+ "items":[
+   {"id":"a","title":"first","url":"https://$WORKSPACE/a","channel":"C1","channel_name":"#eng"},
+   {"id":"b","title":"second","url":"https://$WORKSPACE/b","channel":"D1","channel_name":"@Ana"},
+   {"id":"c","title":"third","url":"https://$WORKSPACE/c","channel":"C1","channel_name":"#eng"},
+   {"id":"d","title":"fourth","url":"https://$WORKSPACE/d","channel":"C9","channel_name":""}],
+ "error":"","truncated":false}
+EOF
+)
+snapshot "$grouped"
+check "by channel regroups rows, newest conversation first" \
+  "$(GROUP=channel run --list | plain | cut -f2 | tr '\n' '|')" \
+  "#eng  first|      third|@Ana  second|C9    fourth|"
+check "grouped rows keep their own urls" \
+  "$(GROUP=channel run --list | cut -f1 | tr '\n' ' ')" \
+  "https://$WORKSPACE/a https://$WORKSPACE/c https://$WORKSPACE/b https://$WORKSPACE/d "
+check "by channel advertises the way back" "$(GROUP=channel run --header | sed -n 2p)" \
+  "enter open · / search · r refresh · tab flat · q quit"
+
+# tab flips the view in place and repaints from the snapshot, never fetching.
+rm -f "$SANDBOX/tmux-slack-later-pane.json.mode"
+: >"$CALLED"
+toggled=$(GROUP=channel run --toggle)
+check "tab asks fzf to repaint" \
+  "$(grep -c '^reload(.* --list)+transform-header(.* --header)$' <<<"$toggled")" "1"
+check "tab flips channel to flat" "$(GROUP=channel run --list | plain | cut -f2 | head -1)" "first"
+GROUP=channel run --toggle >/dev/null
+check "tab flips back to channel" "$(GROUP=channel run --list | plain | cut -f2 | head -1)" "#eng  first"
+check "tab makes no backend call" "$(wc -l <"$CALLED" | tr -d ' ')" "0"
+
+# A tab before the first fetch lands would kill it with its reload, so it hands
+# the fetch to that reload's load event instead.
+: >"$SANDBOX/tmux-slack-later-pane.json.loaded"
+rm -f "$SANDBOX/tmux-slack-later-pane.json.fetched"
+run --toggle >/dev/null
+check "tab before the fetch lands re-arms it" \
+  "$([ -e "$SANDBOX/tmux-slack-later-pane.json.loaded" ] && echo armed || echo re-armed)" "re-armed"
+: >"$SANDBOX/tmux-slack-later-pane.json.loaded"
+: >"$SANDBOX/tmux-slack-later-pane.json.fetched"
+run --toggle >/dev/null
+check "tab after the fetch leaves it alone" \
+  "$([ -e "$SANDBOX/tmux-slack-later-pane.json.loaded" ] && echo armed || echo re-armed)" "armed"
+rm -f "$SANDBOX"/tmux-slack-later-pane.json.{loaded,fetched,mode}
 
 # ── placeholders ──────────────────────────────────────────────────────────
 snapshot '{"counts":{"uncompleted_count":0},"items":[],"error":"","truncated":false}'
@@ -185,7 +235,7 @@ chmod +x "$SANDBOX/bin/fzf"
 chmod -x "$PANE" 2>/dev/null || true
 
 run >/dev/null
-reentry=$(sed -n 's/.*reload(\(.*\) --list).*/\1/p' "$SANDBOX/fzfargs" | head -1)
+reentry=$(sed -n 's/.*reload-sync(\(.*\) --refresh).*/\1/p' "$SANDBOX/fzfargs" | head -1)
 check "the binds re-enter through a runnable command" \
   "$([ -n "$reentry" ] && echo yes)" "yes"
 check "that command works without an executable bit" \
@@ -195,12 +245,28 @@ rm -f "$SANDBOX/bin/fzf"
 
 # ── refresh ───────────────────────────────────────────────────────────────
 : >"$CALLED"
-run --refresh
+run --refresh >/dev/null
 check "r refreshes the backend cache before re-listing" \
   "$(grep -c 'tmux-slack-later-refresh' "$CALLED")" "1"
 check "r then re-reads the list" \
   "$(grep -c 'tmux-slack-later-list' "$CALLED")" "1"
 check "refresh leaves a usable snapshot" "$(run --header | head -1)" "Later · 1"
+check "refresh hands fzf the fresh rows itself" "$(run --refresh | plain | cut -f2)" "fresh"
+check "a running refresh says so" "$(run --header refreshing | head -1)" "Later · 1 · refreshing…"
+
+# r must not use execute-silent: it blocks fzf for the whole fetch, which is the
+# frozen, silent popup this guards against.
+cat >"$SANDBOX/bin/fzf" <<EOF
+#!/bin/sh
+cat >/dev/null
+printf '%s\n' "\$@" >"$SANDBOX/fzfargs"
+EOF
+chmod +x "$SANDBOX/bin/fzf"
+run >/dev/null
+check "r never blocks fzf" "$(grep -c '^r:.*execute' "$SANDBOX/fzfargs")" "0"
+check "r refreshes behind the rows" \
+  "$(grep -c '^r:transform-header(.* --header refreshing)+reload-sync(.* --refresh)$' "$SANDBOX/fzfargs")" "1"
+rm -f "$SANDBOX/bin/fzf"
 
 # ── the first frame ───────────────────────────────────────────────────────
 # The backend's own list refreshes a stale cache before it answers, which is a

@@ -12,15 +12,29 @@
   # lib comes from the module args, NOT pkgs.lib: an option DECLARATION that
   # forces pkgs is circular here (pkgs needs nixpkgs.overlays, which needs the
   # declarations complete), and nix reports it only as "infinite recursion".
-  extraOptions.workspace = lib.mkOption {
-    type = lib.types.str;
-    default = "";
-    example = "telepatiaworkspace.slack.com";
-    description = ''
-      Exact Slack workspace domain the Later count belongs to. It is checked
-      against auth.test's URL host before any saved.list result is published.
-      An empty or non-matching domain fails closed.
-    '';
+  extraOptions = {
+    workspace = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "telepatiaworkspace.slack.com";
+      description = ''
+        Exact Slack workspace domain the Later count belongs to. It is checked
+        against auth.test's URL host before any saved.list result is published.
+        An empty or non-matching domain fails closed.
+      '';
+    };
+
+    groupBy = lib.mkOption {
+      type = lib.types.enum [
+        "channel"
+        "flat"
+      ];
+      default = "channel";
+      description = ''
+        The view the prefix+L popup opens in: grouped by conversation, or one
+        flat list. Tab flips it inside the popup.
+      '';
+    };
   };
 
   home =
@@ -87,6 +101,7 @@
         ];
         text = ''
           export TMUX_SLACK_LATER_WORKSPACE=${lib.escapeShellArg cfg.workspace}
+          export TMUX_SLACK_LATER_GROUP=${cfg.groupBy}
           exec ${pkgs.bash}/bin/bash ${./later-pane.sh} "$@"
         '';
       };
@@ -99,13 +114,11 @@
         tmux-slack-later-pane
       ];
 
-      # A real split, not a popup: the Later list is something you read while
-      # working, and a popup dies the moment you touch the pane behind it.
-      # Uppercase L only overrides tmux's default switch-client -l; lowercase l
-      # stays lazygit's split. fzf owns the pane, so exiting fzf closes it —
-      # nothing here kills a pane.
+      # An overlay, the same size and shape as the PR and todoist pickers: open,
+      # read, open a message or quit. Uppercase L only overrides tmux's default
+      # switch-client -l; lowercase l stays lazygit's split.
       programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
-        bind-key L split-window -h -p 40 '${tmux-slack-later-pane}/bin/tmux-slack-later-pane'
+        bind-key L display-popup -E -w 80% -h 60% '${tmux-slack-later-pane}/bin/tmux-slack-later-pane'
       '';
 
       # 47 keeps it beside the other attention counts — PR (45) and todoist

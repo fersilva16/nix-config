@@ -55,6 +55,8 @@ valid_list() {
       and (.id | type == "string")
       and (.title | type == "string")
       and (.url | type == "string")
+      and (.channel | . == null or type == "string")
+      and (.channel_name | . == null or type == "string")
       and (.date_created | date)
       and (.date_due | date);
     if (.counts | type == "object")
@@ -73,6 +75,8 @@ valid_list() {
         id: .id,
         title: .title,
         url: .url,
+        channel: (.channel // ""),
+        channel_name: (.channel_name // ""),
         date_created: .date_created,
         date_due: .date_due
       }],
@@ -317,18 +321,18 @@ curl_config_value() {
 
 # Credentials live only in the private Netscape jar. Curl receives its path in
 # stdin config, while token and cookies never appear in curl's command line.
+# The 4th argument is the one endpoint-specific parameter: saved.list's page
+# cursor (optional), messages.list's ids, or the channel/user being looked up.
 slack_request() {
-  local endpoint=$1 token=$2 jar=$3 message_ids=${4:-} user_agent escaped_message_ids
+  local endpoint=$1 token=$2 jar=$3 arg=${4:-} user_agent escaped
   safe_token "$token" && [[ -r "$jar" ]] || return 1
   case "$endpoint" in
     auth.test | saved.list) ;;
-    messages.list) [[ -n "$message_ids" ]] || return 1 ;;
+    messages.list | conversations.info | users.info) [[ -n "$arg" ]] || return 1 ;;
     *) return 1 ;;
   esac
   user_agent=$(chrome_user_agent) || return 1
-  if [[ $endpoint == messages.list ]]; then
-    escaped_message_ids=$(curl_config_value "$message_ids") || return 1
-  fi
+  escaped=$(curl_config_value "$arg") || return 1
 
   {
     cat <<EOF
@@ -346,15 +350,27 @@ EOF
 data-urlencode = "limit=49"
 data-urlencode = "filter=saved"
 EOF
+        [[ -z "$escaped" ]] || printf 'data-urlencode = "cursor=%s"\n' "$escaped"
         ;;
-      messages.list) printf 'data-urlencode = "message_ids=%s"\n' "$escaped_message_ids" ;;
+      messages.list) printf 'data-urlencode = "message_ids=%s"\n' "$escaped" ;;
+      conversations.info) printf 'data-urlencode = "channel=%s"\n' "$escaped" ;;
+      users.info) printf 'data-urlencode = "user=%s"\n' "$escaped" ;;
     esac
   } | curl --silent --show-error --config -
 }
 
+# One lookup, ok or nothing. Only used for display names, which are cosmetic:
+# a failure here must never fail a refresh, so there is no error taxonomy.
+call_info() {
+  local response
+  response=$(slack_request "$1" "$2" "$3" "$4") || return 1
+  jq -e '.ok == true' <<<"$response" >/dev/null 2>&1 || return 1
+  printf '%s' "$response"
+}
+
 call_saved() {
   local response error
-  response=$(slack_request "saved.list" "$1" "$2") || return 2
+  response=$(slack_request "saved.list" "$1" "$2" "${3:-}") || return 2
   error=$(printf '%s' "$response" | jq -r 'if .ok then "" else (.error // "malformed") end' 2>/dev/null) || return 2
   case "$error" in
     "") printf '%s' "$response" ;;
@@ -383,6 +399,82 @@ valid_saved_response() {
   ' >/dev/null
 }
 
+# Every page of saved.list, merged into one response shaped like a single page.
+# Slack caps a page at 49, so following next_cursor is what lifts the list past
+# that. Bounded at 20 pages (980 items) so a cursor that never empties cannot
+# spin a refresh forever; hitting the bound leaves the last cursor in place,
+# which materialize_saved reports as truncated. Exit codes are call_saved's.
+fetch_saved() {
+  local token=$1 jar=$2 page merged="" cursor="" pages=0
+  while :; do
+    page=$(call_saved "$token" "$jar" "$cursor") || return $?
+    valid_saved_response <<<"$page" || return 2
+    if [[ -z "$merged" ]]; then
+      merged=$page
+    else
+      merged=$(jq -c --argjson page "$page" '
+        .saved_items += $page.saved_items
+        | .response_metadata = $page.response_metadata
+      ' <<<"$merged") || return 2
+    fi
+    cursor=$(jq -r '(.response_metadata.next_cursor? // "") | strings' <<<"$page")
+    pages=$((pages + 1))
+    [[ -n "$cursor" && $pages -lt 20 ]] || break
+  done
+  printf '%s' "$merged"
+}
+
+# Channel id -> display name ("#general", "@Ana", "@ana, bob"), written to
+# $PRIVATE_TMP/names.json for materialize_saved. Names are kept across refreshes
+# in their own private file: they almost never change, and asking again for
+# every channel every 15 minutes is the quickest way into Slack's rate limits.
+# Purely cosmetic — any lookup that fails leaves the id unnamed and the row
+# falls back to showing the id.
+# ponytail: a renamed channel keeps its old name until the names file is
+# deleted; add an expiry if that ever matters.
+resolve_names() {
+  local token=$1 jar=$2 saved=$3 store="$CACHE_ROOT/$NAMESPACE.names.json"
+  local names channel info name user tmp
+
+  names=$(jq -ce 'if type == "object" then . else empty end' "$store" 2>/dev/null) || names='{}'
+  while IFS= read -r channel; do
+    [[ -n "$channel" ]] || continue
+    info=$(call_info conversations.info "$token" "$jar" "$channel") || continue
+    name=$(jq -r '
+      .channel
+      | if .is_im == true then ""
+        elif .is_mpim == true then
+          "@" + ((.name // "") | sub("^mpdm-"; "") | sub("-[0-9]+$"; "") | split("--") | join(", "))
+        elif (.name | type) == "string" then "#" + .name
+        else "" end
+    ' <<<"$info" 2>/dev/null) || name=""
+    # A DM's channel object only names the other person by id.
+    if [[ -z "$name" ]]; then
+      user=$(jq -r '.channel.user // "" | strings' <<<"$info" 2>/dev/null) || user=""
+      [[ $user =~ ^[A-Z][A-Z0-9]+$ ]] || continue
+      name=$(call_info users.info "$token" "$jar" "$user" | jq -r '
+        .user
+        | [.profile.display_name?, .real_name?, .name?]
+        | map(select(type == "string" and length > 0))
+        | if length > 0 then "@" + .[0] else "" end
+      ' 2>/dev/null) || name=""
+    fi
+    [[ -n "$name" ]] || continue
+    names=$(jq -c --arg k "$channel" --arg v "$name" '.[$k] = $v' <<<"$names") || continue
+  done < <(jq -r --argjson names "$names" '
+    [.saved_items[]?
+      | select(.item_type == "message")
+      | .item_id
+      | select(type == "string" and test("^[A-Z][A-Z0-9]+$") and $names[.] == null)]
+    | unique[]
+  ' <<<"$saved" 2>/dev/null)
+
+  printf '%s' "$names" >"$PRIVATE_TMP/names.json"
+  tmp=$(mktemp "$PRIVATE_TMP/names.XXXXXX") || return 0
+  printf '%s' "$names" >"$tmp" && chmod 600 "$tmp" && mv "$tmp" "$store"
+  return 0
+}
+
 hydration_batches() {
   jq -cr '
     def channel: type == "string" and test("^[A-Z][A-Z0-9]+$");
@@ -402,11 +494,11 @@ hydration_batches() {
 # it can only be an unopenable row and a +1 nobody can act on. Both counts are
 # derived here rather than taken from the response: Slack's own counts include
 # those reminders.
-# ponytail: the count is what one 49-item page holds, so a truncated list
-# undercounts — page through saved.list if that ever bites.
+# $saved is every page fetch_saved merged, so the count is only short when it
+# hit its page bound, and then the list says truncated.
 materialize_saved() {
-  local saved=$1 messages=$2
-  jq -ce --arg workspace "$WORKSPACE" --slurpfile messages "$messages" '
+  local saved=$1 messages=$2 names=$3
+  jq -ce --arg workspace "$WORKSPACE" --slurpfile messages "$messages" --slurpfile names "$names" '
     def channel: type == "string" and test("^[A-Z][A-Z0-9]+$");
     def timestamp: type == "string" and test("^[0-9]+\\.[0-9]+$");
     def date: type == "number" or type == "string";
@@ -437,6 +529,9 @@ materialize_saved() {
           id: "\($channel):\($timestamp)",
           title: (message_text($channel; $timestamp) | clean_title),
           url: "https://\($workspace)/archives/\($channel)/p\($timestamp | gsub("\\."; ""))",
+          channel: $channel,
+          channel_name: (($names[0][$channel] // "") | tostring
+            | gsub("[[:cntrl:]]"; " ") | .[0:80]),
           date_created: (if (.date_created? | date) then .date_created else null end),
           date_due: (if (.date_due? | date) then .date_due else null end)
         }
@@ -465,7 +560,8 @@ hydrate_saved() {
     mv "$next" "$messages"
   done < <(hydration_batches <<<"$saved")
 
-  materialize_saved "$saved" "$messages"
+  resolve_names "$token" "$jar" "$saved"
+  materialize_saved "$saved" "$messages" "$PRIVATE_TMP/names.json"
 }
 
 # Return 0 only for the exact configured URL host; no team-name/id/substrings.
@@ -504,7 +600,7 @@ resolve() {
       2) return 2 ;;
       *) continue ;;
     esac
-    if response=$(call_saved "$token" "$jar"); then
+    if response=$(fetch_saved "$token" "$jar"); then
       response=$(hydrate_saved "$token" "$jar" "$response") || return 2
       printf '%s' "$response"
       return 0

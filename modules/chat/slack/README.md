@@ -23,18 +23,20 @@ approve access if prompted. Never paste credentials into Nix configuration.
 ## Use
 
 Enable `slack.later.enable` and set `slack.later.workspace` to the exact workspace
-domain. The statusbar refreshes every 15 minutes. `prefix + L` opens a right-hand
-pane: Enter opens a message, `/` searches, `r` refreshes, and `q` closes it.
-Esc leaves search first, then closes the pane from menu mode.
+domain. The statusbar refreshes every 15 minutes. `prefix + L` opens a popup:
+Enter opens a message, `/` searches, `r` refreshes, Tab flips between grouped
+by conversation and one flat list, and `q` closes it. Esc leaves search first,
+then closes the popup. `slack.later.groupBy` sets the view it opens in.
 
-The pane displays cached rows immediately while fetching updated data. A `!`
-in the statusbar or an error in the pane means the last successful data may be
-stale. Sign in again using the same command above, then press `r` in the pane.
+The popup displays cached rows immediately while fetching updated data. A `!`
+in the statusbar or an error in the popup means the last successful data may
+be stale. Sign in again using the same command above, then press `r`.
 
-Slack accepts fewer than 50 items per page. This viewer shows up to 49, with an
-explicit truncation label when more exist. It never completes, deletes, or sends
-anything. Cached snippets are private files under `~/.cache/tmux-slack-later`;
-decrypted cookies live only in a private temporary directory during refresh.
+Slack returns at most 49 items per page, so refresh follows the page cursor,
+up to 20 pages, and labels the list truncated if even that is not enough. It
+never completes, deletes, or sends anything. Cached snippets and channel names
+are private files under `~/.cache/tmux-slack-later`; decrypted cookies live
+only in a private temporary directory during refresh.
 
 ## Offline checks
 
