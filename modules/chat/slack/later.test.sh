@@ -166,9 +166,18 @@ SAVED_RESPONSE=$(cat <<'JSON'
 JSON
 )
 
+# The last page: what the first page's next_cursor leads to.
+export SAVED_PAGE2
+SAVED_PAGE2=$(cat <<'JSON'
+{"ok":true,"counts":{"uncompleted_count":52,"uncompleted_overdue_count":0},"saved_items":[
+{"item_id":"C12","item_type":"message","ts":"1700000013.000013","state":"saved","todo_state":"not_started","date_created":1700000013,"date_due":null}
+],"response_metadata":{"next_cursor":""}}
+JSON
+)
+
 export MESSAGE_RESPONSE
 MESSAGE_RESPONSE=$(cat <<'JSON'
-{"ok":true,"messages":{"C01":[{"ts":"1700000001.000001","text":"One <https://example.invalid|summary>\n"}],"C02":[{"ts":"1700000002.000002","text":"Two"}],"C03":[{"ts":"1700000003.000003","text":"Three"}],"C04":[{"ts":"1700000004.000004","text":"Four"}],"C05":[{"ts":"1700000005.000005","text":"Five"}],"C06":[{"ts":"1700000006.000006","text":"Six"}],"C07":[{"ts":"1700000007.000007","text":"Seven"}],"C08":[{"ts":"1700000008.000008","text":"Eight"}],"C09":[{"ts":"1700000009.000009","text":"Nine"}],"C10":[{"ts":"1700000010.000010","text":"Ten"}],"C11":[{"ts":"1700000011.000011","text":"Eleven"}]}}
+{"ok":true,"messages":{"C01":[{"ts":"1700000001.000001","text":"One <https://example.invalid|summary>\n"}],"C02":[{"ts":"1700000002.000002","text":"Two"}],"C03":[{"ts":"1700000003.000003","text":"Three"}],"C04":[{"ts":"1700000004.000004","text":"Four"}],"C05":[{"ts":"1700000005.000005","text":"Five"}],"C06":[{"ts":"1700000006.000006","text":"Six"}],"C07":[{"ts":"1700000007.000007","text":"Seven"}],"C08":[{"ts":"1700000008.000008","text":"Eight"}],"C09":[{"ts":"1700000009.000009","text":"Nine"}],"C10":[{"ts":"1700000010.000010","text":"Ten"}],"C11":[{"ts":"1700000011.000011","text":"Eleven"}],"C12":[{"ts":"1700000013.000013","text":"Twelve"}]}}
 JSON
 )
 
@@ -188,11 +197,26 @@ cp "$jar" "$JAR_CAPTURE"
 grep -Fq $'\td\txoxd-encrypted%2Fvalue' "$jar" || exit 1
 grep -Fq $'\td-s\tplain-d-s%2Fvalue' "$jar" || exit 1
 grep -Fq $'\tworkspace\tworkspace%2Fvalue' "$jar" || exit 1
+saved_page() {
+  case "$config" in
+    *'cursor=next-page'*) printf '%s\n' "$SAVED_PAGE2" ;;
+    *) printf '%s\n' "$SAVED_RESPONSE" ;;
+  esac
+}
 case "$MOCK_MODE" in
   success)
     case "$config" in
       *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
-      *saved.list*) printf '%s\n' "$SAVED_RESPONSE" ;;
+      *saved.list*) saved_page ;;
+      *conversations.info*)
+        case "$config" in
+          *'"channel=C01"'*) printf '%s\n' '{"ok":true,"channel":{"id":"C01","name":"general"}}' ;;
+          *'"channel=C02"'*) printf '%s\n' '{"ok":true,"channel":{"id":"C02","is_im":true,"user":"U01"}}' ;;
+          *'"channel=C04"'*) printf '%s\n' '{"ok":true,"channel":{"id":"C04","is_mpim":true,"name":"mpdm-ana--bob-1"}}' ;;
+          *) printf '%s\n' '{"ok":false,"error":"channel_not_found"}' ;;
+        esac
+        ;;
+      *users.info*) printf '%s\n' '{"ok":true,"user":{"id":"U01","name":"ana.s","real_name":"Ana Silva","profile":{"display_name":"Ana"}}}' ;;
       *messages.list*)
         message_ids=$(sed -n 's/^data-urlencode = "message_ids=\(.*\)"$/\1/p' <<<"$config")
         channel_count=$(grep -o 'channel' <<<"$message_ids" | wc -l | tr -d ' ')
@@ -214,10 +238,18 @@ case "$MOCK_MODE" in
       *saved.list*) printf '%s\n' '{"ok":false,"error":"ratelimited"}' ;;
     esac
     ;;
-  messages-error)
+  endless)
     case "$config" in
       *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
       *saved.list*) printf '%s\n' "$SAVED_RESPONSE" ;;
+      *messages.list*) printf '%s\n' "$MESSAGE_RESPONSE" ;;
+      *) printf '%s\n' '{"ok":false}' ;;
+    esac
+    ;;
+  messages-error)
+    case "$config" in
+      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
+      *saved.list*) saved_page ;;
       *messages.list*) printf '%s\n' '{"ok":false,"error":"ratelimited"}' ;;
     esac
     ;;
@@ -284,21 +316,29 @@ success_cache=$(cache)
 : >"$CURL_ARGV_LOG"
 : >"$BATCH_LOG"
 MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" refresh
-check "count excludes the non-message item" "11" "$(jq -r '.counts.uncompleted_count' "$success_cache")"
+check "count excludes the non-message item" "12" "$(jq -r '.counts.uncompleted_count' "$success_cache")"
 check "full cookie request clears error" "" "$(jq -r '.error' "$success_cache")"
-check "full cookie request stores every saved message" "11" "$(jq '.items | length' "$success_cache")"
+check "full cookie request stores every saved message" "12" "$(jq '.items | length' "$success_cache")"
+check "second page follows the first" "Twelve" "$(jq -r '.items[-1].title' "$success_cache")"
+check "page two is requested by cursor" "2" "$(grep -c saved.list "$CURL_LOG" | tr -d ' ')"
+contains "cursor is posted" 'data-urlencode = "cursor=next-page"' "$(cat "$CURL_LOG")"
+check "channel id is stored" "C01" "$(jq -r '.items[0].channel' "$success_cache")"
+check "public channel is named" "#general" "$(jq -r '.items[0].channel_name' "$success_cache")"
+check "dm is named after the person" "@Ana" "$(jq -r '.items[1].channel_name' "$success_cache")"
+check "group dm lists members" "@ana, bob" "$(jq -r '.items[3].channel_name' "$success_cache")"
+check "unresolvable channel stays unnamed" "" "$(jq -r '.items[2].channel_name' "$success_cache")"
 check "non-message items are dropped" "" "$(jq -r '.items[] | select(.url == "https://telepatiaworkspace.slack.com") | .id' "$success_cache")"
 check "overdue counts past due dates, not the unset sentinel" "1" "$(jq -r '.counts.uncompleted_overdue_count' "$success_cache")"
 check "message id combines channel and timestamp" "C01:1700000001.000001" "$(jq -r '.items[0].id' "$success_cache")"
 check "message title is compact and sanitized" "One summary" "$(jq -r '.items[0].title' "$success_cache")"
 check "message url is stable" "https://telepatiaworkspace.slack.com/archives/C01/p1700000001000001" "$(jq -r '.items[0].url' "$success_cache")"
-check "cursor marks bounded result truncated" "true" "$(jq -r '.truncated' "$success_cache")"
+check "last page clears truncated" "false" "$(jq -r '.truncated' "$success_cache")"
 check "cache is private" "600" "$(/usr/bin/stat -f '%Lp' "$success_cache")"
 check "derives Chrome key once" "1" "$(wc -l <"$SECURITY_LOG" | tr -d ' ')"
 contains "request uses workspace host" 'url = "https://telepatiaworkspace.slack.com/api/auth.test"' "$(cat "$CURL_LOG")"
 contains "request posts supported saved limit 49" 'data-urlencode = "limit=49"' "$(cat "$CURL_LOG")"
 contains "request URLencodes message ids" 'data-urlencode = "message_ids=[{\"channel\":\"C01\"' "$(cat "$CURL_LOG")"
-check "message hydration has two channel batches" $'10\n1' "$(cat "$BATCH_LOG")"
+check "message hydration has two channel batches" $'10\n2' "$(cat "$BATCH_LOG")"
 contains "request uses Chrome user agent" 'Chrome/123.0.0.0 Safari' "$(cat "$CURL_LOG")"
 not_contains "request does not use bearer auth" "Authorization:" "$(cat "$CURL_LOG")"
 contains "jar preserves encrypted d" $'\td\txoxd-encrypted%2Fvalue' "$(cat "$JAR_CAPTURE")"
@@ -329,7 +369,7 @@ printf 'ok   fresh list makes no HTTP request\n'
 touch -t 200001010000 "$success_cache"
 : >"$CURL_LOG"
 stale_cached=$(MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" list --cached)
-check "stale --cached serves the stale rows" "11" "$(jq '.items | length' <<<"$stale_cached")"
+check "stale --cached serves the stale rows" "12" "$(jq '.items | length' <<<"$stale_cached")"
 check "stale --cached does not mark them loading" "" "$(jq -r '.error' <<<"$stale_cached")"
 [[ ! -s "$CURL_LOG" ]] || {
   echo "FAIL stale --cached made an HTTP request" >&2
@@ -343,9 +383,21 @@ EOF
 : >"$CURL_LOG"
 : >"$BATCH_LOG"
 count_only_list=$(MOCK_MODE=success PATH="$TMP/bin:$PATH" bash "$SRC" list)
-check "count-only cache hydrates rows" "11" "$(jq '.items | length' <<<"$count_only_list")"
-check "count-only cache refreshes saved list" "1" "$(grep -c saved.list "$CURL_LOG" | tr -d ' ')"
-check "count-only cache hydrates in batches" $'10\n1' "$(cat "$BATCH_LOG")"
+check "count-only cache hydrates rows" "12" "$(jq '.items | length' <<<"$count_only_list")"
+check "count-only cache refreshes saved list" "2" "$(grep -c saved.list "$CURL_LOG" | tr -d ' ')"
+check "count-only cache hydrates in batches" $'10\n2' "$(cat "$BATCH_LOG")"
+not_contains "resolved names are not looked up again" 'data-urlencode = "channel=C01"' "$(cat "$CURL_LOG")"
+contains "unresolved names are retried" 'data-urlencode = "channel=C03"' "$(cat "$CURL_LOG")"
+
+# A cursor that never empties stops at the page bound and says so.
+export TMUX_SLACK_LATER_PROFILE="$TMP/chrome-endless/Default"
+create_profile "$TMUX_SLACK_LATER_PROFILE"
+endless_cache=$(cache)
+: >"$CURL_LOG"
+MOCK_MODE=endless PATH="$TMP/bin:$PATH" bash "$SRC" refresh
+check "endless cursor is bounded" "20" "$(grep -c saved.list "$CURL_LOG" | tr -d ' ')"
+check "bounded result is truncated" "true" "$(jq -r '.truncated' "$endless_cache")"
+check "bounded result clears error" "" "$(jq -r '.error' "$endless_cache")"
 
 export TMUX_SLACK_LATER_PROFILE="$TMP/chrome-wrong/Default"
 create_profile "$TMUX_SLACK_LATER_PROFILE"
