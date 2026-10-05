@@ -386,6 +386,7 @@ mkUserModule {
           fzf
           jq
           gum
+          tmux
           coreutils
         ];
         text = ''
@@ -433,7 +434,7 @@ mkUserModule {
                   '${unwrap} | ${byView} | length' "$CACHE" 2>/dev/null) || n=0
             printf '%s %s\n' "''${n:-0}" "$view"
             # The tab hint names where you land, not where you are.
-            printf 'tab %s · enter edit · x done · a add · o web · r refresh · / search' "$other"
+            printf 'tab %s · enter edit · x done · a add · o web · r refresh · l in 10m · / search' "$other"
             # Only once there is something to put back — silent otherwise, like
             # the widget at zero. A key on the hint line all day is a key you
             # stop reading, and this one is only ever live just after an `x`.
@@ -552,6 +553,13 @@ mkUserModule {
               ;;
             --header)
               header_line
+              exit 0
+              ;;
+            --later)
+              # Handed to the tmux server rather than backgrounded here: the
+              # popup's process group dies with the popup, and the reopen has to
+              # outlive it by ten minutes.
+              tmux run-shell -b "sleep 600 && tmux display-popup -E -w 80% -h 60% '$self'"
               exit 0
               ;;
             --open)
@@ -1184,8 +1192,11 @@ mkUserModule {
           # `o` joins x/a/r in here for the obvious reason: it is a letter, and a
           # search for "onboarding" that opens a browser on the first keystroke
           # is the exact failure this menu/search split exists to prevent.
-          b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(o)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
-          b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(o)+rebind(/)+'"$redraw"
+          # Closes the picker as it schedules: "remind me later" means stop
+          # looking now.
+          b_later='execute-silent('"$self"' --later)+abort'
+          b_search='unbind(change)+unbind(x)+unbind(a)+unbind(r)+unbind(o)+unbind(l)+unbind(/)+clear-query+change-prompt(/ )+enable-search'
+          b_esc_back='clear-query+disable-search+change-prompt(> )+rebind(change)+rebind(x)+rebind(a)+rebind(r)+rebind(o)+rebind(l)+rebind(/)+'"$redraw"
           # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's, not bash's
           b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
 
@@ -1207,6 +1218,7 @@ mkUserModule {
             --bind "ctrl-z:$b_undo" \
             --bind "a:$b_add" \
             --bind "r:$b_refresh" \
+            --bind "l:$b_later" \
             --bind "tab:$b_toggle" \
             --bind "/:$b_search" \
             --bind 'change:clear-query' \
@@ -1219,8 +1231,9 @@ mkUserModule {
       # inside the picker so prefix+T keeps its plain esc — the picker is a
       # tool the rest of the day and only the 06:00 run should be inescapable.
       #
-      # --default=false is the point: the answer under a reflex Enter is "no",
-      # so the gate survives exactly the autopilot it exists to interrupt.
+      # "back to list" sits first, under the cursor, so a reflex Enter (or esc,
+      # which answers nothing) keeps the gate up. Getting out takes a deliberate
+      # move down to "done" or to the snooze.
       tmux-todoist-review-confirm = pkgs.writeShellApplication {
         name = "tmux-todoist-review-confirm";
         bashOptions = [ ];
@@ -1229,10 +1242,12 @@ mkUserModule {
           coreutils
         ];
         text = ''
-          # $1 sentinel to touch when confirmed, $2 due count for the prompt.
-          gum confirm --default=false \
-            --affirmative "done" --negative "back to list" \
-            "reviewed all $2 due today?" && touch "$1"
+          # $1 file to write the answer into, $2 due count for the prompt.
+          case "$(gum choose --header "reviewed all $2 due today?" \
+                    "back to list" "remind me in 10m" "done")" in
+            "done") printf 'done\n' >"$1" ;;
+            remind*) printf 'later\n' >"$1" ;;
+          esac
         '';
       };
 
@@ -1392,9 +1407,8 @@ mkUserModule {
           # which is the whole ask — a single reflex key cannot end this.
           # Fixed path, not PID-suffixed: the day marker above is claimed before
           # we get here, so only one review can ever be in this loop.
-          DONE="''${TMPDIR:-/tmp}/tmux-todoist-review-done"
-          rm -f "$DONE"
-          trap 'rm -f "$DONE"' EXIT
+          ANSWER="''${TMPDIR:-/tmp}/tmux-todoist-review-answer"
+          trap 'rm -f "$ANSWER"' EXIT
 
           # Bounded so a broken gum or tmux cannot spin popups forever — that
           # would be a real lockout, and the terminal you would fix it from is
@@ -1403,10 +1417,35 @@ mkUserModule {
           i=0
           while [ "$i" -lt 50 ]; do
             i=$((i + 1))
+            rm -f "$ANSWER"
             tmux display-popup -E -w 80% -h 60% '${tmux-todoist-pick}/bin/tmux-todoist-pick'
             tmux display-popup -E -w 52 -h 8 \
-              "${tmux-todoist-review-confirm}/bin/tmux-todoist-review-confirm '$DONE' '$n'"
-            [ -f "$DONE" ] && break
+              "${tmux-todoist-review-confirm}/bin/tmux-todoist-review-confirm '$ANSWER' '$n'"
+            case "$(cat "$ANSWER" 2>/dev/null)" in
+              "done") break ;;
+              later)
+                # Snooze in-process: the day stays claimed, so the launchd
+                # agent and the attach hook cannot start a second review
+                # while this one sleeps.
+                sleep 600
+
+                # Detached in the meantime: hand the day back to the
+                # client-attached hook rather than spend it with nowhere to
+                # draw the popup.
+                if [ -z "$(tmux list-clients -F '#{client_name}' 2>/dev/null)" ]; then
+                  rm -f "$STATE"
+                  exit 0
+                fi
+
+                # Recount, since the snooze is when the phone gets used. A
+                # failed fetch keeps the old count rather than ending the gate.
+                ${tmux-todoist-refresh}/bin/tmux-todoist-refresh
+                m=$(jq -r --arg today "$(date +%F)" \
+                      '${unwrap} | ${dueToday} | length' ${cache} 2>/dev/null)
+                case "''${m:-}" in "" | *[!0-9]*) ;; *) n=$m ;; esac
+                [ "$n" -gt 0 ] || exit 0
+                ;;
+            esac
           done
         '';
       };
