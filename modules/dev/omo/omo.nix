@@ -143,8 +143,8 @@ mkUserModule {
               genuinely seems needed, draft the text and let me post it myself.
             '';
           }
-          # /continue: resume after a cancel or error, or say yes to the
-          # agent's own "want me to ...?", without typing a message.
+          # /continue: re-run the agent from where a cancelled or errored turn
+          # stopped, without sending a message.
           { ".omo/agent/extensions/continue.ts".source = ./continue.ts; }
           # Flexoki light, matching ghostty/kitty/nvim/tmux/opencode.
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
