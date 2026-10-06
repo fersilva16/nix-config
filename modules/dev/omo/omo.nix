@@ -147,6 +147,8 @@ mkUserModule {
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
           # opencode-style prompt, status line, sidebar and tool blocks.
           { ".omo/agent/extensions/ui".source = ./ui; }
+          # /ship [merge]: one commit of all local changes, push, PR (+ merge).
+          { ".omo/agent/extensions/ship".source = ./ship; }
         ];
 
         # omo runs from a copy of itself in ~/.omo/binary-runtime/<version>/ and

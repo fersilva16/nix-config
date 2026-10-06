@@ -18,9 +18,5 @@ let
 in
 mkUserModule {
   name = "claude-code";
-  home.home = {
-    packages = [ claude-code ];
-    # User-level slash commands: available in every repo.
-    file.".claude/commands/ship.md".source = ./ship.md;
-  };
+  home.home.packages = [ claude-code ];
 }
