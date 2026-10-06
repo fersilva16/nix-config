@@ -143,6 +143,10 @@ mkUserModule {
               genuinely seems needed, draft the text and let me post it myself.
             '';
           }
+          # /continue: resume after a cancel or error, or say yes to the
+          # agent's own "want me to ...?". The target filename is the command
+          # name; rename it there to rename the command.
+          { ".omo/agent/prompts/continue.md".source = ./prompts/continue.md; }
           # Flexoki light, matching ghostty/kitty/nvim/tmux/opencode.
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
           # opencode-style prompt, status line, sidebar and tool blocks.
