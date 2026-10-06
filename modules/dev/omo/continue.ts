@@ -4,10 +4,11 @@
 // message (where both cases end) unless something is queued. So this queues
 // a hidden custom message: nothing shows in the transcript, and the model gets
 // the nudge as a user turn. Arguments are appended as extra steering:
-// `/continue but skip the tests`.
-import type { ExtensionAPI } from "@code-yeongyu/senpi"
+// `/continue but skip the tests`. /y is the short alias.
+import type { ExtensionAPI, ExtensionCommandContext } from "@code-yeongyu/senpi"
 
 const COMMAND = "continue"
+const ALIAS = "y"
 
 const NUDGE = [
   "Continue from where you stopped.",
@@ -16,18 +17,20 @@ const NUDGE = [
 ].join("\n")
 
 export default function (pi: ExtensionAPI) {
+  const handler = async (args: string, ctx: ExtensionCommandContext) => {
+    if (!ctx.isIdle()) {
+      ctx.ui.notify("The agent is already running", "warning")
+      return
+    }
+    const steer = args.trim()
+    pi.sendMessage(
+      { customType: COMMAND, content: steer ? `${NUDGE}\n\n${steer}` : NUDGE, display: false },
+      { triggerTurn: true },
+    )
+  }
   pi.registerCommand(COMMAND, {
     description: "Resume after a cancel or error, or say yes to the agent's last proposal",
-    handler: async (args, ctx) => {
-      if (!ctx.isIdle()) {
-        ctx.ui.notify("The agent is already running", "warning")
-        return
-      }
-      const steer = args.trim()
-      pi.sendMessage(
-        { customType: COMMAND, content: steer ? `${NUDGE}\n\n${steer}` : NUDGE, display: false },
-        { triggerTurn: true },
-      )
-    },
+    handler,
   })
+  pi.registerCommand(ALIAS, { description: `Alias of /${COMMAND}`, handler })
 }
