@@ -7,7 +7,10 @@
 // (status lines, warnings, notice boxes, the update notice, the optimized
 // prompt header) and the todo and nested AGENTS.md widgets above the prompt.
 // Turn errors stay in the transcript.
-import { HStack, Key, matchesKey, VStack, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui"
+import { execFile } from "node:child_process"
+import { basename } from "node:path"
+import { HStack, Key, matchesKey, truncateToWidth, VStack, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui"
+import { type GitState, git, type Pr, startGit } from "./core/git.ts"
 import {
   afterSelection,
   isModalFrame,
@@ -24,7 +27,7 @@ import {
 import { type Account, limits, startLimits } from "./core/limits.ts"
 import { modalFrame, openModal } from "./core/modal.ts"
 import { refresh, refreshLive, type Snapshot, store, type TodoPhase } from "./core/store.ts"
-import { ESCAPE_AT_START, homePath, paint, spread, stripAnsi } from "./core/style.ts"
+import { ESCAPE_AT_START, paint, spread, stripAnsi } from "./core/style.ts"
 import type { Component, Ctx, Theme, Tui } from "./core/types.ts"
 
 const WIDTH = 40
@@ -106,6 +109,98 @@ function todoSection(phases: TodoPhase[], theme: Theme, inner: number): string[]
     }
   }
   return lines
+}
+
+// Commits behind the default branch from which the line turns to a warning:
+// testing the branch then no longer tests what has landed.
+const FAR_BEHIND = 20
+// Failing checks listed by name; past this they are counted.
+const MAX_FAILING = 3
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`
+
+// The common git dir is <repo>/.git, or <repo>.git for a bare repo.
+const repoName = (gitDir: string) => basename(gitDir.replace(/\/\.git\/?$/, "")).replace(/\.git$/, "")
+
+// The repo and its PR at a glance, one fact per row and no labels:
+//
+//   Git                       nix-config
+//   git-sidebar                    ↓4 ↑3
+//   2 changed · 1 untracked
+//   #748 open                   ✓ checks
+//     ✓ approved
+//
+// ↓↑ count commits behind and ahead of the default branch (of its remote
+// copy on the default branch itself). A row that would only say "nothing to
+// report" (up to date, clean tree, no review yet on a draft) is left out.
+// The PR's details sit indented under it, and every PR row opens the PR on
+// click (its rows are in `links`).
+//
+// Each fact has its own colour, after GitHub's and git's own: the branch in
+// the accent, ahead green and behind blue (orange once far behind), changed
+// orange and untracked yellow, the PR number blue like a link, open green,
+// merged purple, running checks yellow and failures red.
+function gitSection(
+  state: GitState | undefined,
+  pr: Pr | undefined,
+  theme: Theme,
+  inner: number,
+): { lines: string[]; links: Map<number, string> } {
+  const links = new Map<number, string>()
+  if (!state) return { lines: [], links }
+  const muted = (text: string) => theme.fg("muted", text)
+  const mark = (token: string, glyph: string, text: string) => `  ${theme.fg(token, glyph)} ${text}`
+  const lines = ["", spread(theme.bold("Git"), muted(repoName(state.repo)), inner)]
+  const { behind, ahead } = state
+  const sync = [
+    behind > 0 ? theme.fg(behind >= FAR_BEHIND ? "warning" : "mdLink", `↓${behind}`) : "",
+    ahead > 0 ? theme.fg("success", `↑${ahead}`) : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+  const branch = state.branch || `detached at ${state.head}`
+  lines.push(spread(theme.fg("accent", truncateToWidth(branch, inner - (sync ? visibleWidth(sync) + 1 : 0), "…")), sync, inner))
+  const tree = [
+    state.conflicted > 0 ? theme.fg("error", `${state.conflicted} conflicted`) : "",
+    state.uncommitted > 0 ? theme.fg("warning", `${state.uncommitted} changed`) : "",
+    state.untracked > 0 ? theme.fg("syntaxType", `${state.untracked} untracked`) : "",
+  ].filter(Boolean)
+  if (tree.length > 0) lines.push(tree.join(muted(" · ")))
+  if (!pr) return { lines, links }
+
+  const first = lines.length
+  const merged = pr.state === "MERGED"
+  const [token, word] = merged ? ["syntaxNumber", "merged"] : pr.draft ? ["muted", "draft"] : ["success", "open"]
+  const checks = merged
+    ? ""
+    : pr.checks === "fail"
+      ? theme.fg("error", `✗ ${pr.failing.length} failing`)
+      : pr.checks === "pending"
+        ? theme.fg("syntaxType", `• ${pr.running} running`)
+        : pr.checks === "pass"
+          ? theme.fg("success", "✓ checks")
+          : ""
+  lines.push(spread(`${theme.fg("mdLink", `#${pr.number}`)} ${theme.fg(token, word)}`, checks, inner))
+  if (!merged) {
+    for (const name of pr.failing.slice(0, MAX_FAILING)) lines.push(mark("error", "✗", truncateToWidth(name, inner - 4, "…")))
+    if (pr.failing.length > MAX_FAILING) lines.push(muted(`    ${pr.failing.length - MAX_FAILING} more`))
+    if (pr.conflict) lines.push(mark("error", "✗", truncateToWidth(`conflicts with ${pr.base}`, inner - 4, "…")))
+    if (pr.review === "APPROVED") lines.push(`  ${theme.fg("success", "✓ approved")}`)
+    else if (pr.review === "CHANGES_REQUESTED") lines.push(`  ${theme.fg("warning", "changes requested")}`)
+    else if (pr.review === "REVIEW_REQUIRED" && !pr.draft) lines.push(muted("  review required"))
+    if (pr.unresolved > 0) lines.push(`  ${theme.fg("warning", plural(pr.unresolved, "unresolved comment"))}`)
+  }
+  for (let row = first; row < lines.length; row++) links.set(row, pr.url)
+  return { lines, links }
+}
+
+// A failure lands in the sidebar's warnings: a click has nowhere else to say.
+function openUrl(url: string): void {
+  execFile(process.platform === "darwin" ? "open" : "xdg-open", [url], (error: Error | null) => {
+    if (!error) return
+    store.notices = [...store.notices, { kind: "warning", text: `Could not open ${url}: ${error.message}` }]
+    requestRender()
+  })
 }
 
 // Brand colour per provider, as raw truecolour: the theme has no token for
@@ -256,7 +351,7 @@ function renderPanel(
   theme: Theme,
   width: number,
   rows: number,
-): { lines: string[]; warningsRow: number | undefined; toggles: Map<number, string> } {
+): { lines: string[]; warningsRow: number | undefined; toggles: Map<number, string>; links: Map<number, string> } {
   const body: string[] = []
   const line = (text = "") => body.push(text)
   const muted = (text: string) => line(theme.fg("muted", text))
@@ -273,11 +368,6 @@ function renderPanel(
   const limitRows = limitsSection(limits.accounts, theme, width - 2 * PAD, openLimits)
   body.push(...limitRows.lines)
   body.push(...todoSection(state.todos, theme, width - 2 * PAD))
-  if (state.files.length > 0) {
-    line()
-    line(theme.bold("Modified Files"))
-    for (const f of state.files) muted(f)
-  }
   if (store.nestedContext.length > 0) {
     line()
     line(theme.bold("Nested Context"))
@@ -285,16 +375,23 @@ function renderPanel(
   }
 
   const notices = store.notices
-  const alert = notices.some((n) => n.kind !== "status")
-  const warnings = notices.length > 0 ? [theme.fg(alert ? "warning" : "muted", `warnings (${notices.length})`)] : []
-  const location = `${homePath(state.cwd)}${state.branch ? `:${state.branch}` : ""}`
-  const update = store.update ? theme.fg("warning", ` (Update Available ${store.update})`) : ""
-  const footer = [...warnings, location, "", `${theme.fg("success", "•")} ${theme.bold("OmO")} ${theme.fg("muted", VERSION)}${update}`, ""]
+  // Muted, like the rest of the footer: the Git section above carries the colour.
+  const warnings = notices.length > 0 ? [theme.fg("muted", `warnings (${notices.length})`)] : []
+  const update = store.update ? theme.fg("muted", ` (Update Available ${store.update})`) : ""
+  // The Git section sits at the bottom, above the warnings, where the
+  // cwd:branch footer used to be. The filler is the gap above its heading, so
+  // its own leading blank goes; a blank keeps the warnings off its last line.
+  const gitRows = gitSection(git.state, git.pr, theme, width - 2 * PAD)
+  const gitLines = gitRows.lines.slice(1)
+  const gap = gitLines.length > 0 && warnings.length > 0 ? [""] : []
+  const footer = [...gitLines, ...gap, ...warnings, "", `${theme.fg("success", "•")} ${theme.bold("OmO")} ${theme.fg("muted", VERSION)}${update}`, ""]
   const filler = Math.max(1, rows - body.length - footer.length)
+  const footerAt = body.length + filler
   return {
     lines: [...body, ...Array(filler).fill(""), ...footer].map((text) => paint(theme, BG, text ? `${" ".repeat(PAD)}${text}` : "", width)),
-    warningsRow: warnings.length > 0 ? body.length + filler : undefined,
+    warningsRow: warnings.length > 0 ? footerAt + gitLines.length + gap.length : undefined,
     toggles: new Map([...limitRows.toggles].map(([row, provider]) => [row + limitsAt, provider])),
+    links: new Map([...gitRows.links].map(([row, url]) => [row - 1 + footerAt, url])),
   }
 }
 
@@ -343,6 +440,7 @@ export default function sidebar(pi: Pi) {
   let ctx: SessionCtx | undefined
   let warningsRow: number | undefined
   let toggles = new Map<number, string>()
+  let links = new Map<number, string>()
 
   // Startup notices (config diagnostics) arrive before the sidebar mounts;
   // they are taken on the assumption that the tui will be fullscreen.
@@ -354,6 +452,7 @@ export default function sidebar(pi: Pi) {
       const out = renderPanel(store.snapshot, theme, width, tui.terminal.rows)
       warningsRow = out.warningsRow
       toggles = out.toggles
+      links = out.links
       return out.lines
     },
     invalidate() {},
@@ -363,6 +462,11 @@ export default function sidebar(pi: Pi) {
       if (provider) {
         if (!openLimits.delete(provider)) openLimits.add(provider)
         requestRender()
+        return { handled: true }
+      }
+      const url = links.get(event.y)
+      if (url) {
+        openUrl(url)
         return { handled: true }
       }
       if (event.y !== warningsRow || !ctx) return
@@ -423,6 +527,7 @@ export default function sidebar(pi: Pi) {
     // Polls only where there is a screen to show it: headless workers never
     // mount a tui.
     startLimits()
+    startGit()
     fullscreen = wrapLayout(t, (inner) => {
       // A bottom margin under the main column only; the panel spans full height.
       const main = new VStack([
