@@ -7,7 +7,9 @@
 // (status lines, warnings, notice boxes, the update notice, the optimized
 // prompt header) and the todo and nested AGENTS.md widgets above the prompt.
 // Turn errors stay in the transcript.
-import { HStack, Key, matchesKey, VStack, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui"
+import { execFile } from "node:child_process"
+import { HStack, Key, matchesKey, truncateToWidth, VStack, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui"
+import { type GitState, git, type Pr, startGit } from "./core/git.ts"
 import {
   afterSelection,
   isModalFrame,
@@ -106,6 +108,81 @@ function todoSection(phases: TodoPhase[], theme: Theme, inner: number): string[]
     }
   }
   return lines
+}
+
+// Commits behind the default branch from which the line turns to a warning:
+// testing the branch then no longer tests what has landed.
+const FAR_BEHIND = 20
+// Failing checks listed by name; past this they are counted.
+const MAX_FAILING = 3
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`
+
+// Cut from the left: a worktree's own directory is at the end of its path.
+const fitPath = (path: string, width: number) => (path.length <= width ? path : `…${path.slice(path.length - width + 1)}`)
+
+// The repo and its PR at a glance. A line that would only say "nothing to
+// report" (up to date, clean tree, no review yet on a draft) is left out.
+// Every PR row opens the PR on click (its rows are in `links`).
+function gitSection(
+  state: GitState | undefined,
+  pr: Pr | undefined,
+  theme: Theme,
+  inner: number,
+): { lines: string[]; links: Map<number, string> } {
+  const links = new Map<number, string>()
+  if (!state) return { lines: [], links }
+  const muted = (text: string) => theme.fg("muted", text)
+  const lines = ["", theme.bold("Git"), truncateToWidth(state.branch || `detached at ${state.head}`, inner, "…")]
+  const { behind, ahead } = state
+  if (behind > 0 || ahead > 0) {
+    // On the default branch itself the comparison is with its remote copy.
+    const target = state.branch === state.base ? `origin/${state.base}` : state.base
+    const text =
+      behind > 0 && ahead > 0
+        ? `${behind} behind, ${ahead} ahead of ${target}`
+        : behind > 0
+          ? `${behind} behind ${target}`
+          : `${ahead} ahead of ${target}`
+    lines.push(theme.fg(behind >= FAR_BEHIND ? "warning" : "muted", text))
+  }
+  const tree = [
+    state.conflicted > 0 ? theme.fg("error", `${state.conflicted} conflicted`) : "",
+    state.uncommitted > 0 ? muted(`${state.uncommitted} uncommitted`) : "",
+    state.untracked > 0 ? muted(`${state.untracked} untracked`) : "",
+  ].filter(Boolean)
+  if (tree.length > 0) lines.push(tree.join(muted(", ")))
+  lines.push(muted(fitPath(homePath(state.cwd), inner)))
+  if (!pr) return { lines, links }
+
+  const first = lines.length + 1
+  const merged = pr.state === "MERGED"
+  const status = merged ? "merged" : pr.draft ? "draft" : "open"
+  lines.push("", spread(theme.bold("Pull Request"), muted(`#${pr.number} ${status}`), inner))
+  if (!merged) {
+    const ok = (text: string) => `${theme.fg("success", "✓")} ${muted(text)}`
+    if (pr.checks === "fail") {
+      for (const name of pr.failing.slice(0, MAX_FAILING)) lines.push(theme.fg("error", truncateToWidth(`✗ ${name}`, inner, "…")))
+      if (pr.failing.length > MAX_FAILING) lines.push(theme.fg("error", `  ${pr.failing.length - MAX_FAILING} more failing`))
+    } else if (pr.checks === "pending") lines.push(`${theme.fg("accent", "•")} ${muted(`${plural(pr.running, "check")} running`)}`)
+    else if (pr.checks === "pass") lines.push(ok("checks passed"))
+    if (pr.unresolved > 0) lines.push(theme.fg("warning", plural(pr.unresolved, "unresolved comment")))
+    if (pr.review === "APPROVED") lines.push(ok("approved"))
+    else if (pr.review === "CHANGES_REQUESTED") lines.push(theme.fg("warning", "changes requested"))
+    else if (pr.review === "REVIEW_REQUIRED" && !pr.draft) lines.push(muted("review required"))
+    if (pr.conflict) lines.push(theme.fg("error", `✗ conflicts with ${pr.base}`))
+  }
+  for (let row = first; row < lines.length; row++) links.set(row, pr.url)
+  return { lines, links }
+}
+
+// A failure lands in the sidebar's warnings: a click has nowhere else to say.
+function openUrl(url: string): void {
+  execFile(process.platform === "darwin" ? "open" : "xdg-open", [url], (error: Error | null) => {
+    if (!error) return
+    store.notices = [...store.notices, { kind: "warning", text: `Could not open ${url}: ${error.message}` }]
+    requestRender()
+  })
 }
 
 // Brand colour per provider, as raw truecolour: the theme has no token for
@@ -256,7 +333,7 @@ function renderPanel(
   theme: Theme,
   width: number,
   rows: number,
-): { lines: string[]; warningsRow: number | undefined; toggles: Map<number, string> } {
+): { lines: string[]; warningsRow: number | undefined; toggles: Map<number, string>; links: Map<number, string> } {
   const body: string[] = []
   const line = (text = "") => body.push(text)
   const muted = (text: string) => line(theme.fg("muted", text))
@@ -269,15 +346,13 @@ function renderPanel(
   muted(`${state.tokens === undefined ? "?" : state.tokens.toLocaleString("en-US")} tokens`)
   muted(`${state.percent === undefined ? "?" : `${Math.round(state.percent)}%`} used`)
   muted(`$${state.cost.toFixed(2)} spent`)
+  const gitAt = body.length
+  const gitRows = gitSection(git.state, git.pr, theme, width - 2 * PAD)
+  body.push(...gitRows.lines)
   const limitsAt = body.length
   const limitRows = limitsSection(limits.accounts, theme, width - 2 * PAD, openLimits)
   body.push(...limitRows.lines)
   body.push(...todoSection(state.todos, theme, width - 2 * PAD))
-  if (state.files.length > 0) {
-    line()
-    line(theme.bold("Modified Files"))
-    for (const f of state.files) muted(f)
-  }
   if (store.nestedContext.length > 0) {
     line()
     line(theme.bold("Nested Context"))
@@ -287,14 +362,14 @@ function renderPanel(
   const notices = store.notices
   const alert = notices.some((n) => n.kind !== "status")
   const warnings = notices.length > 0 ? [theme.fg(alert ? "warning" : "muted", `warnings (${notices.length})`)] : []
-  const location = `${homePath(state.cwd)}${state.branch ? `:${state.branch}` : ""}`
   const update = store.update ? theme.fg("warning", ` (Update Available ${store.update})`) : ""
-  const footer = [...warnings, location, "", `${theme.fg("success", "•")} ${theme.bold("OmO")} ${theme.fg("muted", VERSION)}${update}`, ""]
+  const footer = [...warnings, "", `${theme.fg("success", "•")} ${theme.bold("OmO")} ${theme.fg("muted", VERSION)}${update}`, ""]
   const filler = Math.max(1, rows - body.length - footer.length)
   return {
     lines: [...body, ...Array(filler).fill(""), ...footer].map((text) => paint(theme, BG, text ? `${" ".repeat(PAD)}${text}` : "", width)),
     warningsRow: warnings.length > 0 ? body.length + filler : undefined,
     toggles: new Map([...limitRows.toggles].map(([row, provider]) => [row + limitsAt, provider])),
+    links: new Map([...gitRows.links].map(([row, url]) => [row + gitAt, url])),
   }
 }
 
@@ -343,6 +418,7 @@ export default function sidebar(pi: Pi) {
   let ctx: SessionCtx | undefined
   let warningsRow: number | undefined
   let toggles = new Map<number, string>()
+  let links = new Map<number, string>()
 
   // Startup notices (config diagnostics) arrive before the sidebar mounts;
   // they are taken on the assumption that the tui will be fullscreen.
@@ -354,6 +430,7 @@ export default function sidebar(pi: Pi) {
       const out = renderPanel(store.snapshot, theme, width, tui.terminal.rows)
       warningsRow = out.warningsRow
       toggles = out.toggles
+      links = out.links
       return out.lines
     },
     invalidate() {},
@@ -363,6 +440,11 @@ export default function sidebar(pi: Pi) {
       if (provider) {
         if (!openLimits.delete(provider)) openLimits.add(provider)
         requestRender()
+        return { handled: true }
+      }
+      const url = links.get(event.y)
+      if (url) {
+        openUrl(url)
         return { handled: true }
       }
       if (event.y !== warningsRow || !ctx) return
@@ -423,6 +505,7 @@ export default function sidebar(pi: Pi) {
     // Polls only where there is a screen to show it: headless workers never
     // mount a tui.
     startLimits()
+    startGit()
     fullscreen = wrapLayout(t, (inner) => {
       // A bottom margin under the main column only; the panel spans full height.
       const main = new VStack([

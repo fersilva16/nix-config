@@ -13,10 +13,11 @@
 // TTL_MS is antiburn's cadence, and a failed fetch waits it out too, as in
 // antiburn: Anthropic's usage endpoint answers a one-minute poll with 429 and
 // `retry-after: 0`, which gives nothing better to wait for.
-import { closeSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs"
+import { readFileSync, renameSync, writeFileSync } from "node:fs"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { requestRender } from "./host.ts"
+import { lock, unlock } from "./lock.ts"
 
 // `seconds` is the window's full length, which pace needs to know how much of
 // it has elapsed.
@@ -33,9 +34,6 @@ type Cache = { at: number; accounts: Account[] }
 const AUTH = join(homedir(), ".omo/agent/auth.json")
 const CACHE = join(tmpdir(), "omo-limits.json")
 const LOCK = `${CACHE}.lock`
-// Well past the longest a fetch can run (TIMEOUT_MS), so a lock this old was
-// left by an omo that died mid-fetch.
-const LOCK_STALE_MS = 30_000
 const TTL_MS = 5 * 60_000
 const READ_MS = 30_000
 const TIMEOUT_MS = 8_000
@@ -93,24 +91,6 @@ function readCache(): Cache | undefined {
   }
 }
 
-// O_EXCL create is atomic across processes: exactly one omo gets the file.
-// Any failure means "not ours this tick"; the next tick tries again.
-function lock(): boolean {
-  try {
-    closeSync(openSync(LOCK, "wx"))
-    return true
-  } catch {
-    try {
-      if (Date.now() - statSync(LOCK).mtimeMs < LOCK_STALE_MS) return false
-      unlinkSync(LOCK)
-      closeSync(openSync(LOCK, "wx"))
-      return true
-    } catch {
-      return false
-    }
-  }
-}
-
 async function poll(): Promise<void> {
   const cached = readCache()
   if (cached) {
@@ -118,7 +98,7 @@ async function poll(): Promise<void> {
     requestRender()
   }
   if (cached && Date.now() - cached.at < TTL_MS) return
-  if (!lock()) return
+  if (!lock(LOCK)) return
   try {
     // Another omo may have finished a fetch between the read above and
     // taking the lock.
@@ -161,11 +141,7 @@ async function poll(): Promise<void> {
     writeCache(limits.accounts)
     requestRender()
   } finally {
-    try {
-      unlinkSync(LOCK)
-    } catch {
-      // Already gone: another omo judged it stale and took it over.
-    }
+    unlock(LOCK)
   }
 }
 

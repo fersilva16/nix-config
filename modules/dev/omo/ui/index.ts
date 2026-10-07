@@ -7,6 +7,7 @@ import backdrop from "./backdrop.ts"
 import btw from "./btw.ts"
 import code from "./code.ts"
 import { stripChrome } from "./core/card.ts"
+import { initGit } from "./core/git.ts"
 import cursor from "./cursor.ts"
 import { initHost, onSelectionText } from "./core/host.ts"
 import { initStore } from "./core/store.ts"
@@ -29,6 +30,7 @@ import widgets from "./widgets.ts"
 export default function (pi: ExtensionAPI) {
   initHost(pi)
   initStore(pi)
+  initGit(pi)
   prompt(pi)
   cursor(pi)
   question(pi)

@@ -1,6 +1,5 @@
 // Session state shared by the footer and sidebar: one set of event
 // subscriptions keeps it fresh and re-renders the UI when it changes.
-import { spawnSync } from "node:child_process"
 import { type Notice, requestRender } from "./host.ts"
 import type { Ctx, Entry } from "./types.ts"
 
@@ -10,9 +9,6 @@ export type Snapshot = {
   tokens: number | undefined
   percent: number | undefined
   cost: number
-  files: string[]
-  cwd: string
-  branch: string
   todos: TodoPhase[]
 }
 
@@ -28,7 +24,6 @@ type Pi = {
   events: { on(channel: "todo_owed_reminder", handler: (event: TodoOwed) => void): void }
 }
 
-const EDIT_TOOLS = new Set(["edit", "write"])
 const REFRESH_EVENTS = ["turn_end", "tool_result", "model_select", "session_info_changed"]
 
 export const store = {
@@ -46,7 +41,6 @@ export const store = {
 }
 
 let pi: Pi | undefined
-let branch = ""
 let live: Ctx | undefined
 
 export function sessionCost(entries: Entry[]): number {
@@ -72,11 +66,6 @@ function firstUserText(entries: Entry[]): string {
   return "New session"
 }
 
-function gitBranch(cwd: string): string {
-  const r = spawnSync("git", ["-C", cwd, "rev-parse", "--abbrev-ref", "HEAD"], { encoding: "utf8" })
-  return r.status === 0 ? r.stdout.trim() : ""
-}
-
 // The todo list as omo's todo extension persists it: the latest
 // senpi.todo-state entry or todo tool result on the branch wins.
 function latestTodos(entries: Entry[]): TodoPhase[] {
@@ -97,23 +86,11 @@ function latestTodos(entries: Entry[]): TodoPhase[] {
 
 function collect(ctx: Ctx): Snapshot {
   const entries = ctx.sessionManager.getBranch()
-  const files = new Set<string>()
-  for (const e of entries) {
-    const m = e.message
-    if (e.type !== "message" || m?.role !== "assistant" || !Array.isArray(m.content)) continue
-    for (const b of m.content) {
-      if (b.type === "toolCall" && EDIT_TOOLS.has(b.name ?? "") && b.arguments?.path) files.add(b.arguments.path)
-    }
-  }
-  const cwdPrefix = ctx.cwd.endsWith("/") ? ctx.cwd : `${ctx.cwd}/`
   return {
     title: pi?.getSessionName() ?? firstUserText(entries),
     sessionId: ctx.sessionManager.getSessionId(),
     ...contextUsage(ctx),
     cost: sessionCost(entries),
-    files: [...files].map((f) => (f.startsWith(cwdPrefix) ? f.slice(cwdPrefix.length) : f)),
-    cwd: ctx.cwd,
-    branch,
     todos: latestTodos(entries),
   }
 }
@@ -147,12 +124,8 @@ export function initStore(api: Pi): void {
   })
   api.on("session_start", (_e, ctx) => {
     store.todoOwed = undefined
-    branch = gitBranch(ctx.cwd)
     refresh(ctx)
   })
   for (const event of REFRESH_EVENTS) api.on(event, (_e, ctx) => refresh(ctx))
-  api.on("agent_settled", (_e, ctx) => {
-    branch = gitBranch(ctx.cwd)
-    refresh(ctx)
-  })
+  api.on("agent_settled", (_e, ctx) => refresh(ctx))
 }
