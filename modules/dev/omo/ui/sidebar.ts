@@ -346,9 +346,6 @@ function renderPanel(
   muted(`${state.tokens === undefined ? "?" : state.tokens.toLocaleString("en-US")} tokens`)
   muted(`${state.percent === undefined ? "?" : `${Math.round(state.percent)}%`} used`)
   muted(`$${state.cost.toFixed(2)} spent`)
-  const gitAt = body.length
-  const gitRows = gitSection(git.state, git.pr, theme, width - 2 * PAD)
-  body.push(...gitRows.lines)
   const limitsAt = body.length
   const limitRows = limitsSection(limits.accounts, theme, width - 2 * PAD, openLimits)
   body.push(...limitRows.lines)
@@ -363,13 +360,20 @@ function renderPanel(
   const alert = notices.some((n) => n.kind !== "status")
   const warnings = notices.length > 0 ? [theme.fg(alert ? "warning" : "muted", `warnings (${notices.length})`)] : []
   const update = store.update ? theme.fg("warning", ` (Update Available ${store.update})`) : ""
-  const footer = [...warnings, "", `${theme.fg("success", "•")} ${theme.bold("OmO")} ${theme.fg("muted", VERSION)}${update}`, ""]
+  // The Git section sits at the bottom, above the warnings, where the
+  // cwd:branch footer used to be. The filler is the gap above its heading, so
+  // its own leading blank goes; a blank keeps the warnings off its last line.
+  const gitRows = gitSection(git.state, git.pr, theme, width - 2 * PAD)
+  const gitLines = gitRows.lines.slice(1)
+  const gap = gitLines.length > 0 && warnings.length > 0 ? [""] : []
+  const footer = [...gitLines, ...gap, ...warnings, "", `${theme.fg("success", "•")} ${theme.bold("OmO")} ${theme.fg("muted", VERSION)}${update}`, ""]
   const filler = Math.max(1, rows - body.length - footer.length)
+  const footerAt = body.length + filler
   return {
     lines: [...body, ...Array(filler).fill(""), ...footer].map((text) => paint(theme, BG, text ? `${" ".repeat(PAD)}${text}` : "", width)),
-    warningsRow: warnings.length > 0 ? body.length + filler : undefined,
+    warningsRow: warnings.length > 0 ? footerAt + gitLines.length + gap.length : undefined,
     toggles: new Map([...limitRows.toggles].map(([row, provider]) => [row + limitsAt, provider])),
-    links: new Map([...gitRows.links].map(([row, url]) => [row + gitAt, url])),
+    links: new Map([...gitRows.links].map(([row, url]) => [row - 1 + footerAt, url])),
   }
 }
 
