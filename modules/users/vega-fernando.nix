@@ -48,6 +48,7 @@ mkUser {
   ponytail.enable = true;
   autoresearch.enable = true;
   show-me.enable = true;
+  ship.enable = true;
   agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
