@@ -8,7 +8,12 @@
 #
 # After rebuild: open Finicky once (from /Applications), then set it as the
 # default browser via System Settings → Desktop & Dock → Default web browser.
-{ mkUserModule, lib, ... }:
+{
+  mkUserModule,
+  forPlatform,
+  lib,
+  ...
+}:
 mkUserModule {
   name = "finicky";
 
@@ -144,7 +149,9 @@ mkUserModule {
   # Finicky sits in the path of every link click. As a hidden background app
   # it gets App Napped when idle, adding seconds to the first link after a
   # quiet stretch.
-  system.system.defaults.CustomUserPreferences."se.johnste.finicky".NSAppSleepDisabled = true;
+  system = forPlatform {
+    darwin.system.defaults.CustomUserPreferences."se.johnste.finicky".NSAppSleepDisabled = true;
+  };
 
   home =
     { cfg, lib, ... }:

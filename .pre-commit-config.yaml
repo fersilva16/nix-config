@@ -1,3 +1,7 @@
+# The devShell runs `pre-commit install -f`; install the pre-push hook too.
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
 repos:
   - repo: local
     hooks:
@@ -24,3 +28,13 @@ repos:
         pass_filenames: false
         language: system
         entry: statix check .
+
+      # Evaluates every host from any machine: nixosConfigurations are not
+      # keyed by system, so a darwin-only option leaking into polaris fails
+      # here on vega. Pre-push, not pre-commit: it evaluates both hosts.
+      - name: nix flake check
+        id: nix-flake-check
+        pass_filenames: false
+        stages: [pre-push]
+        language: system
+        entry: nix flake check
