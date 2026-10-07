@@ -125,6 +125,10 @@ mkUserModule {
           (lib.mkIf userCfg.tmux.enable {
             ".omo/agent/extensions/tmux-fork.ts".source = ./tmux-fork.ts;
           })
+          # /wt moves the session into a worktree via the `wt` fish function.
+          (lib.mkIf (userCfg.tmux.enable && userCfg.worktree.enable) {
+            ".omo/agent/extensions/tmux-wt.ts".source = ./tmux-wt.ts;
+          })
           # Read-only store symlink; change omo config in omo-jsonc.nix.
           { ".omo/omo.jsonc".source = import ./omo-jsonc.nix { inherit pkgs; }; }
           # Global instructions. omo applies a ~/.omo/rules file only when its

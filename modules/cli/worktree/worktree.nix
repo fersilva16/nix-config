@@ -447,6 +447,13 @@ let
 
       name="''${wt_path##*/}"
 
+      # WT_EXEC (see wt) arrives through new-session -e, which sets it for the
+      # whole session: take it and clear it there, or every later window — the
+      # .setup one below included — would carry it into its own `wt` calls.
+      exec_first="''${WT_EXEC:-}"
+      unset WT_EXEC
+      tmux set-environment -t "=$session" -u WT_EXEC 2>/dev/null || true
+
       # default-*command*, not default-shell. This config deliberately pins
       # default-shell to /bin/sh because that is the wrapper tmux execs for
       # run-shell, if-shell and display-popup -E; reading it here lands you in
@@ -502,6 +509,14 @@ let
           # every `wt` would leave this line in the history of every shell.
           tmux send-keys -t "$win" " sh -e '$setup_file'; and exit" Enter
         fi
+      fi
+
+      # The caller's command, then the shell once it exits, so the window
+      # outlives it like any other pane. `set -m` puts it in its own
+      # foreground process group, so tmux reports it (omo) rather than sh as
+      # the pane's command — the window icon and the notifier key off that.
+      if [ -n "$exec_first" ]; then
+        exec sh -c "set -m; $exec_first; exec $cmd"
       fi
 
       # `exec` inside too, so sh replaces itself rather than lingering as a
@@ -695,7 +710,12 @@ mkUserModule {
             test $is_new -eq 1; and command tmux run-shell -b \
               "'${wt-create}/bin/wt-create' '$main_root' '$wt_path' '$branch' '$base_branch'"
           else
-            command tmux new-session -d -s "$session_name" -c "$wt_path" \
+            # WT_EXEC is for callers that want the session's first window to
+            # run something before the shell — omo's /wt moving a session in —
+            # instead of opening a second window beside an empty one.
+            set -l exec_env
+            set -q WT_EXEC; and set exec_env -e "WT_EXEC=$WT_EXEC"
+            command tmux new-session -d -s "$session_name" -c "$wt_path" $exec_env \
               "'${wt-enter}/bin/wt-enter' '$main_root' '$wt_path' '$branch' '$base_branch' '$session_name' '$enter_setup'"
           end
 
