@@ -1,8 +1,5 @@
 { mkUserModule, lib, ... }:
-# ship: `/ship` commits all local changes as one commit, pushes and opens a PR;
-# `/ship merge` also squash-merges it. An omo extension, not a prompt template:
-# it gathers the repo state before the turn starts, so the agent spends no tool
-# calls on discovery (where past ship turns spent most of theirs).
+# ship: `/ship` commits, pushes and opens a PR; `/ship merge` also merges it.
 mkUserModule {
   name = "ship";
   home =
