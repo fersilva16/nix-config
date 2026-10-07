@@ -170,7 +170,7 @@ function gitSection(
     if (pr.review === "APPROVED") lines.push(ok("approved"))
     else if (pr.review === "CHANGES_REQUESTED") lines.push(theme.fg("warning", "changes requested"))
     else if (pr.review === "REVIEW_REQUIRED" && !pr.draft) lines.push(muted("review required"))
-    if (pr.conflict) lines.push(theme.fg("error", `✗ conflicts with ${pr.base}`))
+    if (pr.conflict) lines.push(theme.fg("error", truncateToWidth(`✗ conflicts with ${pr.base}`, inner, "…")))
   }
   for (let row = first; row < lines.length; row++) links.set(row, pr.url)
   return { lines, links }
