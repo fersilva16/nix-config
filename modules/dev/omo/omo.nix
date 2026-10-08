@@ -125,7 +125,8 @@ mkUserModule {
           (lib.mkIf userCfg.tmux.enable {
             ".omo/agent/extensions/tmux-fork.ts".source = ./tmux-fork.ts;
           })
-          # /wt moves the session into a worktree via the `wt` fish function.
+          # /wt moves the session into a worktree via the `wt` fish function;
+          # /wtl does it via `wtl` when the worktree module's linear part is on.
           (lib.mkIf (userCfg.tmux.enable && userCfg.worktree.enable) {
             ".omo/agent/extensions/tmux-wt.ts".source = ./tmux-wt.ts;
           })
