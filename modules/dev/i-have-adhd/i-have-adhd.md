@@ -5,13 +5,14 @@ brain can act on it.
 
 ## What ADHD changes about reading
 
-Five facts drive every rule below:
+Six facts drive every rule below:
 
 1. Working memory is small. Anything not on screen is forgotten. Do not ask the reader to "keep in mind X."
 2. Knowing the answer is not doing the answer. The friction between "got it" and "done it" is where work dies.
 3. Starting is the hardest step. The first action must be obvious, small, and doable now.
 4. Time does not register. Estimates can't be felt or checked; size registers as steps.
 5. Dopamine is scarce. Visible progress matters. Buried wins do not register.
+6. In an agent harness, you act, not the reader. "Next action" means the reader's only when the work is blocked on them; otherwise it is your next tool call, taken in the same message.
 
 ### Rules
 
@@ -20,9 +21,11 @@ Five facts drive every rule below:
 The first line is something the reader can do. Not context. Not a plan. The action.
 
 Bad: "Let's think about this. Your auth flow has a few moving pieces..."
-Good: "Run `npm install jsonwebtoken`, then edit `src/auth.ts:42`."
+Good: "Pick the token store: Redis (survives restarts) or in-memory (no new service). The rest of the auth rewrite is done."
 
 If the answer is a command, path, or snippet, it goes first. Prose comes after, if at all.
+
+After work you ran yourself, the first line is what needs the reader (a decision, an approval). If nothing does, it is what now works.
 
 #### 2. Number multi-step tasks
 
@@ -30,21 +33,22 @@ If the work takes more than one step, write a numbered list. Each step is one bo
 
 Use the fewest steps that still work. Cut any step the reader does not need, and fold trivial steps into the one before. A short path finished beats a complete path abandoned.
 
-Bad: "First open the file, find the function, swap it out, then run the tests."
+Bad: "Check out the branch, start the server, then try logging in and see if the email arrives."
 
 Good:
 ```
-1. Open `src/auth.ts`
-2. Replace `verifyToken` (lines 42 to 58) with the snippet below
-3. Run `npm test -- auth.spec.ts`
+1. Run `gh pr checkout 42`
+2. Run `npm run dev` and open `/login`
+3. Request a magic link and click it in your inbox
 ```
 
-#### 3. End with one concrete next action
+#### 3. End with one concrete next action, if it is the reader's
 
-If anything is left open, name ONE thing the reader can do in under two minutes. Even "open the file" counts.
+If the turn ends on something only the reader can do, name ONE thing they can do in under two minutes. Even "open the file" counts. If you can take the next step yourself, take it instead of naming it.
 
 Bad: "Hope that helps. Let me know if you want to dig deeper."
-Good: "Next: run `npm test` and paste the first failing line."
+Bad: "Next: I'll backfill the column." (names your own step without taking it)
+Good: "Next: click the magic link in your inbox and say whether it logs you in."
 
 #### 4. Suppress tangents
 
@@ -60,7 +64,9 @@ A question that comes up mid-work is not a tangent: answer it yourself if you ca
 The reader cannot hold "we are on step 3 of 5" between messages. Restate it.
 
 Bad: "Done. Ready for the next part?"
-Good: "Step 3 of 5 done: schema updated. Next: backfill the new column. Run the script?"
+Good: "Step 3 of 5 done: schema updated. Now: backfilling the new column."
+
+Put the state line in the same message as your next action. Ask only when the next step needs the reader.
 
 If the harness has a task or plan tool, use it for multi-step work: one item per step, one in progress at a time. The checklist does the restating; do not also narrate the full plan as prose.
 
@@ -111,7 +117,7 @@ Override the defaults when:
 3. Debug spiral. If the last three turns have been "still broken," stop iterating on code. Name the assumption that might be wrong. Ask one diagnostic question.
 4. Real ambiguity in the request. One short clarifying question beats guessing and rewriting.
 5. A rule fights the task. When a rule would delete the answer itself, the task wins; the shape stays. Example: "what are my options" gets 2 to 4 ranked options with one-line trade-offs, recommendation first, not one path. The options are the answer.
-6. A rule fights the harness. Inside an agent harness, the system prompt outranks this skill: announce a tool call when the harness requires it, do the work instead of asking "want me to." Same principle as 5: the constraint wins, the shape stays.
+6. A rule fights the harness. Inside an agent harness, the system prompt outranks this file: announce a tool call when the harness requires it. Same principle as 5: the constraint wins, the shape stays.
 
 
 ### Pre-send check
