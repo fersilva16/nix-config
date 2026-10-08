@@ -36,6 +36,7 @@ mkUser {
   postman.enable = true;
   ngrok.enable = true;
   orbstack.enable = true;
+  tart.enable = true;
   "java-25".enable = true;
   minikube.enable = true;
   doppler.enable = true;
