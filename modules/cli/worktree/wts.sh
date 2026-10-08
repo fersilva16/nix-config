@@ -502,12 +502,8 @@ status() {
 
 add() {
   add_layer "$@"
-  pool_fill
   status
 }
-
-# Restock the wt pool and refresh refs/remotes, detached (see wt-pool-fill).
-pool_fill() { tmux run-shell -b "'$(command -v wt-pool-fill)' '$main_root'" 2>/dev/null || true; }
 
 add_layer() {
   local l="" b="" after="" i p child start lp
@@ -550,8 +546,7 @@ add_layer() {
   [ -n "$b" ] || b="$(git config --default "" wt.prefix)$name-$l"
 
   mkdir -p "$sdir"
-  wt-claim "$main_root" "$lp" "$b" "$start" ||
-    wt-create "$main_root" "$lp" "$b" "$start" ||
+  wt-create "$main_root" "$lp" "$b" "$start" ||
     die "could not create $lp (log: $sdir/.$l.log)"
   git branch -q --set-upstream-to="${p:-origin/$trunk}" "$b"
   git config "branch.$b.pushRemote" origin
@@ -840,8 +835,7 @@ pull() {
   done
   if [ -z "$cur" ]; then
     mkdir -p "$wd"
-    wt-claim "$main_root" "$rp" "$rb" "$rs" ||
-      wt-create "$main_root" "$rp" "$rb" "$rs" ||
+    wt-create "$main_root" "$rp" "$rb" "$rs" ||
       die "could not create $rp (log: $wd/.$nm.log)"
     ps=$(parent_session)
     if [ -n "$ps" ]; then
@@ -866,7 +860,6 @@ pull() {
       git config "branch.$b.pushRemote" ask-the-user
     fi
   done
-  pool_fill
   echo "pulled the stack of #$pr (${#stack[@]} PRs) into $rp"
   status
 }

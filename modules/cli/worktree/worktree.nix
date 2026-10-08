@@ -1,9 +1,14 @@
 {
   mkUserModule,
   pkgs,
+  forPlatform,
   ...
 }:
 let
+  # A pool nobody has run `wt` in for this long is pruned (wt-pool-fill), and
+  # stops being refreshed (wt-pool-refresh).
+  poolMaxAgeDays = 14;
+
   # Rows for the worktree pickers: "name  *  2 days ago", most recent first.
   #
   # Sorted by commit epoch, not by the rendered string ("2 weeks ago" doesn't
@@ -211,10 +216,10 @@ let
   #   claim: git worktree move                    28ms
   #   claim: git checkout -b (slot at base)      375ms
   #
-  # Staleness turned out not to matter, which is why nothing here refreshes
-  # slots on a timer: git only writes the diff, so a slot 200 commits and 2891
-  # files behind still claims in 738ms. Age is a disk concern, not a speed one,
-  # and wt-pool-fill handles it.
+  # A stale slot would still claim fast — git only writes the diff, and a slot
+  # 200 commits and 2891 files behind claimed in 738ms — but its .setup output
+  # (the venvs) would be for old lockfiles. So wt-pool-fill keeps the slot at
+  # the main checkout's HEAD, on every `wt` and on a timer (wt-pool-refresh).
   wt-claim = pkgs.writeShellApplication {
     name = "wt-claim";
     runtimeInputs = [
@@ -229,8 +234,8 @@ let
       branch="$3"
       base_branch="$4"
 
-      # From main_root, not wt_path's parent: stack layers (wts) live one level
-      # deeper, under .stacks/<root>/, and claim from the same pool.
+      # From main_root, not wt_path's parent, so the pool is found wherever
+      # the caller puts the worktree.
       pool="$(dirname "$main_root")/$(basename "$main_root").worktrees/.pool"
       name="''${wt_path##*/}"
       log="''${wt_path%/*}/.$name.log"
@@ -246,6 +251,10 @@ let
         # only validation left here because it is a stat — everything else
         # costs real time on this path.
         [ -e "$slot/.git" ] || continue
+        # A link is a slot already claimed (see the `ln -s` below); a
+        # .building marker means wt-pool-fill is still running .setup in it.
+        [ -L "$slot" ] && continue
+        [ -e "$slot.building" ] && continue
 
         # The "has anything touched this slot" check deliberately lives in
         # wt-pool-fill instead, which runs detached. It is a `git status` over
@@ -261,6 +270,14 @@ let
         # cannot both win: the loser's move fails, it falls through this loop
         # and builds normally. That is the whole concurrency story — no lock.
         git -C "$main_root" worktree move "$slot" "$wt_path" >>"$log" 2>&1 || continue
+
+        # Leave a link where the slot was. wt-pool-fill ran .setup in the
+        # slot, and what that installs records the slot's absolute path — on
+        # monobloco, 384 files across both uv venvs (entry-point shebangs,
+        # editable .pth files). Through the link they all resolve to the
+        # worktree's new home, at no cost here. wt-pool-fill drops the link
+        # once the worktree is gone.
+        ln -s "$wt_path" "$slot" 2>>"$log" || true
 
         {
           echo "=== $(date): claimed $slot -> $wt_path on $branch ==="
@@ -282,6 +299,7 @@ let
           # .git exists — so tear it down and let the slow path build clean.
           git -C "$main_root" worktree remove --force "$wt_path" >>"$log" 2>&1 || true
           rm -rf "''${wt_path:?}"
+          rm -f "$slot"
           exit 1
         }
 
@@ -293,10 +311,13 @@ let
     '';
   };
 
-  # Keeps the pool stocked and does the one network round trip, both off the
-  # critical path: `wt` fires this detached after it has already switched you.
+  # Keeps the pool stocked with one slot at the main checkout's HEAD, and does
+  # the one network round trip, both off the critical path: `wt` fires this
+  # detached after it has already switched you, and wt-pool-refresh runs it on
+  # a timer so a pull in the main checkout reaches the slot before your next
+  # `wt` does.
   #
-  # Filling on use rather than on a schedule is deliberate — a repo you never
+  # Filling on use rather than ahead of it is deliberate — a repo you never
   # `wt` in never gets a slot, so the disk cost follows what you actually work
   # on. The first `wt` in a repo pays full price and leaves a slot behind; every
   # one after it claims in ~400ms.
@@ -308,25 +329,58 @@ let
       pkgs.direnv
     ];
     text = ''
-      # usage: wt-pool-fill <main_root>
+      # usage: wt-pool-fill [--refresh] <main_root>
+      #
+      # --refresh is the timer: it keeps a pool current but is not activity,
+      # so it neither stamps .last-used nor registers the pool — otherwise no
+      # pool would ever age out.
+      refresh=""
+      if [ "''${1:-}" = "--refresh" ]; then
+        refresh=1
+        shift
+      fi
       main_root="$1"
 
       wd="$(dirname "$main_root")/$(basename "$main_root").worktrees"
       pool="$wd/.pool"
+      # One slot: a set-up monobloco slot is ~4G, and one is all a `wt` needs.
       target=1
-      max_age_days=14
+      max_age_days=${toString poolMaxAgeDays}
       registry="''${XDG_STATE_HOME:-$HOME/.local/state}/wt/pools"
 
       mkdir -p "$pool"
-      exec >>"$pool/.fill.log" 2>&1
-      echo "=== $(date): fill $pool ==="
+      # Bounded, now that the timer appends to it all day: a monobloco fetch
+      # alone can print hundreds of ref lines.
+      log="$pool/.fill.log"
+      if [ -f "$log" ] && [ "$(wc -c <"$log" | tr -d ' ')" -gt 2000000 ]; then
+        tail -c 500000 "$log" >"$log.tmp" && mv "$log.tmp" "$log"
+      fi
+      exec >>"$log" 2>&1
+      echo "=== $(date): fill $pool ''${refresh:+(refresh) }==="
 
-      # Stamp first: this is "when was this repo last worked in", and the prune
-      # below reads it. Touching it here means any `wt` counts as activity.
-      touch "$pool/.last-used"
+      # One fill per pool at a time. Two at once (two quick `wt`s, or a `wt`
+      # and the timer) would each find the pool empty and build a slot apiece.
+      # The loser just leaves; the winner fetches and restocks for both. A lock
+      # older than an hour belongs to a fill that died holding it.
+      lock="$pool/.fill.lock"
+      if ! mkdir "$lock" 2>/dev/null; then
+        if [ -n "$(find "$lock" -maxdepth 0 -mmin -60 2>/dev/null)" ]; then
+          echo "another fill is running"
+          exit 0
+        fi
+        rm -rf "$lock"
+        mkdir "$lock" || exit 0
+      fi
+      trap 'rmdir "$lock" 2>/dev/null || true' EXIT
 
-      mkdir -p "''${registry%/*}"
-      grep -qxF "$pool" "$registry" 2>/dev/null || echo "$pool" >>"$registry"
+      if [ -z "$refresh" ]; then
+        # Stamp first: this is "when was this repo last worked in", and the
+        # prune below reads it. Touching it here means any `wt` counts.
+        touch "$pool/.last-used"
+
+        mkdir -p "''${registry%/*}"
+        grep -qxF "$pool" "$registry" 2>/dev/null || echo "$pool" >>"$registry"
+      fi
 
       # Prune every pool we know of, not just this one. Without this a repo you
       # stop touching keeps its slot (1.1G on monobloco) forever, because the
@@ -350,8 +404,12 @@ let
           root="''${p%.worktrees/.pool}"
           for s in "$p"/*/; do
             [ -d "$s" ] || continue
-            git -C "$root" worktree remove --force "''${s%/}" 2>/dev/null || true
-            rm -rf "''${s%/}"
+            s="''${s%/}"
+            # A link is a claimed worktree that may still be in use; never
+            # hand it to `worktree remove`.
+            [ -L "$s" ] && continue
+            git -C "$root" worktree remove --force "$s" 2>/dev/null || true
+            rm -rf "$s" "$s.building"
           done
           git -C "$root" worktree prune 2>/dev/null || true
         done
@@ -363,35 +421,95 @@ let
       # current as your last `wt` in this repo.
       git -C "$main_root" fetch origin || true
 
+      # Slots are parked at whatever the main checkout is on, since that is
+      # what `wt` branches from. Detached, so the pool never shows up in
+      # `git branch`.
+      base=$(git -C "$main_root" rev-parse HEAD)
+
+      # Links left by wt-claim whose worktree has since been removed.
+      for s in "$pool"/slot-*; do
+        if [ -L "$s" ] && [ ! -e "$s" ]; then rm -f "$s"; fi
+      done
+
+      # Through a login shell, for the same reason .setup needs one: this runs
+      # under tmux run-shell or launchd, whose PATH is roughly /usr/bin, and an
+      # .envrc that says `use nix` needs nix on it.
+      login_shell="''${SHELL:-/bin/sh}"
+      [ -x "$login_shell" ] || login_shell=/bin/sh
+
+      # The repo's .setup, run in a slot so a claimed worktree arrives with its
+      # dependencies installed instead of installing them while you wait. On
+      # monobloco that is `make setup`: 23s from scratch, almost all of it two
+      # `uv sync`s, and ~14s again on a slot that already has them. wt still
+      # runs .setup after a claim; that pass regenerates anything keyed to the
+      # worktree's own path, like monobloco's .worktree-runtime.json, whose
+      # ports derive from it. stdin is /dev/null so nothing can sit waiting on
+      # a prompt.
+      run_setup() {
+        [ -f "$wd/.setup" ] || return 0
+        "$login_shell" -l -c "cd '$1' && direnv exec . sh -e '$wd/.setup'" \
+          </dev/null || echo "warn: .setup failed in $1 (the claim reruns it)"
+      }
+
       # Validate what is already parked, here rather than in wt-claim. This is
       # the `git status` that used to sit on the claim path costing 350-855ms;
       # detached, its cost is nobody's problem. A slot anything has written to
       # is destroyed rather than handed over, because those changes would ride
       # into your new worktree and read as your own work.
+      #
+      # One that is merely behind $base is moved forward in place instead:
+      # the main checkout moves on every pull and every agent spawn, and a
+      # rebuild is a full checkout plus ~4G of setup output each time, where
+      # this writes only the diff and reruns .setup (~15s on monobloco). That
+      # .setup has to bring the dependencies up to date itself — monobloco's
+      # `make setup` skips venvs that already exist, so its .setup follows it
+      # with the `uv sync`s.
       for s in "$pool"/*/; do
         [ -d "$s" ] || continue
         s="''${s%/}"
-        if [ -e "$s/.git" ] &&
-           [ -z "$(git --no-optional-locks -C "$s" status --porcelain 2>/dev/null)" ]; then
+        # Claimed (a link to a live worktree), or another fill is still
+        # running .setup in it. A marker older than an hour is a fill that
+        # died half way; its slot is judged like any other.
+        [ -L "$s" ] && continue
+        [ -n "$(find "$s.building" -mmin -60 2>/dev/null)" ] && continue
+        rm -f "$s.building"
+        if [ ! -e "$s/.git" ] ||
+           [ -n "$(git --no-optional-locks -C "$s" status --porcelain 2>/dev/null)" ]; then
+          echo "discarding unusable slot $s"
+          git -C "$main_root" worktree remove --force "$s" 2>/dev/null || true
+          rm -rf "$s"
           continue
         fi
-        echo "discarding unusable slot $s"
-        git -C "$main_root" worktree remove --force "$s" 2>/dev/null || true
-        rm -rf "$s"
+        [ "$(git -C "$s" rev-parse HEAD 2>/dev/null || true)" = "$base" ] && continue
+
+        echo "advancing $s to $base"
+        touch "$s.building"
+        if git -C "$s" checkout -q --detach "$base"; then
+          run_setup "$s"
+          rm -f "$s.building"
+        else
+          echo "discarding $s: could not advance it"
+          git -C "$main_root" worktree remove --force "$s" 2>/dev/null || true
+          rm -rf "$s" "$s.building"
+        fi
       done
       git -C "$main_root" worktree prune 2>/dev/null || true
 
-      count=$(find "$pool" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+      # Slot directories only: not .fill.lock, and not the links claimed slots
+      # leave behind.
+      count=$(find "$pool" -mindepth 1 -maxdepth 1 -type d -name 'slot-*' 2>/dev/null | wc -l | tr -d ' ')
       [ "$count" -ge "$target" ] && { echo "pool has $count, target $target"; exit 0; }
 
-      # Park slots at whatever the main worktree is on, since that is what `wt`
-      # branches from. Detached, so the pool never shows up in `git branch`.
-      base=$(git -C "$main_root" rev-parse HEAD)
       while [ "$count" -lt "$target" ]; do
         # Nanoseconds rather than seconds+PID: unique without needing a `$`
         # that has to survive Nix string escaping to mean what it says.
         slot="$pool/slot-$(date +%s%N)-$count"
-        git -C "$main_root" worktree add --detach "$slot" "$base" || break
+        # Off-limits to wt-claim until .setup below has finished in it.
+        touch "$slot.building"
+        git -C "$main_root" worktree add --detach "$slot" "$base" || {
+          rm -f "$slot.building"
+          break
+        }
 
         # Warm the dev shell while we are already off the critical path. A
         # fresh worktree has no .direnv, so the first prompt after a claim
@@ -404,21 +522,41 @@ let
         # that changes shell.nix re-evaluates on claim anyway, which is
         # correct; the warm cache pays off when the dev shell is unchanged,
         # which is the common case.
-        # Through a login shell, for the same reason .setup needs one: this
-        # runs under tmux run-shell, whose PATH is roughly tmux + /usr/bin, and
-        # the .envrc says `use nix`. Without it direnv cannot find nix, fails
+        # The login shell matters here too: without nix on PATH direnv fails
         # in ~20ms instead of building anything, and the slot ships cold — the
         # first attempt at this warmed nothing at all and said nothing, because
         # both calls are `|| true`.
-        login_shell="''${SHELL:-/bin/sh}"
-        [ -x "$login_shell" ] || login_shell=/bin/sh
         "$login_shell" -l -c "direnv allow '$slot' && direnv exec '$slot' true" \
           >/dev/null 2>&1 || echo "warn: could not warm .direnv for $slot"
         [ -d "$slot/.direnv" ] || echo "warn: $slot still has no .direnv"
 
+        run_setup "$slot"
+        rm -f "$slot.building"
+
         count=$((count + 1))
       done
       echo "=== $(date): pool now $count ==="
+    '';
+  };
+
+  # The timer half of keeping slots current. Every pool used in the last
+  # poolMaxAgeDays gets a --refresh fill, which moves the slot forward when the
+  # main checkout has moved (a pull, a branch switch) and otherwise only
+  # fetches. Without it a slot catches up on your next `wt` — the very claim
+  # that would be handed the stale one.
+  wt-pool-refresh = pkgs.writeShellApplication {
+    name = "wt-pool-refresh";
+    runtimeInputs = [ wt-pool-fill ];
+    text = ''
+      registry="''${XDG_STATE_HOME:-$HOME/.local/state}/wt/pools"
+      [ -f "$registry" ] || exit 0
+      # Snapshot: each fill may rewrite the registry.
+      mapfile -t pools <"$registry"
+      for p in ''${pools[@]+"''${pools[@]}"}; do
+        [ -d "$p" ] || continue
+        [ -n "$(find "$p/.last-used" -mtime "-${toString poolMaxAgeDays}" 2>/dev/null)" ] || continue
+        wt-pool-fill --refresh "''${p%.worktrees/.pool}" || true
+      done
     '';
   };
 
@@ -537,11 +675,23 @@ mkUserModule {
     stack = import ./stack.nix {
       inherit
         pkgs
-        wt-claim
         wt-create
         wt-enter
-        wt-pool-fill
         ;
+    };
+  };
+  # Every 15 minutes, low priority. A run with nothing to rebuild is a fetch
+  # and a `git status` per pool.
+  system = forPlatform {
+    darwin.launchd.user.agents.wt-pool-refresh = {
+      command = "${wt-pool-refresh}/bin/wt-pool-refresh";
+      serviceConfig = {
+        RunAtLoad = false;
+        StartInterval = 900;
+        ProcessType = "Background";
+        LowPriorityIO = true;
+        Nice = 10;
+      };
     };
   };
   home = {
@@ -673,7 +823,10 @@ mkUserModule {
           # starts in a worktree that is already real, so wt-enter has nothing
           # to build and you get a prompt immediately rather than watching a
           # checkout. An empty or unusable pool just exits 1 and costs nothing.
-          if test $is_new -eq 1
+          #
+          # WT_NO_POOL is for automation (omo's agent spawn): the slot is kept
+          # for the `wt`s you type yourself, where the wait is yours.
+          if test $is_new -eq 1; and not set -q WT_NO_POOL
             ${wt-claim}/bin/wt-claim "$main_root" "$wt_path" "$branch" "$base_branch"
           end
 
@@ -725,10 +878,11 @@ mkUserModule {
           set -q WT_DETACH; or command tmux switch-client -t "=$session_name"
 
           # Restock and fetch, detached, after you have already been switched.
-          # Unconditional: it is also what keeps refs/remotes warm for the next
-          # `wt`, prunes pools for repos you have stopped using, and rebuilds a
-          # slot this run just consumed.
-          command tmux run-shell -b "'${wt-pool-fill}/bin/wt-pool-fill' '$main_root'"
+          # Not just after a claim: it is also what keeps refs/remotes warm for
+          # the next `wt`, prunes pools for repos you have stopped using, and
+          # rebuilds a slot this run consumed. Automation (WT_NO_POOL) leaves
+          # the pool alone entirely, refill included.
+          set -q WT_NO_POOL; or command tmux run-shell -b "'${wt-pool-fill}/bin/wt-pool-fill' '$main_root'"
         '';
 
         wtmv = ''

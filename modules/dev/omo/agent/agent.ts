@@ -451,7 +451,8 @@ async function main() {
 }
 
 // wt makes the worktree and its session (WT_SYNC: checked out before it
-// returns; WT_DETACH: without switching you into it). omo is typed into that
+// returns; WT_DETACH: without switching you into it; WT_NO_POOL: built fresh,
+// leaving the wt pool's slot for the user's own `wt`). omo is typed into that
 // session's own fish so it gets the same login + direnv environment as any
 // pane; the leading space keeps it out of fish history.
 // With --stack, `wts add` makes the layer (and its session) on top of the stack
@@ -463,7 +464,7 @@ async function spawn(name: string, prompt: string, stack?: string, after?: strin
   for (const n of needs) if (!existsSync(pathOf(p, n))) die(`--needs ${n}: no such agent worktree`)
   pullTrunk(p.main)
   const wt = (n: string) => {
-    const r = spawnSync("fish", ["-c", "set -x WT_SYNC 1; set -x WT_DETACH 1; wt $argv[1]", n], { encoding: "utf8" })
+    const r = spawnSync("fish", ["-c", "set -x WT_SYNC 1; set -x WT_DETACH 1; set -x WT_NO_POOL 1; wt $argv[1]", n], { encoding: "utf8" })
     if (r.status !== 0) die(`wt: ${(r.stderr || r.stdout).trim()}`)
   }
   let target: string
