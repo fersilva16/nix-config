@@ -1122,8 +1122,11 @@ mkUserModule {
               set layer_cleanup "$layer_cleanup; git -C '$main_root' worktree remove --force '$l' 2>/dev/null; rm -rf '$l'"
               test -n "$lb"; and set layer_cleanup "$layer_cleanup; git -C '$main_root' branch $bflag '$lb' 2>/dev/null"
             end
+            # By start path, not name: wts names layer sessions after the
+            # root's session, which needn't be <parent>/<name>.
             if set -q TMUX
-              for s in (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name/")
+              set -l sp (string escape --style=regex -- "$stack_dir/")
+              for s in (command tmux list-sessions -F '#{session_path}'\t'#{session_name}' | string replace -rf -- "^$sp"'[^\t]*\t' "" | string match -v 'agents/*')
                 set layer_cleanup "; tmux kill-session -t '=$s'$layer_cleanup"
               end
             end
@@ -1134,9 +1137,13 @@ mkUserModule {
           set -l self_rm 0
           set -l current_session ""
           set -l parent_session ""
+          set -l target_session ""
           if set -q TMUX
             set current_session (command tmux display-message -p '#{session_name}')
-            set -l target_session (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name\$" | head -1)
+            # The session started in the worktree (a renamed one keeps its
+            # start path), else wt's <parent>/<name>.
+            set target_session (command tmux list-sessions -F '#{session_path}'\t'#{session_name}' | string replace -rf -- '^'(string escape --style=regex -- "$wt_path")'\t' "" | string match -v 'agents/*' | head -1)
+            test -n "$target_session"; or set target_session (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name\$" | head -1)
             if test -n "$target_session" -a "$current_session" = "$target_session"
               set self_rm 1
               set parent_session (string split -m 1 '/' -- "$current_session")[1]
@@ -1187,11 +1194,8 @@ mkUserModule {
             command tmux run-shell -b "{ $cleanup; } >/dev/null || true"
           else
             # Regular remove (from a different session)
-            if set -q TMUX
-              set -l target_session (command tmux list-sessions -F '#{session_name}' | grep -E "^[^/]+/$name\$" | head -1)
-              if test -n "$target_session"
-                command tmux kill-session -t "=$target_session"
-              end
+            if test -n "$target_session"
+              command tmux kill-session -t "=$target_session"
             end
 
             # Refuse to throw away real work; anything else is fair game
