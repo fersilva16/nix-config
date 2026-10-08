@@ -8,22 +8,20 @@
 # deep in a long session never has to remember them. See wts.sh.
 {
   pkgs,
-  wt-claim,
   wt-create,
   wt-enter,
-  wt-pool-fill,
 }:
 let
+  # No wt-claim or wt-pool-fill: the pool is kept for the `wt`s you type
+  # yourself, and wts is run by agents.
   wts = pkgs.writeShellApplication {
     name = "wts";
     runtimeInputs = [
       pkgs.git
       pkgs.gh
       pkgs.jq
-      wt-claim
       wt-create
       wt-enter
-      wt-pool-fill
     ];
     text = builtins.readFile ./wts.sh;
   };
