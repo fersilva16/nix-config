@@ -12,8 +12,9 @@
 # Keyboard layout, dead-key compose and the fcitx5 IME live in the
 # keyboard part (./keyboard.nix) — toggle via niri.keyboard.enable.
 #
-# The desktop shell (bar/launcher/lock/notifications) is noctalia
-# (modules/linux/noctalia.nix); this file wires its niri glue —
+# The desktop shell (bar/lock/notifications) is noctalia; the app launcher
+# is vicinae (modules/productivity/vicinae), which binds Mod+Space. For
+# noctalia (modules/linux/noctalia/noctalia.nix) this file wires the niri glue —
 # spawn-at-startup, IPC keybinds, layer rules.
 {
   mkUserModule,
@@ -46,8 +47,37 @@ mkUserModule {
 
         // Full-width windows by default — one window fills the screen, the
         // rest sit off-screen in the strip, reached via Alt-Tab (vega-style).
+        // "Ink" look (palette shared with noctalia's Ink scheme in
+        // modules/linux/noctalia/noctalia.nix): edge-to-edge windows (no gaps,
+        // no wallpaper between them), square corners, and a hairline bone
+        // border instead of the glowy focus ring. Static; no animations.
+        prefer-no-csd
+
         layout {
             default-column-width { proportion 1.0; }
+            gaps 0
+            background-color "#0a0a0a"
+            focus-ring {
+                off
+            }
+            border {
+                on
+                width 2
+                active-color "#e8e2d4"
+                inactive-color "#3a3833"
+                urgent-color "#b23a2e"
+            }
+        }
+
+        overview {
+            backdrop-color "#0a0a0a"
+        }
+
+        // Fade unfocused windows so the active one reads at a glance
+        // (mostly visible in the overview and with split columns).
+        window-rule {
+            match is-active=false
+            opacity 0.88
         }
 
       ''
@@ -57,11 +87,11 @@ mkUserModule {
         spawn-at-startup "${noctalia}"
 
         // Noctalia integration (docs.noctalia.dev/v4 niri page):
-        // rounded corners to match the shell's look, xdg-activation quirk
-        // for notification actions, overview wallpaper on the backdrop
-        // (inert until "Enable overview wallpaper" is on in settings).
+        // square corners to match the shell's Ink look (radiusRatio 0),
+        // xdg-activation quirk for notification actions, overview wallpaper
+        // on the backdrop (inert until "Enable overview wallpaper" is on).
         window-rule {
-            geometry-corner-radius 20
+            geometry-corner-radius 0
             clip-to-geometry true
         }
 
@@ -95,7 +125,6 @@ mkUserModule {
             Mod+Shift+Slash { show-hotkey-overlay; }
 
             Mod+Return  { spawn "ghostty"; }
-            Mod+Space   { spawn "${noctalia}" "ipc" "call" "launcher" "toggle"; }
             Mod+S       { spawn "${noctalia}" "ipc" "call" "controlCenter" "toggle"; }
             Mod+Q       { close-window; }
             Mod+Shift+L { spawn "${noctalia}" "ipc" "call" "lockScreen" "lock"; }
