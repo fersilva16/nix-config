@@ -75,6 +75,12 @@ mkUserModule {
             skip-at-startup
         }
 
+        // Full-width windows by default — one window fills the screen, the
+        // rest sit off-screen in the strip, reached via Alt-Tab (vega-style).
+        layout {
+            default-column-width { proportion 1.0; }
+        }
+
       ''
       + lib.optionalString cfg.keyboard.enable keyboard.kdl
       + ''
