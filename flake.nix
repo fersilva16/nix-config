@@ -5,9 +5,9 @@
   # the very first build of this flake too — a module's nix.settings only lands
   # in nix.conf AFTER the switch that introduces it, so a fresh install (or the
   # rebuild that adds a module) would otherwise compile from source. Nix asks
-  # once per machine to trust these; answer y to both prompts. The owning
-  # modules (noctalia.nix, ollama.nix) still set them in nix.settings so the
-  # running system keeps them for non-flake use.
+  # once per machine to trust these; answer y to both prompts (without a TTY
+  # they are silently ignored). noctalia.nix and the polaris host still set
+  # them in nix.settings so the running system keeps them.
   nixConfig = {
     extra-substituters = [
       "https://noctalia.cachix.org"

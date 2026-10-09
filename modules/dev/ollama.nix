@@ -22,7 +22,8 @@
 # the firewall; only :11434 is, and only on tailscale0.
 #
 # CUDA is unfree, so cache.nixos.org never has it; the nixos-cuda cache does.
-# flake.nix nixConfig also declares it, so the first rebuild uses it too.
+# That cache is declared at the host level (modules/hosts/polaris.nix), not
+# here, so it is already in nix.conf before ollama is first enabled.
 {
   mkUserModule,
   forPlatform,
@@ -109,11 +110,6 @@ mkUserModule {
         };
 
         networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ port ];
-
-        nix.settings = {
-          substituters = [ "https://cache.nixos-cuda.org" ];
-          trusted-public-keys = [ "cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=" ];
-        };
       };
     };
 
