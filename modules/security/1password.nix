@@ -38,5 +38,12 @@ mkUserModule {
         };
         commit.gpgsign = true;
       };
+
+      # Start 1Password minimized to the tray at niri login so the SSH agent
+      # and browser integration are ready. `or false`: the niri option only
+      # exists on linux hosts (darwin discovery skips modules/linux).
+      xdg.configFile."niri/config.kdl".text = lib.mkIf (userCfg.niri.enable or false) ''
+        spawn-at-startup "1password" "--silent"
+      '';
     };
 }
