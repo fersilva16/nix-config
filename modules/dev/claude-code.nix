@@ -13,6 +13,10 @@ let
         binary = "claude.zst";
         checksum = "485d6883c023368800626e0d1f2e4382c3e1bdc760fae12cb2f6e3054f218eec";
       };
+      platforms.linux-x64 = {
+        binary = "claude.zst";
+        checksum = "94345861e88be3d67a8393494f98f5b1c67604c14ccd4ef3c7a51e3643fa25eb";
+      };
     };
   };
 in
