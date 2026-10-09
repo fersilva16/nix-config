@@ -69,4 +69,5 @@ mkUser {
   flameshot.enable = true;
   niri.enable = true;
   noctalia.enable = true;
+  vicinae.enable = true;
 }
