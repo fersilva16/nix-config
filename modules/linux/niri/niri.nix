@@ -53,6 +53,14 @@ mkUserModule {
         // border instead of the glowy focus ring. Static; no animations.
         prefer-no-csd
 
+        // polaris's monitor: its EDID-preferred mode is 60 Hz, so niri would
+        // stay there. On-demand VRR only kicks in for windows whose rule
+        // asks for it (games), so the desktop keeps a fixed refresh rate.
+        output "Dell Inc. AW2725QF 5WQPD34" {
+            mode "3840x2160@164.991"
+            variable-refresh-rate on-demand=true
+        }
+
         layout {
             default-column-width { proportion 1.0; }
             gaps 0

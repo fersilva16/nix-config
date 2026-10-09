@@ -64,6 +64,9 @@ mkUser {
   # Chat
   discord.enable = true;
 
+  # Games
+  heroic.enable = true; # Rocket League (Epic)
+
   # Networking
   tailscale.enable = true;
 
