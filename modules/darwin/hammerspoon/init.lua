@@ -504,7 +504,10 @@ local function f18Callback(event)
       local heldFor = hyperDownSince and (lastEventTime - hyperDownSince) or 0
       resetHyper()
       if wasTap then
-        hs.hid.capslock.toggle()
+        -- Not hs.hid.capslock.toggle(): on macOS 26 its IOKit getter goes
+        -- stale and keeps reporting "on", so toggle() only ever sets "off".
+        -- The modifier flags track the real state.
+        hs.hid.capslock.set(not hs.eventtap.checkKeyboardModifiers().capslock)
         log("HYPER", string.format("UP tap (caps toggled) held=%.2fs", heldFor))
       else
         log("HYPER", string.format("UP modifier held=%.2fs", heldFor))
