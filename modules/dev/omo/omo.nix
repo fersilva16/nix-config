@@ -140,9 +140,12 @@ mkUserModule {
           (lib.mkIf userCfg.opencode-manager.enable {
             ".omo/agent/extensions/tmux-notifier.ts".source = ./tmux-notifier.ts;
           })
-          # /fork opens the fork in a new, focused tmux window.
+          # /fork opens the fork in a new, focused tmux window. tmux-sid
+          # publishes the pane's session id so resurrect resumes each pane
+          # into its own session.
           (lib.mkIf userCfg.tmux.enable {
             ".omo/agent/extensions/tmux-fork.ts".source = ./tmux-fork.ts;
+            ".omo/agent/extensions/tmux-sid.ts".source = ./tmux-sid.ts;
           })
           # /wt moves the session into a worktree via the `wt` fish function;
           # /wtl does it via `wtl` when the worktree module's linear part is on.
