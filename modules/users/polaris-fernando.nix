@@ -19,11 +19,15 @@ mkUser {
   starship.enable = true;
   direnv.enable = true;
   tmux.enable = true;
+  worktree.enable = true;
   zoxide.enable = true;
   eza.enable = true;
   fzf.enable = true;
+  gum.enable = true;
   fd.enable = true;
   ripgrep.enable = true;
+  # No panel: it is drawn by hammerspoon, which is darwin-only.
+  todoist.enable = true;
 
   # Dev tools
   git.enable = true;
@@ -31,10 +35,13 @@ mkUser {
   opencode.enable = true;
   "claude-code".enable = true;
   omo.enable = true;
+  agent-path.enable = true;
   i-have-adhd.enable = true;
   ponytail.enable = true;
   autoresearch.enable = true;
   show-me.enable = true;
+  ship.enable = true;
+  opencode-manager.enable = true;
   ollama = {
     enable = true;
     models = [
