@@ -71,7 +71,7 @@ mkUser {
   "1password".enable = true;
 
   # Desktop sessions
-  keyd.enable = true;
+  xremap.enable = true;
   feh.enable = true;
   flameshot.enable = true;
   niri.enable = true;
