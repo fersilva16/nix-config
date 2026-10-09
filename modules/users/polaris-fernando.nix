@@ -29,6 +29,8 @@ mkUser {
   git.enable = true;
   lazygit.enable = true;
   opencode.enable = true;
+  "claude-code".enable = true;
+  omo.enable = true;
   i-have-adhd.enable = true;
   ponytail.enable = true;
   autoresearch.enable = true;

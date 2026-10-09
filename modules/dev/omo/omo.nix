@@ -1,11 +1,25 @@
 {
   mkUserModule,
+  forPlatform,
   pkgs,
   lib,
   ...
 }:
 let
   version = "5.1.2";
+
+  # Release asset per platform; bump every hash along with `version`.
+  assets = {
+    aarch64-darwin = {
+      name = "darwin-arm64";
+      hash = "sha256-XhIoawigjoxlmYfHqhWYFsFygC6tEzUVHgz+PTXsV48=";
+    };
+    x86_64-linux = {
+      name = "linux-x64";
+      hash = "sha256-/qLHb+CPNmFNZr73A0K22nRzudruGv5DxkxkkT2u8EI=";
+    };
+  };
+  asset = assets.${pkgs.stdenv.hostPlatform.system};
 
   # OmO Native: the standalone `omo` (senpi engine + OMO extension), not the
   # opencode plugin in opencode/omo.nix. The release binary is bun-compiled and
@@ -16,8 +30,8 @@ let
     pname = "omo";
     inherit version;
     src = pkgs.fetchurl {
-      url = "https://github.com/code-yeongyu/oh-my-openagent/releases/download/v${version}/omo-darwin-arm64";
-      hash = "sha256-XhIoawigjoxlmYfHqhWYFsFygC6tEzUVHgz+PTXsV48=";
+      url = "https://github.com/code-yeongyu/oh-my-openagent/releases/download/v${version}/omo-${asset.name}";
+      inherit (asset) hash;
     };
     dontUnpack = true;
     # The bun payload is appended to the executable; stripping would drop it.
@@ -25,8 +39,8 @@ let
     # Byte-patching the payload invalidates the signature; the hook re-signs.
     nativeBuildInputs = [
       pkgs.perl
-      pkgs.darwin.autoSignDarwinBinariesHook
-    ];
+    ]
+    ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ pkgs.darwin.autoSignDarwinBinariesHook ];
     # On the Claude Agent SDK route, omo hands its tools to the model through
     # jsonSchemaToZodShape, which drops every property description. Nothing then
     # tells the model eval's `summary` is required, so eval runs fail with
@@ -59,7 +73,7 @@ let
       runHook postInstall
     '';
     meta = {
-      platforms = [ "aarch64-darwin" ];
+      platforms = builtins.attrNames assets;
       mainProgram = "omo";
     };
   };
@@ -103,6 +117,11 @@ in
 mkUserModule {
   name = "omo";
   parts.agent = import ./agent/agent.nix { inherit pkgs lib; };
+  # The linux binary is generic glibc (/lib64/ld-linux-x86-64.so.2), and so
+  # are the native modules and senpi-desktop-engine it unpacks into
+  # ~/.omo/binary-runtime at run time, where patchelf can't reach them.
+  # nix-ld serves that loader path, so all of them run unpatched.
+  system = forPlatform { linux.programs.nix-ld.enable = true; };
   home =
     { userCfg, ... }:
     {
