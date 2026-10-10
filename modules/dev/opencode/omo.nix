@@ -41,8 +41,8 @@ in
       };
 
       # Written here only when the omo module (which owns it) is off.
-      home.file.".omo/omo.jsonc".source = lib.mkIf (!userCfg.omo.enable) (
-        import ../omo/omo-jsonc.nix { inherit pkgs; }
-      );
+      home.file = lib.mkIf (!userCfg.omo.enable) {
+        ".omo/omo.jsonc".source = import ../omo/omo-jsonc.nix { inherit pkgs; };
+      };
     };
 }
