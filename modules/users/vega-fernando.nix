@@ -68,6 +68,7 @@ mkUser {
   autoresearch.enable = true;
   show-me.enable = true;
   ship.enable = true;
+  unsupervised.enable = true;
   agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
