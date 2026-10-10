@@ -16,7 +16,11 @@
 # behind Accessibility for that exact binary, so a lan-mouse update (new
 # store path) needs the permission granted again.
 # linux: a user service bound to the graphical session. niri provides the
-# layer-shell capture and wlroots virtual-pointer/keyboard emulation.
+# layer-shell capture and wlroots virtual-pointer emulation. Keys go out
+# through the patched-in `uinput` backend instead (./uinput-emulation.patch):
+# wlroots' virtual keyboard feeds niri directly, so evdev remappers (xremap)
+# never saw remote keystrokes. A uinput device is a real evdev keyboard
+# that xremap grabs like a physical one.
 {
   mkUserModule,
   forPlatform,
@@ -44,6 +48,7 @@ let
         ];
         hash = "sha256-eysZHWV1u1pcg8nv6O6RR79qERUrfv0pjOVMOU+0Xns=";
       })
+      ./uinput-emulation.patch
     ];
   });
   exe = lib.getExe lan-mouse;
@@ -105,8 +110,12 @@ mkUserModule {
       );
     }
     // forPlatform {
-      linux.networking.firewall.allowedUDPPorts = [ port ];
+      linux = {
+        networking.firewall.allowedUDPPorts = [ port ];
+        hardware.uinput.enable = true;
+      };
     };
+  user = forPlatform { linux.extraGroups = [ "uinput" ]; };
 
   home =
     {
@@ -129,6 +138,7 @@ mkUserModule {
             name: _: lib.nameValuePair fleetPeers.${name}.lanMouse.${username} name
           ) cfg.peers;
         }
+        // forPlatform { linux.emulation_backend = "uinput"; }
         // cfg.settings
       );
 

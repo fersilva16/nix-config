@@ -1,0 +1,233 @@
+diff --git a/input-emulation/src/error.rs b/input-emulation/src/error.rs
+index 5197dbf..4ba3ad9 100644
+--- a/input-emulation/src/error.rs
++++ b/input-emulation/src/error.rs
+@@ -40,6 +40,9 @@ pub enum EmulationCreationError {
+     #[cfg(wlroots)]
+     #[error("wlroots backend: `{0}`")]
+     Wlroots(#[from] WlrootsEmulationCreationError),
++    #[cfg(all(wlroots, target_os = "linux"))]
++    #[error("uinput backend: `{0}`")]
++    Uinput(io::Error),
+     #[cfg(libei)]
+     #[error("libei backend: `{0}`")]
+     Libei(#[from] LibeiEmulationCreationError),
+diff --git a/input-emulation/src/lib.rs b/input-emulation/src/lib.rs
+index f77c607..7e32a20 100644
+--- a/input-emulation/src/lib.rs
++++ b/input-emulation/src/lib.rs
+@@ -17,6 +17,9 @@ mod x11;
+ #[cfg(wlroots)]
+ mod wlroots;
+ 
++#[cfg(all(wlroots, target_os = "linux"))]
++mod uinput;
++
+ #[cfg(rdp)]
+ mod xdg_desktop_portal;
+ 
+@@ -36,6 +39,8 @@ pub type EmulationHandle = u64;
+ pub enum Backend {
+     #[cfg(wlroots)]
+     Wlroots,
++    #[cfg(all(wlroots, target_os = "linux"))]
++    Uinput,
+     #[cfg(libei)]
+     Libei,
+     #[cfg(rdp)]
+@@ -54,6 +59,8 @@ impl Display for Backend {
+         match self {
+             #[cfg(wlroots)]
+             Backend::Wlroots => write!(f, "wlroots"),
++            #[cfg(all(wlroots, target_os = "linux"))]
++            Backend::Uinput => write!(f, "uinput"),
+             #[cfg(libei)]
+             Backend::Libei => write!(f, "libei"),
+             #[cfg(rdp)]
+@@ -80,6 +87,8 @@ impl InputEmulation {
+         let emulation: Box<dyn Emulation> = match backend {
+             #[cfg(wlroots)]
+             Backend::Wlroots => Box::new(wlroots::WlrootsEmulation::new()?),
++            #[cfg(all(wlroots, target_os = "linux"))]
++            Backend::Uinput => Box::new(uinput::UinputEmulation::new()?),
+             #[cfg(libei)]
+             Backend::Libei => Box::new(libei::LibeiEmulation::new().await?),
+             #[cfg(x11)]
+diff --git a/input-emulation/src/uinput.rs b/input-emulation/src/uinput.rs
+new file mode 100644
+index 0000000..7bab839
+--- /dev/null
++++ b/input-emulation/src/uinput.rs
+@@ -0,0 +1,140 @@
++//! Keyboard through a uinput device, pointer through wlroots.
++//!
++//! Keys land on a real evdev device, so evdev remappers (xremap, keyd, ...)
++//! see and can rewrite them like any physical keyboard. The pointer stays on
++//! the wlroots virtual pointer: a uinput mouse would get libinput pointer
++//! acceleration applied on top of the sender's already accelerated motion.
++
++use async_trait::async_trait;
++use std::{
++    fs::{File, OpenOptions},
++    io::{self, Write},
++    mem::size_of,
++    os::{
++        fd::AsRawFd,
++        raw::{c_int, c_long, c_ulong},
++    },
++};
++
++use input_event::{Event, KeyboardEvent};
++
++use super::{Emulation, EmulationHandle, error::EmulationError, wlroots::WlrootsEmulation};
++use crate::error::EmulationCreationError;
++
++unsafe extern "C" {
++    fn ioctl(fd: c_int, request: c_ulong, ...) -> c_int;
++}
++
++/// `_IOW('U', nr, size)`
++const fn iow(nr: c_ulong, size: usize) -> c_ulong {
++    (1 << 30) | ((size as c_ulong) << 16) | (0x55 << 8) | nr
++}
++
++#[repr(C)]
++struct UinputSetup {
++    bustype: u16,
++    vendor: u16,
++    product: u16,
++    version: u16,
++    name: [u8; 80],
++    ff_effects_max: u32,
++}
++
++const UI_DEV_CREATE: c_ulong = 0x5501;
++const UI_DEV_SETUP: c_ulong = iow(3, size_of::<UinputSetup>());
++const UI_SET_EVBIT: c_ulong = iow(100, size_of::<c_int>());
++const UI_SET_KEYBIT: c_ulong = iow(101, size_of::<c_int>());
++
++const BUS_VIRTUAL: u16 = 0x06;
++const EV_SYN: u16 = 0x00;
++const EV_KEY: u16 = 0x01;
++const SYN_REPORT: u16 = 0;
++const DEVICE_NAME: &str = "lan-mouse keyboard";
++
++struct Keyboard(File);
++
++impl Keyboard {
++    fn new() -> io::Result<Self> {
++        let file = OpenOptions::new().write(true).open("/dev/uinput")?;
++        let fd = file.as_raw_fd();
++        let check = |r: c_int| match r {
++            r if r < 0 => Err(io::Error::last_os_error()),
++            _ => Ok(()),
++        };
++        let mut setup = UinputSetup {
++            bustype: BUS_VIRTUAL,
++            vendor: 0,
++            product: 0,
++            version: 1,
++            name: [0; 80],
++            ff_effects_max: 0,
++        };
++        setup.name[..DEVICE_NAME.len()].copy_from_slice(DEVICE_NAME.as_bytes());
++        // keyboard keys only: 0x100..0x160 are mouse/joystick buttons, and
++        // no EV_REP, so the compositor (not the kernel) handles key repeat
++        let keys = (1..0x100).chain(0x160..0x300);
++        unsafe {
++            check(ioctl(fd, UI_SET_EVBIT, EV_KEY as c_int))?;
++            for key in keys {
++                check(ioctl(fd, UI_SET_KEYBIT, key as c_int))?;
++            }
++            check(ioctl(fd, UI_DEV_SETUP, &setup as *const UinputSetup))?;
++            check(ioctl(fd, UI_DEV_CREATE))?;
++        }
++        Ok(Self(file))
++    }
++
++    fn key(&mut self, key: u32, state: u8) -> io::Result<()> {
++        let mut buf = Vec::with_capacity(2 * (2 * size_of::<c_long>() + 8));
++        for (ty, code, value) in [(EV_KEY, key as u16, state as i32), (EV_SYN, SYN_REPORT, 0)] {
++            buf.extend_from_slice(&[0; 2 * size_of::<c_long>()]); // struct timeval
++            buf.extend_from_slice(&ty.to_ne_bytes());
++            buf.extend_from_slice(&code.to_ne_bytes());
++            buf.extend_from_slice(&value.to_ne_bytes());
++        }
++        self.0.write_all(&buf)
++    }
++}
++
++pub(crate) struct UinputEmulation {
++    keyboard: Keyboard,
++    pointer: WlrootsEmulation,
++}
++
++impl UinputEmulation {
++    pub(crate) fn new() -> Result<Self, EmulationCreationError> {
++        let pointer = WlrootsEmulation::new()?;
++        let keyboard = Keyboard::new().map_err(EmulationCreationError::Uinput)?;
++        Ok(Self { keyboard, pointer })
++    }
++}
++
++#[async_trait]
++impl Emulation for UinputEmulation {
++    async fn consume(
++        &mut self,
++        event: Event,
++        handle: EmulationHandle,
++    ) -> Result<(), EmulationError> {
++        match event {
++            Event::Keyboard(KeyboardEvent::Key { key, state, .. }) => {
++                Ok(self.keyboard.key(key, state)?)
++            }
++            // the kernel derives modifier state from the key events
++            Event::Keyboard(KeyboardEvent::Modifiers { .. }) => Ok(()),
++            Event::Pointer(_) => self.pointer.consume(event, handle).await,
++        }
++    }
++
++    async fn create(&mut self, handle: EmulationHandle) {
++        self.pointer.create(handle).await
++    }
++
++    async fn destroy(&mut self, handle: EmulationHandle) {
++        self.pointer.destroy(handle).await
++    }
++
++    async fn terminate(&mut self) {
++        self.pointer.terminate().await
++    }
++}
+diff --git a/src/config.rs b/src/config.rs
+index ecce2b4..466fca5 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -178,6 +178,9 @@ pub enum EmulationBackend {
+     #[cfg(wlroots_emulation)]
+     #[serde(rename = "wlroots")]
+     Wlroots,
++    #[cfg(all(wlroots_emulation, target_os = "linux"))]
++    #[serde(rename = "uinput")]
++    Uinput,
+     #[cfg(libei_emulation)]
+     #[serde(rename = "libei")]
+     Libei,
+@@ -202,6 +205,8 @@ impl From<EmulationBackend> for input_emulation::Backend {
+         match backend {
+             #[cfg(wlroots_emulation)]
+             EmulationBackend::Wlroots => Self::Wlroots,
++            #[cfg(all(wlroots_emulation, target_os = "linux"))]
++            EmulationBackend::Uinput => Self::Uinput,
+             #[cfg(libei_emulation)]
+             EmulationBackend::Libei => Self::Libei,
+             #[cfg(rdp_emulation)]
+@@ -222,6 +227,8 @@ impl Display for EmulationBackend {
+         match self {
+             #[cfg(wlroots_emulation)]
+             EmulationBackend::Wlroots => write!(f, "wlroots"),
++            #[cfg(all(wlroots_emulation, target_os = "linux"))]
++            EmulationBackend::Uinput => write!(f, "uinput"),
+             #[cfg(libei_emulation)]
+             EmulationBackend::Libei => write!(f, "libei"),
+             #[cfg(rdp_emulation)]

@@ -77,10 +77,12 @@ in
         modmap = [
           {
             name = "Hyper: tap for Caps Lock";
-            remap.${hyperKey} = {
+            # F18 is a Mac's Caps Lock (hammerspoon's hidutil remap), as it
+            # arrives over lan-mouse from vega.
+            remap = lib.genAttrs [ hyperKey "F18" ] (_: {
               held = hyperKey;
               alone = "BTN_TRIGGER_HAPPY1";
-            };
+            });
           }
         ];
         virtual_modifiers = [ hyperKey ];

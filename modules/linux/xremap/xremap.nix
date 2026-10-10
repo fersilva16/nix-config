@@ -3,7 +3,9 @@
 # This file owns only the daemon. Each part ships its own config file and
 # the service merges every ~/.config/xremap/*.yml at start (xremap merges
 # modmap/keymap/virtual_modifiers across files, and an exact-modifier match
-# always beats an inexact one, so files don't fight over ordering):
+# always beats an inexact one, so files don't fight over ordering). A rebuild
+# only swaps the config symlinks, not the unit, so `--watch=config` is what
+# reloads them:
 #   - hyper (./hyper.nix): Caps Lock hyper layer.
 #   - mac (./mac.nix): macOS Cmd/Opt semantics, per app.
 #
@@ -50,7 +52,7 @@ mkUserModule {
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${pkgs.runtimeShell} -c 'exec ${xremap}/bin/xremap --watch=device --allow-launch true %h/.config/xremap/*.yml'";
+      ExecStart = "${pkgs.runtimeShell} -c 'exec ${xremap}/bin/xremap --watch=device,config --allow-launch true %h/.config/xremap/*.yml'";
       Restart = "always";
       RestartSec = 1;
     };
