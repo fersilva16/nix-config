@@ -100,7 +100,11 @@ let
     text = ''
       SESSION=$(tmux list-sessions -F "#{session_name}" 2>/dev/null | head -1)
       if [ -z "$SESSION" ]; then
-        exec tmux new-session -s main
+        # Unnamed on purpose: a fresh server gets session "0", which is the
+        # name tmux-resurrect's restore-from-scratch kills once it has
+        # restored the saved sessions, switching this client to the last
+        # active one. Any other name survives as a stray empty session.
+        exec tmux new-session
       fi
       exec tmux attach-session -t "$SESSION"
     '';
@@ -125,7 +129,8 @@ let
         export TMUX_HOP_FROM="''${2:?usage: tmux-hop --remote <from-host>}"
         # No target: tmux picks the most recently used session.
         tmux has-session 2>/dev/null && exec tmux attach-session
-        exec tmux new-session -s main
+        # Unnamed so resurrect can replace it (see tmux-attach).
+        exec tmux new-session
       fi
 
       back="''${1:?usage: tmux-hop <back-session> <peer> [ssh args...]}"
