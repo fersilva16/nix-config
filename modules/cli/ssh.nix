@@ -2,6 +2,7 @@
   mkUserModule,
   forPlatform,
   lib,
+  pkgs,
   ...
 }:
 mkUserModule {
@@ -31,14 +32,18 @@ mkUserModule {
             linux = "~/.1password/agent.sock";
           }
         }"
+
+      Match host polaris exec "${pkgs.coreutils}/bin/timeout 1 ${pkgs.netcat}/bin/nc -z polaris.local 22"
+        HostName polaris.local
     '';
   };
 
-  # There is deliberately no `Host polaris` block: MagicDNS already resolves the
-  # node's tailnet name, so an ssh_config entry would only restate it. That also
-  # makes this self-healing — a node re-added to the tailnet keeps its name but
-  # not its address. (If MagicDNS is ever off, the node address is
-  # 100.123.15.108; hardcoding that is the fallback, not the default.)
+  # `polaris` resolves through MagicDNS to its tailnet address. On the home LAN
+  # the Match above swaps in its mDNS name (avahi, modules/linux/network.nix),
+  # so traffic stays local instead of going through tailscale. The probe is
+  # capped at 1s because a failed .local lookup otherwise blocks ~5s off-LAN.
+  # Names, not addresses: a node re-added to the tailnet or re-leased by DHCP keeps its
+  # name. (If MagicDNS is ever off, the tailnet address is 100.123.15.108.)
   #
   # Getting a shell on polaris is the tmux picker's job (tmux `peers`), which
   # hops this terminal into polaris's tmux instead of nesting it.
