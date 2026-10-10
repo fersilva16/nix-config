@@ -5,6 +5,12 @@
   pkgs,
   ...
 }:
+let
+  onePasswordAgent = forPlatform {
+    darwin = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+    linux = "~/.1password/agent.sock";
+  };
+in
 mkUserModule {
   name = "ssh";
 
@@ -23,20 +29,48 @@ mkUserModule {
       linux.openssh.authorizedKeys.keys = cfg.authorizedKeys;
     };
 
-  system.programs.ssh = {
-    extraConfig = ''
+  system = {
+    programs.ssh.extraConfig = ''
       Host *
-        IdentityAgent "${
-          forPlatform {
-            darwin = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-            linux = "~/.1password/agent.sock";
-          }
-        }"
+        IdentityAgent "${onePasswordAgent}"
 
       Match host polaris exec "${pkgs.coreutils}/bin/timeout 1 ${pkgs.netcat}/bin/nc -z polaris.local 22"
         HostName polaris.local
+
+      Host polaris
+        ForwardAgent "${onePasswordAgent}"
     '';
+  }
+  # sudo over SSH is approved by the forwarded agent: pam_ssh_agent_auth asks
+  # it to sign with a key from /etc/ssh/authorized_keys.d/<user> (the
+  # authorizedKeys above), and 1Password on the far end gates that signature
+  # behind Touch ID. No agent, or a refused prompt, falls through to the
+  # password. NixOS adds `env_keep+=SSH_AUTH_SOCK` to sudoers for it.
+  // forPlatform {
+    linux.security.pam = {
+      sshAgentAuth.enable = true;
+      services.sudo.sshAgentAuth = true;
+    };
   };
+
+  # Shells outlive SSH connections (polaris's tmux survives every hop), so the
+  # per-connection socket they inherited goes stale. sshd runs ~/.ssh/rc on
+  # each login: it repoints a fixed symlink at the live socket, and fish always
+  # uses the symlink. The latest connection with an agent wins.
+  home =
+    { userCfg, ... }:
+    forPlatform {
+      linux = {
+        home.file.".ssh/rc".text = ''
+          if [ -S "$SSH_AUTH_SOCK" ]; then
+            ${pkgs.coreutils}/bin/ln -sfn "$SSH_AUTH_SOCK" "$HOME/.ssh/agent.sock"
+          fi
+        '';
+        programs.fish.interactiveShellInit = lib.mkIf userCfg.fish.enable ''
+          set -gx SSH_AUTH_SOCK ~/.ssh/agent.sock
+        '';
+      };
+    };
 
   # `polaris` resolves through MagicDNS to its tailnet address. On the home LAN
   # the Match above swaps in its mDNS name (avahi, modules/linux/network.nix),
@@ -44,6 +78,9 @@ mkUserModule {
   # capped at 1s because a failed .local lookup otherwise blocks ~5s off-LAN.
   # Names, not addresses: a node re-added to the tailnet or re-leased by DHCP keeps its
   # name. (If MagicDNS is ever off, the tailnet address is 100.123.15.108.)
+  #
+  # ForwardAgent names the 1Password socket because `yes` would forward
+  # $SSH_AUTH_SOCK, which on darwin is launchd's agent, not IdentityAgent.
   #
   # Getting a shell on polaris is the tmux picker's job (tmux `peers`), which
   # hops this terminal into polaris's tmux instead of nesting it.
