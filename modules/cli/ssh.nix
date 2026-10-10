@@ -56,13 +56,15 @@ mkUserModule {
   # Shells outlive SSH connections (polaris's tmux survives every hop), so the
   # per-connection socket they inherited goes stale. sshd runs ~/.ssh/rc on
   # each login: it repoints a fixed symlink at the live socket, and fish always
-  # uses the symlink. The latest connection with an agent wins.
+  # uses the symlink. The latest interactive connection with an agent wins;
+  # SSH_TTY keeps one-shot `ssh polaris cmd`/scp logins from repointing it at
+  # a socket that disappears seconds later.
   home =
     { userCfg, ... }:
     forPlatform {
       linux = {
         home.file.".ssh/rc".text = ''
-          if [ -S "$SSH_AUTH_SOCK" ]; then
+          if [ -n "$SSH_TTY" ] && [ -S "$SSH_AUTH_SOCK" ]; then
             ${pkgs.coreutils}/bin/ln -sfn "$SSH_AUTH_SOCK" "$HOME/.ssh/agent.sock"
           fi
         '';
