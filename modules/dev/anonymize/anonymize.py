@@ -76,10 +76,10 @@ def stream_chunk(body):
     except urllib.error.HTTPError as e:
         err = json.loads(e.read() or b"{}").get("error", str(e))
         if e.code == 404:
-            die(f"{err}\n  fix: ollama pull {MODEL}")
+            die(f"{err}\n  fix: OLLAMA_HOST=127.0.0.1 ollama pull {MODEL}")
         die(err)
     except urllib.error.URLError as e:
-        die(f"no ollama server on 127.0.0.1:11434 ({e.reason})\n  fix: ollama serve")
+        die(f"no ollama server on 127.0.0.1:11434 ({e.reason})\n  fix: OLLAMA_HOST=127.0.0.1 ollama serve")
     with resp:
         for line in resp:
             msg = json.loads(line)

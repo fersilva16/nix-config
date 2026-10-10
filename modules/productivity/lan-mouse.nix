@@ -3,14 +3,14 @@
 # (default Ctrl+Shift+Meta+Alt) pulls input back if it gets stuck remote.
 #
 # Traffic is DTLS, and a peer is only accepted when its certificate
-# fingerprint is listed in `settings.authorized_fingerprints`. Each host
-# generates ~/.config/lan-mouse/lan-mouse.pem on first start and keeps it;
-# a new cert (wiped home, reinstall) means updating its fingerprint in the
-# other host's user file:
+# fingerprint is authorized. Each host generates
+# ~/.config/lan-mouse/lan-mouse.pem on first start and keeps it; a new cert
+# (wiped home, reinstall) means updating `fingerprint` in that host's user
+# file, which advertises it to the fleet (modules/system/fleet.nix):
 #   openssl x509 -in ~/.config/lan-mouse/lan-mouse.pem -noout -fingerprint -sha256 | cut -d= -f2 | tr A-F a-f
 #
 # config.toml is nix-owned and read-only, so peers added or authorized from
-# the GUI do not persist: declare them in `settings`.
+# the GUI do not persist: declare them in `peers`.
 #
 # darwin: a launchd agent runs the store binary. macOS gates its event tap
 # behind Accessibility for that exact binary, so a lan-mouse update (new
@@ -22,6 +22,7 @@
   forPlatform,
   pkgs,
   lib,
+  fleetPeers,
   ...
 }:
 let
@@ -50,25 +51,62 @@ in
 mkUserModule {
   name = "lan-mouse";
 
-  extraOptions.settings = lib.mkOption {
-    inherit (toml) type;
-    default = { };
-    description = "lan-mouse config.toml: `clients` (peers and their screen edge) and `authorized_fingerprints`.";
+  extraOptions = {
+    peers = lib.mkOption {
+      type = lib.types.attrsOf (
+        lib.types.enum [
+          "left"
+          "right"
+          "top"
+          "bottom"
+        ]
+      );
+      default = { };
+      example.polaris = "left";
+      description = ''
+        Fleet machines (modules/hosts/fleet.nix) to share input with, each
+        mapped to the screen edge it sits at. Reached at <name>.local and
+        accepted by the `fingerprint` that machine advertises for this user.
+      '';
+    };
+
+    fingerprint = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = ''
+        This machine's certificate fingerprint for this user (see the header
+        for how to read it). Advertised to the fleet so peers listing this
+        machine in `peers` accept it.
+      '';
+    };
+
+    settings = lib.mkOption {
+      inherit (toml) type;
+      default = { };
+      description = "Extra config.toml keys, merged over the ones generated from `peers`.";
+    };
+
+    autoStart = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Run lan-mouse for the whole session. When false the service is still
+        installed but only runs once started by hand (launchctl kickstart /
+        systemctl --user start), and stays stopped once stopped.
+      '';
+    };
   };
 
-  extraOptions.autoStart = lib.mkOption {
-    type = lib.types.bool;
-    default = true;
-    description = ''
-      Run lan-mouse for the whole session. When false the service is still
-      installed but only runs once started by hand (launchctl kickstart /
-      systemctl --user start), and stays stopped once stopped.
-    '';
-  };
-
-  system = forPlatform {
-    linux.networking.firewall.allowedUDPPorts = [ port ];
-  };
+  system =
+    { enabledUsers }:
+    {
+      fleet.lanMouse = lib.mapAttrs (_: u: u.lan-mouse.fingerprint) (
+        lib.filterAttrs (_: u: u.lan-mouse.fingerprint != null) enabledUsers
+      );
+    }
+    // forPlatform {
+      linux.networking.firewall.allowedUDPPorts = [ port ];
+    };
 
   home =
     {
@@ -80,7 +118,18 @@ mkUserModule {
     {
       home.packages = [ lan-mouse ];
       xdg.configFile."lan-mouse/config.toml".source = toml.generate "lan-mouse.toml" (
-        { inherit port; } // cfg.settings
+        {
+          inherit port;
+          clients = lib.mapAttrsToList (name: position: {
+            inherit position;
+            hostname = "${name}.local";
+            activate_on_startup = true;
+          }) cfg.peers;
+          authorized_fingerprints = lib.mapAttrs' (
+            name: _: lib.nameValuePair fleetPeers.${name}.lanMouse.${username} name
+          ) cfg.peers;
+        }
+        // cfg.settings
       );
 
       # Without autoStart, "Toggle Lan Mouse" in Vicinae starts/stops it.

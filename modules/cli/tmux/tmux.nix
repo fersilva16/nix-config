@@ -3,9 +3,17 @@
   forPlatform,
   pkgs,
   lib,
+  fleetPeers,
   ...
 }:
 let
+  # Hop targets: every fleet peer that advertises "ssh", plus the user's `peers`
+  # option, which adds ssh args or machines outside the fleet.
+  hopPeers =
+    cfg:
+    lib.mapAttrs (_: _: [ ]) (lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers)
+    // cfg.peers;
+
   # Copy-mode clipboard: pbcopy on darwin, wl-copy on linux (niri is the
   # only session — Wayland everywhere).
   tmux-clipboard = forPlatform {
@@ -256,8 +264,10 @@ mkUserModule {
       ];
     };
     description = ''
-      Machines the session picker can hop to (see tmux-hop), each mapped to
-      extra ssh arguments for that hop. Nothing connects until you pick one.
+      Extra ssh arguments per machine the session picker can hop to (see
+      tmux-hop). Fleet peers that advertise "ssh" (modules/system/fleet.nix) are
+      always listed; an entry here adds args or a machine outside the
+      fleet. Nothing connects until you pick one.
     '';
   };
   parts = {
@@ -394,12 +404,12 @@ mkUserModule {
             # picker reads the peer list and each peer's ssh args from these;
             # TMUX_HOP_FROM marks a client that arrived by hop.
             set -ga update-environment TMUX_HOP_FROM
-            ${lib.optionalString (cfg.peers != { }) ''
-              set -g @hop-peers ${lib.escapeShellArg (lib.concatStringsSep " " (lib.attrNames cfg.peers))}
+            ${lib.optionalString (hopPeers cfg != { }) ''
+              set -g @hop-peers ${lib.escapeShellArg (lib.concatStringsSep " " (lib.attrNames (hopPeers cfg)))}
               ${lib.concatStrings (
                 lib.mapAttrsToList (
                   peer: args: "set -g @hop-ssh-${peer} ${lib.escapeShellArg (lib.concatStringsSep " " args)}\n"
-                ) cfg.peers
+                ) (hopPeers cfg)
               )}''}
 
             # New windows open at nearest git root; panes inherit current directory.
