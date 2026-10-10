@@ -298,9 +298,9 @@ function sessionAt(path: string): string | undefined {
     .find(([sp]) => existsSync(sp) && realpathSync(sp) === want)?.[1]
 }
 
-// The pane omo announced itself in (tmux-notifier sets @oc-sid), else the first.
+// The pane omo announced itself in (tmux-notifier sets @agent-sid), else the first.
 function paneOf(session: string): string {
-  const panes = tmux(["list-panes", "-s", "-t", `=${session}`, "-F", "#{pane_id}\t#{@oc-sid}"], `no tmux session ${session}`)
+  const panes = tmux(["list-panes", "-s", "-t", `=${session}`, "-F", "#{pane_id}\t#{@agent-sid}"], `no tmux session ${session}`)
     .split("\n")
     .map((l) => l.split("\t"))
   return (panes.find(([, sid]) => sid) ?? panes[0])[0]

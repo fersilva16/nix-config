@@ -3,7 +3,7 @@
 # tmux-resurrect restore. `--continue` resumes the cwd's newest session, so
 # several agent panes in one project all came back as the same one.
 #
-# The harnesses publish their session id as the pane option @oc-sid. Three
+# The harnesses publish their session id as the pane option @agent-sid. Three
 # resurrect hooks carry it across a restart:
 #
 #   save <last>     post-save-all: write "<save file>.sids", one line per agent
@@ -46,7 +46,7 @@ save() {
   # Harness comes from the command resurrect just saved, with the same
   # `/<name>( |$)` rule as @resurrect-processes, so a pane only gets an entry when
   # its restore rule will actually run `resume`. Field 11 is ":<full command>".
-  tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index}	#{@oc-sid}' |
+  tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index}	#{@agent-sid}' |
     awk -F '\t' '
       NR == FNR { if ($2 != "") sid[$1] = $2; next }
       $1 == "pane" {

@@ -2,7 +2,7 @@
 # Self-check for per-pane agent session restore. Drives the real resurrect
 # save/restore scripts, with the agent options lifted verbatim from
 # resurrect.nix, on a throwaway tmux server: two fake `omo` panes in one dir
-# with different @oc-sid, save, kill the server, restore, and check each pane
+# with different @agent-sid, save, kill the server, restore, and check each pane
 # resumed its own session.
 #
 # Worth testing because a broken map degrades to `--continue`, the OLD
@@ -69,11 +69,11 @@ T split-window -t work:0 -c "$PROJ"
 T split-window -t work:0 -c "$PROJ"
 for p in 0 1 2; do T send-keys -t "work:0.$p" "omo" C-m; done
 for p in 0 1 2; do wait_for "omo-0.$p"; done
-# Pane 3 is not an agent but mentions one, and carries a stale @oc-sid.
+# Pane 3 is not an agent but mentions one, and carries a stale @agent-sid.
 T send-keys -t work:0.3 "sh -c 'exec sleep 3600' omo.nix" C-m
-T set-option -p -t work:0.0 @oc-sid sid-A
-T set-option -p -t work:0.1 @oc-sid sid-B
-T set-option -p -t work:0.3 @oc-sid sid-stale
+T set-option -p -t work:0.0 @agent-sid sid-A
+T set-option -p -t work:0.1 @agent-sid sid-B
+T set-option -p -t work:0.3 @agent-sid sid-stale
 # Pane 2 never announced a session: must fall back to --continue.
 
 T run-shell "$RESURRECT/scripts/save.sh quiet"
@@ -94,7 +94,7 @@ old=tmux_resurrect_20000101T000000.txt
 mv "$TMP/res/$(readlink "$TMP/res/last")" "$TMP/res/$old"
 mv "$MAP" "$TMP/res/$old.sids"
 ln -fs "$old" "$TMP/res/last"
-T set-option -p -t work:0.0 @oc-sid sid-C
+T set-option -p -t work:0.0 @agent-sid sid-C
 T run-shell "$RESURRECT/scripts/save.sh quiet"
 [ "$(readlink "$TMP/res/last")" = "$old" ] || {
   echo "FAIL: identical save was not deduped, the scenario did not happen"

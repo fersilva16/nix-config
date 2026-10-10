@@ -108,7 +108,8 @@ let
 
   # Agent PATH (dev/agent-path): tool calls, and the shared RPC host omo
   # spawns, see ~/.agents/bin first. The process still execs as `omo`, so
-  # tmux's agent-commands match, window icon and resurrect are unaffected.
+  # the notifier's pane_current_command check, window icon and resurrect are
+  # unaffected.
   omoWithAgentPath = pkgs.writeShellScriptBin "omo" ''
     export PATH="$HOME/.agents/bin:$PATH"
     exec -a omo ${omo}/bin/omo "$@"
@@ -116,7 +117,10 @@ let
 in
 mkUserModule {
   name = "omo";
-  parts.agent = import ./agent/agent.nix { inherit pkgs lib; };
+  parts = {
+    agent = import ./agent/agent.nix { inherit pkgs lib; };
+    notifier = import ./notifier/notifier.nix { inherit pkgs lib; };
+  };
   # The linux binary is generic glibc (/lib64/ld-linux-x86-64.so.2), and so
   # are the native modules and senpi-desktop-engine it unpacks into
   # ~/.omo/binary-runtime at run time, where patchelf can't reach them.
@@ -135,11 +139,6 @@ mkUserModule {
         packages = [ (if userCfg.agent-path.enable then omoWithAgentPath else omo) ];
 
         file = lib.mkMerge [
-          # The opencode notifier's contract, published from omo's own events:
-          # bar colour, session-picker glyph, prefix+N queue, sounds.
-          (lib.mkIf userCfg.opencode-manager.enable {
-            ".omo/agent/extensions/tmux-notifier.ts".source = ./tmux-notifier.ts;
-          })
           # /fork opens the fork in a new, focused tmux window.
           (lib.mkIf userCfg.tmux.enable {
             ".omo/agent/extensions/tmux-fork.ts".source = ./tmux-fork.ts;
@@ -243,9 +242,6 @@ mkUserModule {
       };
 
       xdg.configFile = lib.mkMerge [
-        (lib.mkIf userCfg.opencode-manager.enable {
-          "tmux-opencode-manager/agent-commands".text = "^omo$";
-        })
         # Appends to the `icons:` map cli/tmux/theme.nix writes, so it must
         # land after it. Glyph is U+F51B, chosen by hand: keep it.
         (lib.mkIf userCfg.tmux.enable {
