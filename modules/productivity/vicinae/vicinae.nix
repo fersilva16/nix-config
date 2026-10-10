@@ -120,11 +120,11 @@ mkUserModule {
           systemd.enable = true;
         };
 
-        xdg.configFile."niri/config.kdl".text = lib.mkIf userCfg.niri.enable (
-          lib.mkAfter ''
+        xdg.configFile = lib.mkIf userCfg.niri.enable {
+          "niri/config.kdl".text = lib.mkAfter ''
             include "${niriBinds}"
-          ''
-        );
+          '';
+        };
       };
     };
 }
