@@ -187,6 +187,25 @@ mkUser {
   wireguard.enable = true;
   openfortivpn.enable = true;
 
+  # One keyboard + mouse (Bluetooth to vega) also drives polaris: the pointer
+  # crosses at the screen edge. polaris is found over mDNS. Fingerprint:
+  # polaris's ~/.config/lan-mouse/lan-mouse.pem
+  # (see modules/productivity/lan-mouse.nix).
+  "lan-mouse" = {
+    enable = true;
+    settings = {
+      authorized_fingerprints."5a:07:ca:06:ca:66:8e:04:e1:65:02:43:7a:e7:63:e1:4c:e7:02:96:04:e9:58:f3:b0:37:3e:b5:92:37:87:3e" =
+        "polaris";
+      clients = [
+        {
+          position = "left";
+          hostname = "polaris.local";
+          activate_on_startup = true;
+        }
+      ];
+    };
+  };
+
   # Security
   "1password".enable = true;
   yubikey.enable = true;
