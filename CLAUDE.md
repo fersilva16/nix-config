@@ -22,6 +22,8 @@ lib/mkUserModule.nix         # Factory: creates a capability module with enable 
 lib/mkUser.nix               # Factory: creates { name, module } for user bootstrapping + enable flags
 lib/forPlatform.nix          # Utility: platform-aware value selector (darwin/linux)
 modules/hosts/vega.nix         # Host definition: mkDarwinHost call with host-specific config
+modules/hosts/fleet.nix        # Every host, keyed by hostname; flake.nix splits it by class
+modules/system/fleet.nix       # `fleet` option: what a host advertises; the others read it lazily as `fleetPeers`
 modules/users/vega-fernando.nix # User composition: mkUser with enable flags
 modules/<category>/<app>.nix # Individual app/tool modules
 modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
@@ -156,7 +158,8 @@ mkDarwinHost {
 }
 
 # flake.nix
-vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
+# modules/hosts/fleet.nix (flake.nix splits it into darwin/nixosConfigurations)
+vega = import ./vega.nix { inherit mkDarwinHost; };
 ```
 
 Fields:
@@ -171,7 +174,7 @@ Fields:
 What it handles automatically:
 
 - Module auto-discovery (all `modules/<category>/` modules)
-- `specialArgs` (factories: `mkUserModule`, `mkUser`, `mkSystemModule`; utilities: `forPlatform`)
+- `specialArgs` (factories: `mkUserModule`, `mkUser`, `mkSystemModule`; utilities: `forPlatform`; data: `fleetPeers`, what every other host advertises via its `fleet` option — never let a `fleet` value read `fleetPeers`, that recurses)
 - home-manager and nix-homebrew darwin module wiring
 - nixpkgs `allowUnfree`
 

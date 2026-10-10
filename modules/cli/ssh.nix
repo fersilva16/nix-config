@@ -3,6 +3,7 @@
   forPlatform,
   lib,
   pkgs,
+  fleetPeers,
   ...
 }:
 let
@@ -10,6 +11,8 @@ let
     darwin = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
     linux = "~/.1password/agent.sock";
   };
+
+  sshPeers = lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers;
 in
 mkUserModule {
   name = "ssh";
@@ -33,13 +36,17 @@ mkUserModule {
     programs.ssh.extraConfig = ''
       Host *
         IdentityAgent "${onePasswordAgent}"
+    ''
+    + lib.concatStrings (
+      lib.mapAttrsToList (name: _: ''
 
-      Match host polaris exec "${pkgs.coreutils}/bin/timeout 1 ${pkgs.netcat}/bin/nc -z polaris.local 22"
-        HostName polaris.local
+        Match host ${name} exec "${pkgs.coreutils}/bin/timeout 1 ${pkgs.netcat}/bin/nc -z ${name}.local 22"
+          HostName ${name}.local
 
-      Host polaris
-        ForwardAgent "${onePasswordAgent}"
-    '';
+        Host ${name}
+          ForwardAgent "${onePasswordAgent}"
+      '') sshPeers
+    );
   }
   # sudo over SSH is approved by the forwarded agent: pam_ssh_agent_auth asks
   # it to sign with a key from /etc/ssh/authorized_keys.d/<user> (the
@@ -74,12 +81,13 @@ mkUserModule {
       };
     };
 
-  # `polaris` resolves through MagicDNS to its tailnet address. On the home LAN
+  # Every fleet peer that advertises "ssh" (modules/system/fleet.nix) gets a block.
+  # A bare name resolves through MagicDNS to its tailnet address. On the home LAN
   # the Match above swaps in its mDNS name (avahi, modules/linux/network.nix),
   # so traffic stays local instead of going through tailscale. The probe is
   # capped at 1s because a failed .local lookup otherwise blocks ~5s off-LAN.
   # Names, not addresses: a node re-added to the tailnet or re-leased by DHCP keeps its
-  # name. (If MagicDNS is ever off, the tailnet address is 100.123.15.108.)
+  # name.
   #
   # ForwardAgent names the 1Password socket because `yes` would forward
   # $SSH_AUTH_SOCK, which on darwin is launchd's agent, not IdentityAgent.

@@ -40,6 +40,7 @@ mkSystemModule {
       '';
     };
 
+    linux.fleet.services = [ "ssh" ];
     linux.services.openssh = {
       enable = true;
       settings = {

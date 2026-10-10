@@ -8,7 +8,10 @@
 # Designed for multi-platform: field names are platform-agnostic so a
 # future mkNixOSHost can expose the same interface.
 #
-# Signature: { inputs } -> { hostName, primaryUser, ... } -> darwinSystem
+# Signature: { inputs, fleet } -> { hostName, primaryUser, ... } -> darwinSystem
+#
+# `fleet` is every host (modules/hosts/fleet.nix); the others reach this
+# host's modules as `fleetPeers`.
 #
 # Fields:
 #
@@ -44,10 +47,10 @@
 #     users = [ fernando ];
 #   }
 #
-#   # flake.nix
-#   vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
+#   # modules/hosts/fleet.nix
+#   vega = import ./vega.nix { inherit mkDarwinHost; };
 #
-{ inputs }:
+{ inputs, fleet }:
 let
   inherit (inputs)
     darwin
@@ -95,6 +98,11 @@ darwin.lib.darwinSystem {
     mkSystemModule = import ./mkSystemModule.nix;
     inherit mkUser;
     forPlatform = import ./forPlatform.nix system;
+    # What the other machines in the fleet advertise. Lazy: a peer's config
+    # is only evaluated when a module reads it.
+    fleetPeers = builtins.mapAttrs (_: host: host.config.fleet) (
+      builtins.removeAttrs fleet [ hostName ]
+    );
   };
 
   modules = [

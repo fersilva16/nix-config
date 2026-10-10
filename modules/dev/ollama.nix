@@ -29,10 +29,14 @@
   forPlatform,
   pkgs,
   lib,
+  fleetPeers,
   ...
 }:
 let
   port = 11434;
+  server = lib.findFirst (name: lib.elem "ollama" fleetPeers.${name}.services) null (
+    lib.attrNames fleetPeers
+  );
   backendPort = 11435;
   idleTimeout = "30min";
 
@@ -110,10 +114,25 @@ mkUserModule {
         };
 
         networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ port ];
+
+        # Peers without a server point OLLAMA_HOST here (see home below).
+        fleet.services = [ "ollama" ];
       };
     };
 
   # On linux the service already ships the CLI; a second (CPU) copy in the
   # home profile would shadow the CUDA one on PATH.
-  home.home.packages = forPlatform { darwin = [ pkgs.ollama ]; };
+  #
+  # darwin has no server of its own, so the CLI (and anything else reading
+  # OLLAMA_HOST) points at the fleet peer that serves one, by tailnet name:
+  # tailscale0 is the only interface its port is open on. A local server
+  # still works with OLLAMA_HOST=127.0.0.1 (anonymize relies on that).
+  home.home = {
+    packages = forPlatform { darwin = [ pkgs.ollama ]; };
+    sessionVariables = forPlatform {
+      darwin = lib.optionalAttrs (server != null) {
+        OLLAMA_HOST = "http://${server}:${toString port}";
+      };
+    };
+  };
 }

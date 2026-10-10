@@ -7,7 +7,7 @@
 #   - no nix-homebrew (Homebrew is a darwin concept)
 #   - module discovery excludes modules/darwin/ instead of modules/linux/
 #
-# Signature: { inputs } -> { hostName, primaryUser, ... } -> nixosSystem
+# Signature: { inputs, fleet } -> { hostName, primaryUser, ... } -> nixosSystem
 #
 # Fields (identical shape to mkDarwinHost):
 #
@@ -42,7 +42,10 @@
 #     users = [ fernando ];
 #   }
 #
-{ inputs }:
+#   # modules/hosts/fleet.nix
+#   polaris = import ./polaris.nix { inherit mkNixOSHost; };
+#
+{ inputs, fleet }:
 let
   inherit (inputs) home-manager;
   # NixOS hosts evaluate against nixos-unstable (see flake.nix inputs).
@@ -83,6 +86,11 @@ nixpkgs.lib.nixosSystem {
     mkSystemModule = import ./mkSystemModule.nix;
     inherit mkUser;
     forPlatform = import ./forPlatform.nix system;
+    # What the other machines in the fleet advertise. Lazy: a peer's config
+    # is only evaluated when a module reads it.
+    fleetPeers = builtins.mapAttrs (_: host: host.config.fleet) (
+      builtins.removeAttrs fleet [ hostName ]
+    );
   };
 
   modules = [

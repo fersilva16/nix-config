@@ -151,18 +151,18 @@
   outputs =
     { nixpkgs, utils, ... }@inputs:
     let
-      mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs; };
-      mkNixOSHost = import ./lib/mkNixOSHost.nix { inherit inputs; };
-
       inherit (nixpkgs) lib;
 
-      darwinConfigurations = {
-        vega = import ./modules/hosts/vega.nix { inherit mkDarwinHost; };
+      # Every host, keyed by hostname. The factories take the fleet itself so
+      # each host can read what the others advertise; `let` is recursive and
+      # lazy, so that is a plain reference, not an eager cycle.
+      fleet = import ./modules/hosts/fleet.nix {
+        mkDarwinHost = import ./lib/mkDarwinHost.nix { inherit inputs fleet; };
+        mkNixOSHost = import ./lib/mkNixOSHost.nix { inherit inputs fleet; };
       };
 
-      nixosConfigurations = {
-        polaris = import ./modules/hosts/polaris.nix { inherit mkNixOSHost; };
-      };
+      darwinConfigurations = lib.filterAttrs (_: host: host.class == "darwin") fleet;
+      nixosConfigurations = lib.filterAttrs (_: host: host.class == "nixos") fleet;
     in
     {
       inherit darwinConfigurations nixosConfigurations;
