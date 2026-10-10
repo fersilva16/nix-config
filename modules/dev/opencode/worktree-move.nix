@@ -62,35 +62,12 @@ _: {
 
           set -l ids (printf '%s\n' $rows | string split -f1 \t)
 
-          # Prefer the session this tmux session is actually running (@oc-sid,
-          # bound by the notifier plugin).  It is unset for panes opencode
-          # never emitted a session.created for, and one repo can host several
-          # instances — so ask instead of guessing when it does not pin down.
-          set -l sid
-          if set -q TMUX
-            # This pane's own claim wins: exact both when run from inside
-            # opencode (its shell inherits TMUX_PANE) and when run in the pane
-            # opencode was quit in, since nothing clears @oc-sid on exit.
-            if set -q TMUX_PANE
-              set -l own (command tmux show-options -pv -t "$TMUX_PANE" @oc-sid 2>/dev/null)
-              contains -- "$own" $ids; and set sid $own
-            end
-            if test -z "$sid"
-              for pane_sid in (command tmux list-panes -s -F '#{@oc-sid}' 2>/dev/null)
-                if contains -- "$pane_sid" $ids
-                  set sid $pane_sid
-                  break
-                end
-              end
-            end
-          end
-
-          if test -z "$sid"
-            set -l pick (printf '%s\n' $rows |
-              fzf --select-1 --delimiter=\t --with-nth=2.. --prompt="move session> " --height=40%)
-            or return 1
-            set sid (string split -f1 \t -- "$pick")
-          end
+          # One repo can host several instances, so ask when there is more
+          # than one.
+          set -l pick (printf '%s\n' $rows |
+            fzf --select-1 --delimiter=\t --with-nth=2.. --prompt="move session> " --height=40%)
+          or return 1
+          set -l sid (string split -f1 \t -- "$pick")
 
           set -l title (sqlite3 "$db" "SELECT title FROM session WHERE id = '$sid'" 2>/dev/null)
           set -l dirty (git -C "$cur_root" status --porcelain | wc -l | string trim)

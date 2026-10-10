@@ -276,25 +276,26 @@ load_prs() {
   done
 }
 
-# agent[tmux session] = what its opencode is doing; have_agents=0 without the
-# opencode manager, in which case nothing is claimed either way.
+# agent[tmux session] = what its omo is doing, from the pane options omo's
+# notifier publishes (dev/omo/notifier) on panes still running omo.
 load_agents() {
   declare -gA agent=()
-  have_agents=0
-  command -v tmux-opencode-manager >/dev/null || return 0
-  have_agents=1
-  local s st
-  while IFS=$'\t' read -r s st; do
+  local s st ev waiting=()
+  while IFS=$'\x1f' read -r s st ev; do
     [ -n "$s" ] || continue
-    if [ "$st" = generating ]; then
+    case "$ev" in question | error) waiting+=("$s" "$ev") ;; esac
+    if [ "$st" = busy ]; then
       agent[$s]=busy
     elif [ -z "${agent[$s]:-}" ]; then
       agent[$s]=idle
     fi
-  done < <(tmux-opencode-manager sessions 2>/dev/null | jq -r '.[] | "\(.session)\t\(.status)"' 2>/dev/null || true)
-  while IFS=$'\t' read -r s st; do
-    case "$st" in permission | question | error) agent[$s]="waiting on the user ($st)" ;; esac
-  done < <(tmux-opencode-manager notify list 2>/dev/null | jq -r '.[] | "\(.session)\t\(.event)"' 2>/dev/null || true)
+  done < <(tmux list-panes -a -f '#{==:#{pane_current_command},omo}' -F $'#{session_name}\x1f#{@agent-status}\x1f#{@agent-attn}' 2>/dev/null || true)
+  # Waiting on the user wins over busy, whichever pane listed first.
+  set -- "${waiting[@]}"
+  while (($#)); do
+    agent[$1]="waiting on the user ($2)"
+    shift 2
+  done
 }
 agent_of() {
   local a
@@ -302,7 +303,6 @@ agent_of() {
     echo "no tmux session"
     return 0
   fi
-  ((have_agents)) || return 0
   a=${agent[$1]:-}
   if [ -n "$a" ]; then a="agent $a"; else a="no agent"; fi
   [ "$1" != "$me_s" ] || a+=" (you)"

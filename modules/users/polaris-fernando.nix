@@ -41,7 +41,6 @@ mkUser {
   autoresearch.enable = true;
   show-me.enable = true;
   ship.enable = true;
-  opencode-manager.enable = true;
   ollama = {
     enable = true;
     models = [

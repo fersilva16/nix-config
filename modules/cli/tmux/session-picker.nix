@@ -26,9 +26,9 @@ let
   # Computes per-session metadata into tmux session options, all read by the
   # picker from cache (never on its critical path):
   #   @wt-label  branch label (root sessions on a non-default branch only)
-  #   @wt-oc     opencode attention glyph (pre-colored): ◍ busy · ● done ·
-  #              ⏸ permission · ? question · ‼ error. Empty when idle/none.
-  #              Source: tmux-opencode-manager (soft dep; skipped if absent).
+  #   @wt-agent     omo attention glyph (pre-colored): ◍ busy · ● done ·
+  #              ? question · ‼ error. Empty when idle/none.
+  #              Source: omo's notifier pane options (dev/omo/notifier).
   #   @wt-pr     PR glyph (pre-colored): #N open · "draft" · ⇧#N ready-to-merge
   #              (approved + CI green + no conflicts) · ✔#N merged. Closed-
   #              unmerged PRs get no glyph (treated like no PR).
@@ -64,45 +64,25 @@ let
       YEL=$'\033[33m'
       MAG=$'\033[38;5;135m'
 
-      # This runs under `run-shell`, so PATH is the tmux server's — inherited
-      # from launchd at server start, NOT from a login shell. It contains only
-      # tmux's own bin plus the system dirs, so the home-manager profile is
-      # absent and the `command -v` gate below can never find its soft dep.
-      # That failed silently for the entire life of this picker: @wt-oc was
-      # always empty while @wt-pr/@wt-ci worked, because gh/git are
-      # runtimeInputs and resolve by store path. Prepend the profile rather
-      # than hard-wiring a cross-module store path, which would turn a soft
-      # dep into a build-time one.
-      PATH="$HOME/.nix-profile/bin:$PATH"
-
-      # ── opencode attention (session name → pre-colored glyph) ────────────
-      # Soft dep: tmux-opencode-manager (opencode-manager module). Absent →
-      # opencode glyphs are simply skipped. A pending notification means "needs
-      # YOU" and overrides a busy spinner; highest-severity event wins.
-      declare -A OC_GLYPH OC_RANK
-      if command -v tmux-opencode-manager >/dev/null 2>&1; then
-        while IFS= read -r s; do
-          [[ -z "$s" ]] && continue
-          OC_GLYPH["$s"]="''${DIM}◍''${RST}"
-          OC_RANK["$s"]=0
-        done < <(tmux-opencode-manager sessions 2>/dev/null \
-          | jq -r '.[] | select(.status=="generating") | .session' 2>/dev/null || true)
-
-        while IFS="$TAB" read -r s ev; do
-          [[ -z "$s" ]] && continue
-          case "$ev" in
-            error) g="''${RED}‼''${RST}"; rank=4 ;;
-            question) g="''${YEL}?''${RST}"; rank=3 ;;
-            permission) g="''${YEL}⏸''${RST}"; rank=2 ;;
-            *) g="''${GRN}●''${RST}"; rank=1 ;; # complete / awaiting
-          esac
-          if (( rank > ''${OC_RANK["$s"]:-0} )); then
-            OC_GLYPH["$s"]="$g"
-            OC_RANK["$s"]=$rank
-          fi
-        done < <(tmux-opencode-manager notify list 2>/dev/null \
-          | jq -r '.[] | "\(.session)\t\(.event)"' 2>/dev/null || true)
-      fi
+      # ── omo attention (session name → pre-colored glyph) ─────────────────
+      # Read straight from the pane options omo's notifier publishes
+      # (dev/omo/notifier), from panes still running omo. Without omo there
+      # are none, and no glyphs. Something that needs YOU overrides a busy
+      # spinner; highest severity wins.
+      declare -A AGENT_GLYPH AGENT_RANK
+      while IFS="$US" read -r s st ev; do
+        case "$ev" in
+          error) g="''${RED}‼''${RST}"; rank=4 ;;
+          question) g="''${YEL}?''${RST}"; rank=3 ;;
+          complete) g="''${GRN}●''${RST}"; rank=2 ;;
+          *) [[ "$st" == busy ]] || continue; g="''${DIM}◍''${RST}"; rank=1 ;;
+        esac
+        if (( rank > ''${AGENT_RANK["$s"]:-0} )); then
+          AGENT_GLYPH["$s"]="$g"
+          AGENT_RANK["$s"]=$rank
+        fi
+      done < <(tmux list-panes -a -f '#{==:#{pane_current_command},omo}' \
+        -F "#{session_name}$US#{@agent-status}$US#{@agent-attn}" 2>/dev/null || true)
 
       # ── PR + CI per session branch (one bounded gh call, 60s TTL cache) ──
       # Asks for exactly the branch in front of you, never the whole repo. Two
@@ -184,13 +164,13 @@ let
             if [[ -d "$ppath" ]]; then
               path=$ppath
             else
-              for o in @wt-oc @wt-pr @wt-ci; do tmux set-option -t "$name" "$o" "" 2>/dev/null || true; done
+              for o in @wt-agent @wt-pr @wt-ci; do tmux set-option -t "$name" "$o" "" 2>/dev/null || true; done
               tmux set-option -t "$name" @wt-label "''${RED}gone''${RST}" 2>/dev/null || true
               continue
             fi
           fi
 
-          ocg="''${OC_GLYPH[$name]:-}"
+          agentg="''${AGENT_GLYPH[$name]:-}"
           cdir=$(git -C "$path" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
           branch=$(git -C "$path" branch --show-current 2>/dev/null || true)
 
@@ -248,7 +228,7 @@ let
           # set-option rejects the "=" exact-match prefix (target-pane parser);
           # bare names resolve exact-first, so this is safe.
           tmux set-option -t "$name" @wt-label "$label" 2>/dev/null || true
-          tmux set-option -t "$name" @wt-oc "$ocg" 2>/dev/null || true
+          tmux set-option -t "$name" @wt-agent "$agentg" 2>/dev/null || true
           tmux set-option -t "$name" @wt-pr "$prg" 2>/dev/null || true
           tmux set-option -t "$name" @wt-ci "$cig" 2>/dev/null || true
         done
@@ -308,7 +288,7 @@ let
         declare -A STATUS LABEL PARENT LV SHOWN KIDS SEEN LAST
         names=()
         m=$(mode)
-        while IFS="$RS" read -r name label oc pr ci; do
+        while IFS="$RS" read -r name label agent pr ci; do
           [[ -z "$name" ]] && continue
           # Exactly one of the two views ever shows a given session.
           if [[ "$m" == agents ]]; then
@@ -318,11 +298,11 @@ let
           fi
           # Status cluster: the three pre-colored opencode/PR/CI glyphs.
           cluster=""
-          for g in "$oc" "$pr" "$ci"; do [[ -n "$g" ]] && cluster+="''${cluster:+ }$g"; done
+          for g in "$agent" "$pr" "$ci"; do [[ -n "$g" ]] && cluster+="''${cluster:+ }$g"; done
           STATUS["$name"]="$cluster"
           LABEL["$name"]="$label"
           names+=("$name")
-        done < <(tmux list-sessions -F "#{session_name}''${RS}#{@wt-label}''${RS}#{@wt-oc}''${RS}#{@wt-pr}''${RS}#{@wt-ci}" 2>/dev/null)
+        done < <(tmux list-sessions -F "#{session_name}''${RS}#{@wt-label}''${RS}#{@wt-agent}''${RS}#{@wt-pr}''${RS}#{@wt-ci}" 2>/dev/null)
 
         ((''${#names[@]} == 0)) && return 0
 
@@ -553,7 +533,7 @@ in
       bind-key S ${choose-tree-picker}
 
       # Prime metadata when sessions appear. Indexed hook so other modules'
-      # global hooks (e.g. opencode-manager) are not clobbered.
+      # global hooks (e.g. omo's notifier) are not clobbered.
       set-hook -g 'session-created[20]' 'run-shell -b "${tmux-wt-refresh}/bin/tmux-wt-refresh"'
     '';
   };

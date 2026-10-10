@@ -72,7 +72,6 @@ mkUser {
   agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
-  opencode-manager.enable = true;
   # rtk.enable = true;
   ollama.enable = true;
   anonymize.enable = true;
