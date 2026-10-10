@@ -7,8 +7,11 @@
 #   - hyper (./hyper.nix): Caps Lock hyper layer.
 #   - mac (./mac.nix): macOS Cmd/Opt semantics, per app.
 #
-# Started by niri rather than a session target: niri imports NIRI_SOCKET
-# first, which sidesteps xremap's login race (xremap/xremap#782).
+# Bound to graphical-session.target: the session niri imports NIRI_SOCKET
+# into systemd before it reaches that target, so xremap starts with the live
+# socket (no login race, xremap/xremap#782) and restarts with the session. A
+# nested niri never imports, so it can't leave xremap on a dead socket —
+# which would hide the focused app and apply GUI rules in ghostty.
 {
   mkUserModule,
   pkgs,
@@ -40,20 +43,17 @@ mkUserModule {
     "input"
     "uinput"
   ];
-  home =
-    { userCfg, ... }:
-    {
-      systemd.user.services.xremap = {
-        Unit.Description = "xremap key remapper";
-        Service = {
-          ExecStart = "${pkgs.runtimeShell} -c 'exec ${xremap}/bin/xremap --watch=device --allow-launch true %h/.config/xremap/*.yml'";
-          Restart = "always";
-          RestartSec = 1;
-        };
-      };
-      xdg.configFile."niri/config.kdl".text = lib.mkIf userCfg.niri.enable ''
-
-        spawn-sh-at-startup "systemctl --user import-environment NIRI_SOCKET && systemctl --user restart xremap.service"
-      '';
+  home.systemd.user.services.xremap = {
+    Unit = {
+      Description = "xremap key remapper";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
     };
+    Service = {
+      ExecStart = "${pkgs.runtimeShell} -c 'exec ${xremap}/bin/xremap --watch=device --allow-launch true %h/.config/xremap/*.yml'";
+      Restart = "always";
+      RestartSec = 1;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 }

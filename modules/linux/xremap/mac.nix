@@ -78,8 +78,13 @@ let
       Super_L-Shift-f = "C-Alt-Shift-f"; # → nvim; Super+Shift+F is niri's
       Super_L-d = "C-Shift-o"; # new_split:right
       Super_L-Shift-d = "C-Shift-e"; # new_split:down
-      Super_L-left = "home";
-      Super_L-right = "end";
+      # Line/word moves send what ghostty sends on macOS (its "natural text
+      # editing" defaults), so every TUI sees the same bytes on both hosts.
+      # home/end would not do: fullscreen TUIs (omo) scroll on them.
+      Super_L-left = "C-a";
+      Super_L-right = "C-e";
+      Alt_L-left = "Alt-b";
+      Alt_L-right = "Alt-f";
       Super_L-up = "C-Shift-pageup"; # jump_to_prompt:-1
       Super_L-down = "C-Shift-pagedown"; # jump_to_prompt:1
       Super_L-backspace = "C-u"; # kill line, as ghostty sends on macOS
@@ -100,8 +105,8 @@ let
     );
 
   termHyper = {
-    "Super_L-${hyperKey}-h" = "home";
-    "Super_L-${hyperKey}-l" = "end";
+    "Super_L-${hyperKey}-h" = "C-a";
+    "Super_L-${hyperKey}-l" = "C-e";
     "Super_L-${hyperKey}-k" = "C-Shift-pageup";
     "Super_L-${hyperKey}-j" = "C-Shift-pagedown";
   };
