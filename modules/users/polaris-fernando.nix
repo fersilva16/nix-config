@@ -69,6 +69,23 @@ mkUser {
 
   # Networking
   tailscale.enable = true;
+  # Receives vega's keyboard + mouse; with the receiver (Easy-Switch 2) in
+  # use, the pointer crosses back to vega the same way. Fingerprint: vega's
+  # ~/.config/lan-mouse/lan-mouse.pem (see modules/productivity/lan-mouse.nix).
+  "lan-mouse" = {
+    enable = true;
+    settings = {
+      authorized_fingerprints."e5:65:3f:47:86:06:94:45:8b:c2:aa:1e:91:3e:4a:6c:17:e8:62:36:53:96:0a:8e:bd:53:41:b6:52:ed:4f:05" =
+        "vega";
+      clients = [
+        {
+          position = "right";
+          hostname = "vega.local";
+          activate_on_startup = true;
+        }
+      ];
+    };
+  };
 
   # Security
   "1password".enable = true;
