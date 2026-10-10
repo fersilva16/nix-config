@@ -65,6 +65,7 @@ mkUser {
 
   # Games
   heroic.enable = true; # Rocket League (Epic)
+  steam.enable = true;
 
   # Networking
   tailscale.enable = true;
