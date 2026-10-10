@@ -25,7 +25,7 @@
   ...
 }:
 let
-  # Single source for the palette: noctalia scheme + ghostty theme.
+  # Single source for the palette: noctalia scheme.
   ink = {
     black = "#0a0a0a";
     raised = "#161616";
@@ -86,18 +86,6 @@ let
     inherit terminal;
   };
 
-  # ANSI 0-7 order for ghostty's palette.
-  colorOrder = [
-    "black"
-    "red"
-    "green"
-    "yellow"
-    "blue"
-    "magenta"
-    "cyan"
-    "white"
-  ];
-
   font = "CaskaydiaCove Nerd Font";
 in
 mkUserModule {
@@ -117,74 +105,57 @@ mkUserModule {
     services.upower.enable = true;
     services.power-profiles-daemon.enable = true;
   };
-  home =
-    { userCfg, ... }:
-    {
-      imports = [ inputs.noctalia.homeModules.default ];
+  home = {
+    imports = [ inputs.noctalia.homeModules.default ];
 
-      programs.noctalia-shell = {
-        enable = true;
-        package = inputs.noctalia.packages.${system}.default;
-        settings = lib.recursiveUpdate (lib.importJSON ./settings.json) {
-          colorSchemes = {
-            predefinedScheme = "Ink";
-            useWallpaperColors = false;
-            darkMode = true;
-          };
-          general = {
-            radiusRatio = 0;
-            boxRadiusRatio = 0;
-            iRadiusRatio = 0;
-            screenRadiusRatio = 0;
-            enableShadows = false;
-          };
-          bar = {
-            density = "compact";
-            showCapsule = false;
-            outerCorners = false;
-            showOutline = true;
-            backgroundOpacity = 1;
-            frameRadius = 0;
-          };
-          ui = {
-            boxBorderEnabled = true;
-            fontDefault = font;
-            fontFixed = font;
-            panelBackgroundOpacity = 1;
-          };
+    programs.noctalia-shell = {
+      enable = true;
+      package = inputs.noctalia.packages.${system}.default;
+      settings = lib.recursiveUpdate (lib.importJSON ./settings.json) {
+        colorSchemes = {
+          predefinedScheme = "Ink";
+          useWallpaperColors = false;
+          darkMode = true;
         };
-      };
-
-      # Noctalia scans colorschemes/<Name>/<Name>.json (find -L, so a store
-      # symlink is fine). Always dark; light mirrors it as ink-on-paper.
-      xdg.configFile."noctalia/colorschemes/Ink/Ink.json".text = builtins.toJSON {
-        dark = scheme;
-        light = scheme // {
-          mPrimary = ink.black;
-          mOnPrimary = ink.bone;
-          mSurface = ink.bone;
-          mOnSurface = ink.black;
-          mSurfaceVariant = ink.ash;
-          mOnSurfaceVariant = ink.slate;
-          mOutline = ink.slate;
-          mHover = ink.black;
-          mOnHover = ink.bone;
+        general = {
+          radiusRatio = 0;
+          boxRadiusRatio = 0;
+          iRadiusRatio = 0;
+          screenRadiusRatio = 0;
+          enableShadows = false;
         };
-      };
-
-      # Outbound: terminal follows the shell palette on linux.
-      programs.ghostty = lib.mkIf userCfg.ghostty.enable {
-        themes.ink = {
-          inherit (terminal) background foreground;
-          cursor-color = terminal.cursor;
-          cursor-text = terminal.cursorText;
-          selection-background = terminal.selectionBg;
-          selection-foreground = terminal.selectionFg;
-          palette = lib.imap0 (i: c: "${toString i}=${c}") (
-            map (n: terminal.normal.${n}) colorOrder ++ map (n: terminal.bright.${n}) colorOrder
-          );
+        bar = {
+          density = "compact";
+          showCapsule = false;
+          outerCorners = false;
+          showOutline = true;
+          backgroundOpacity = 1;
+          frameRadius = 0;
         };
-        settings.theme = lib.mkForce "ink";
+        ui = {
+          boxBorderEnabled = true;
+          fontDefault = font;
+          fontFixed = font;
+          panelBackgroundOpacity = 1;
+        };
       };
     };
+
+    # Noctalia scans colorschemes/<Name>/<Name>.json (find -L, so a store
+    # symlink is fine). Always dark; light mirrors it as ink-on-paper.
+    xdg.configFile."noctalia/colorschemes/Ink/Ink.json".text = builtins.toJSON {
+      dark = scheme;
+      light = scheme // {
+        mPrimary = ink.black;
+        mOnPrimary = ink.bone;
+        mSurface = ink.bone;
+        mOnSurface = ink.black;
+        mSurfaceVariant = ink.ash;
+        mOnSurfaceVariant = ink.slate;
+        mOutline = ink.slate;
+        mHover = ink.black;
+        mOnHover = ink.bone;
+      };
+    };
+  };
 }
