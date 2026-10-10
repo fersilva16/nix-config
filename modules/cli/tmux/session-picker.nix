@@ -12,7 +12,16 @@
 # Menu mode: j/k navigate, Enter switches, x kills (with y/n confirm), "/"
 # enters search. Search mode: type to filter live, Enter switches, Esc returns
 # to menu mode. The original native choose-tree picker moves to prefix+S.
-{ pkgs, choose-tree-picker }:
+#
+# Other machines (the tmux module's `peers`) close the list as "host ⇢" rows:
+# Enter hops this terminal to that machine's tmux via tmux-hop. Nothing is
+# fetched from them — the row is static, so opening the picker never connects.
+# A client that arrived by hop gets a "host ⇠" row that goes back.
+{
+  pkgs,
+  choose-tree-picker,
+  tmux-hop,
+}:
 let
   # Computes per-session metadata into tmux session options, all read by the
   # picker from cache (never on its critical path):
@@ -254,6 +263,7 @@ let
       gh
       coreutils
       gnugrep
+      tmux-hop
     ];
     text = ''
       # Field separator for tmux -F output. Must be non-whitespace: IFS treats
@@ -388,6 +398,19 @@ let
           fi
           printf '%s\t%s%s\n' "$name" "$mark" "$body"
         done
+
+        # Other machines, main view only. Targets carry a "hop:"/"back:"
+        # prefix: tmux turns ":" in session names into "_", so they can
+        # never collide with a real session.
+        [[ "$m" == agents ]] && return 0
+        read -ra peers <<<"$(tmux show-options -gqv @hop-peers 2>/dev/null || true)"
+        for p in "''${peers[@]}"; do
+          printf 'hop:%s\t  %s %s⇢%s\n' "$p" "$p" "$DIM" "$RST"
+        done
+        from=$(tmux show-environment -t "$current" TMUX_HOP_FROM 2>/dev/null || true)
+        if [[ "$from" == TMUX_HOP_FROM=* ]]; then
+          printf 'back:%s\t  %s %s⇠%s\n' "''${from#*=}" "''${from#*=}" "$DIM" "$RST"
+        fi
       }
 
       if [[ "''${1:-}" == "--list" ]]; then
@@ -433,6 +456,24 @@ let
         exit 0
       fi
 
+      # Act on the picked row (bound to Enter). A peer hands this terminal to
+      # tmux-hop, which takes the session to come back to and the peer's ssh
+      # args. detach-client -E runs it via default-shell, hence the %q.
+      if [[ "''${1:-}" == "--enter" ]]; then
+        t="''${2:-}"
+        case "$t" in
+          hop:*)
+            peer=''${t#hop:}
+            read -ra args <<<"$(tmux show-options -gqv "@hop-ssh-$peer" 2>/dev/null || true)"
+            here=$(tmux display-message -p '#S')
+            printf -v cmd '%q ' "$(command -v tmux-hop)" "$here" "$peer" "''${args[@]}"
+            exec tmux detach-client -E "$cmd"
+            ;;
+          back:*) exec tmux detach-client ;;
+          *) exec tmux switch-client -t "=$t" ;;
+        esac
+      fi
+
       # Always open on your own sessions, whatever the last toggle left behind.
       printf 'main\n' >"$mode_file" 2>/dev/null || true
 
@@ -452,9 +493,11 @@ let
       # field 2 = display. transform~...~ uses ~ as delimiter because the action
       # bodies contain ()/[] that the default (...) parser would choke on.
       # shellcheck disable=SC2016  # $FZF_PROMPT / $a / {N} are for fzf+sh, not bash
-      b_enter='transform~[ -n {1} ] && echo "become(tmux switch-client -t ={1})" || echo ignore~'
+      b_enter='transform~[ -n {1} ] && echo "become('"$self"' --enter {1})" || echo ignore~'
+      # Peer rows (hop:/back:) are not sessions, so x skips them. ~ delimits
+      # because the case patterns close parens.
       # shellcheck disable=SC2016
-      b_kill='execute([ -n {1} ] && { printf "kill %s? [y/N] " {1}; read -r a </dev/tty; [ "$a" = y ] && tmux kill-session -t ={1}; })+reload('"$self"' --list)'
+      b_kill='execute~case {1} in ""|*:*) ;; *) printf "kill %s? [y/N] " {1}; read -r a </dev/tty; [ "$a" = y ] && tmux kill-session -t ={1} ;; esac~+reload('"$self"' --list)'
       # shellcheck disable=SC2016
       b_pr='execute('"$self"' --open-pr {1})'
       b_search='unbind(x)+unbind(o)+unbind(j)+unbind(k)+unbind(q)+unbind(/)+clear-query+change-prompt(/ )+enable-search'

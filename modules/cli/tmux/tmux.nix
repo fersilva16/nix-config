@@ -98,6 +98,47 @@ let
     '';
   };
 
+  # Swap this terminal between machines instead of nesting tmux. The picker
+  # runs it through `detach-client -E`, so the local client is gone while the
+  # peer's tmux owns the window: one prefix, one status bar. Leaving the peer
+  # (prefix+d, its picker's ⇠ row, or the link dropping) ends ssh and lands
+  # back on the local session you left — it is still running, only detached.
+  #
+  # --remote is the peer end, run as the ssh command. TMUX_HOP_FROM is in
+  # update-environment (below), so attach and switch-client copy it into
+  # whichever session this client shows; that is how the peer's picker knows
+  # to offer the way back, and a client attached at the peer's own keyboard
+  # clears it again.
+  tmux-hop = pkgs.writeShellApplication {
+    name = "tmux-hop";
+    runtimeInputs = [ pkgs.tmux ];
+    text = ''
+      if [ "''${1:-}" = "--remote" ]; then
+        export TMUX_HOP_FROM="''${2:?usage: tmux-hop --remote <from-host>}"
+        # No target: tmux picks the most recently used session.
+        tmux has-session 2>/dev/null && exec tmux attach-session
+        exec tmux new-session -s main
+      fi
+
+      back="''${1:?usage: tmux-hop <back-session> <peer> [ssh args...]}"
+      peer="''${2:?usage: tmux-hop <back-session> <peer> [ssh args...]}"
+      shift 2
+      host=$(uname -n)
+
+      rc=0
+      ssh -t "$@" "$peer" tmux-hop --remote "''${host%%.*}" || rc=$?
+      # A clean detach exits 0. Anything else (unreachable, link dropped)
+      # would otherwise flash past as the local tmux redraws over it.
+      if [ "$rc" -ne 0 ]; then
+        printf '\ntmux-hop: ssh %s exited %s — enter to return\n' "$peer" "$rc"
+        read -r _ || true
+      fi
+
+      tmux has-session -t "=$back" 2>/dev/null && exec tmux attach-session -t "=$back"
+      exec ${tmux-attach}/bin/tmux-attach
+    '';
+  };
+
   # Move the session's nvim window to the end. Renumber preserves relative
   # order, so shifting it past everything and letting tmux compact leaves it
   # last with the real windows contiguous at 1..N-1.
@@ -205,12 +246,26 @@ let
 in
 mkUserModule {
   name = "tmux";
+  extraOptions.peers = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+    default = { };
+    example = {
+      polaris = [
+        "-D"
+        "1080"
+      ];
+    };
+    description = ''
+      Machines the session picker can hop to (see tmux-hop), each mapped to
+      extra ssh arguments for that hop. Nothing connects until you pick one.
+    '';
+  };
   parts = {
     theme = import ./theme.nix { inherit pkgs; };
     statusbar = import ./statusbar.nix { inherit pkgs; };
     pr = import ./pr.nix { inherit pkgs; };
     resurrect = import ./resurrect.nix { inherit pkgs lib; };
-    session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker; };
+    session-picker = import ./session-picker.nix { inherit pkgs choose-tree-picker tmux-hop; };
   };
   home =
     { cfg, userCfg, ... }:
@@ -218,6 +273,7 @@ mkUserModule {
       home.packages = [
         tmux-git-root-path
         tmux-attach
+        tmux-hop
         tmux-new-window
         tmux-nvim-window
         tmux-nvim-park
@@ -334,11 +390,17 @@ mkUserModule {
             # Reload config with prefix + R
             bind-key R source-file ~/.config/tmux/tmux.conf \; display-message "Config reloaded"
 
-            # Reach a nested tmux: prefix twice. `polaris` attaches polaris's tmux
-            # from inside this one, and both ends run this same config, so without
-            # this every C-Space is eaten by the outer server and the inner one is
-            # uncontrollable.
-            bind-key C-Space send-prefix
+            # Other machines are hopped to, never nested (see tmux-hop). The
+            # picker reads the peer list and each peer's ssh args from these;
+            # TMUX_HOP_FROM marks a client that arrived by hop.
+            set -ga update-environment TMUX_HOP_FROM
+            ${lib.optionalString (cfg.peers != { }) ''
+              set -g @hop-peers ${lib.escapeShellArg (lib.concatStringsSep " " (lib.attrNames cfg.peers))}
+              ${lib.concatStrings (
+                lib.mapAttrsToList (
+                  peer: args: "set -g @hop-ssh-${peer} ${lib.escapeShellArg (lib.concatStringsSep " " args)}\n"
+                ) cfg.peers
+              )}''}
 
             # New windows open at nearest git root; panes inherit current directory.
             # prefix+c reuses an idle window at that root if one exists (see

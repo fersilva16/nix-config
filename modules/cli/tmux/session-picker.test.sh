@@ -36,6 +36,10 @@ for s in a a/x a/x/l1 a/x/l2 a/y a-b a/gone/orphan z/lonely; do
   tmux new-session -d -s "$s" -c /tmp
 done
 
+# Peers close the list; the back row shows only for a session a hop reached.
+tmux set -g @hop-peers "polaris mars"
+tmux set-environment -t "$(tmux display-message -p '#S')" TMUX_HOP_FROM vega
+
 # Field 2 is the display; drop colors and the current-session marker.
 got=$(bash -euo pipefail -c "$PROG" pick --list | cut -f2 |
   sed -e $'s/\x1b\\[[0-9;]*m//g' -e 's/^● /  /')
@@ -47,7 +51,10 @@ want='  a
     │  └─ l2
     └─ y
   a-b
-  z/lonely'
+  z/lonely
+  polaris ⇢
+  mars ⇢
+  vega ⇠'
 
 if [[ "$got" == "$want" ]]; then
   echo "ok"

@@ -9,7 +9,25 @@ mkUser {
   fish.enable = true;
   starship.enable = true;
   direnv.enable = true;
-  tmux.enable = true;
+  tmux = {
+    enable = true;
+    # "polaris ⇢" in the session picker hops this terminal into polaris's
+    # tmux (no nesting); prefix+d there comes back. Nothing connects until
+    # it is picked.
+    #
+    # The hop also opens a SOCKS5 proxy on 127.0.0.1:1080 that egresses from
+    # polaris, alive while you are over there. That is a convenience (a route
+    # out through the house), NOT the way this machine reaches the tailnet —
+    # reaching polaris is the precondition for the proxy, so it cannot also
+    # be the means. Point clients at it with `--socks5-hostname` (curl) or
+    # ProxyCommand (ssh) so names resolve on the polaris side. It is a full
+    # proxy, not a tailnet-only route: anything aimed at 1080 leaves via the
+    # house rather than via WARP.
+    peers.polaris = [
+      "-D"
+      "1080"
+    ];
+  };
   worktree.enable = true;
   zoxide.enable = true;
   eza.enable = true;
