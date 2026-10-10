@@ -81,6 +81,20 @@ mkUserModule {
             backdrop-color "#0a0a0a"
         }
 
+        // Slower pointer. The default adaptive profile barely moves with
+        // accel-speed; flat makes it a plain multiplier (speed+1, so -0.5
+        // is half speed). niri allows a single input block, so the keyboard
+        // part's settings are embedded here.
+        input {
+            mouse {
+                accel-profile "flat"
+                accel-speed -0.1
+            }
+      ''
+      + lib.optionalString cfg.keyboard.enable keyboard.inputKdl
+      + ''
+        }
+
         // Fade unfocused windows so the active one reads at a glance
         // (mostly visible in the overview and with split columns).
         window-rule {
