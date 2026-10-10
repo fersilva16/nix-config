@@ -56,17 +56,65 @@ mkUserModule {
     description = "lan-mouse config.toml: `clients` (peers and their screen edge) and `authorized_fingerprints`.";
   };
 
+  extraOptions.autoStart = lib.mkOption {
+    type = lib.types.bool;
+    default = true;
+    description = ''
+      Run lan-mouse for the whole session. When false the service is still
+      installed but only runs once started by hand (launchctl kickstart /
+      systemctl --user start), and stays stopped once stopped.
+    '';
+  };
+
   system = forPlatform {
     linux.networking.firewall.allowedUDPPorts = [ port ];
   };
 
   home =
-    { cfg, username, ... }:
+    {
+      cfg,
+      username,
+      userCfg,
+      ...
+    }:
     {
       home.packages = [ lan-mouse ];
       xdg.configFile."lan-mouse/config.toml".source = toml.generate "lan-mouse.toml" (
         { inherit port; } // cfg.settings
       );
+
+      # Without autoStart, "Toggle Lan Mouse" in Vicinae starts/stops it.
+      home.file.".local/share/vicinae/scripts/lan-mouse.sh" =
+        lib.mkIf (userCfg.vicinae.enable && !cfg.autoStart)
+          {
+            executable = true;
+            text = ''
+              #!/bin/sh
+              # @vicinae.schemaVersion 1
+              # @vicinae.title Toggle Lan Mouse
+              # @vicinae.mode compact
+              # @vicinae.icon 🖱️
+              # @vicinae.keywords ["kvm", "mouse", "keyboard", "share"]
+            ''
+            + forPlatform {
+              darwin = ''
+                s="gui/$(/usr/bin/id -u)/org.nix-community.home.lan-mouse"
+                if /bin/launchctl print "$s" | /usr/bin/grep -q 'state = running'; then
+                  /bin/launchctl kill TERM "$s" && echo "Lan Mouse off"
+                else
+                  /bin/launchctl kickstart "$s" && echo "Lan Mouse on"
+                fi
+              '';
+              linux = ''
+                systemctl=/run/current-system/sw/bin/systemctl
+                if $systemctl --user is-active -q lan-mouse; then
+                  $systemctl --user stop lan-mouse && echo "Lan Mouse off"
+                else
+                  $systemctl --user start lan-mouse && echo "Lan Mouse on"
+                fi
+              '';
+            };
+          };
     }
     // forPlatform {
       darwin.launchd.agents.lan-mouse = {
@@ -76,8 +124,8 @@ mkUserModule {
             exe
             "daemon"
           ];
-          RunAtLoad = true;
-          KeepAlive = true;
+          RunAtLoad = cfg.autoStart;
+          KeepAlive = cfg.autoStart;
           ProcessType = "Interactive";
           StandardErrorPath = "/Users/${username}/Library/Logs/lan-mouse.log";
         };
@@ -93,7 +141,7 @@ mkUserModule {
           ExecStart = "${exe} daemon";
           Restart = "on-failure";
         };
-        Install.WantedBy = [ "graphical-session.target" ];
+        Install = lib.mkIf cfg.autoStart { WantedBy = [ "graphical-session.target" ]; };
       };
     };
 }
