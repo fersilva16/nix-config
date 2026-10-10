@@ -125,20 +125,21 @@ in
     };
   };
 
-  # Embedded into config.kdl by the parent when this part is enabled.
-  kdl = ''
+  # Embedded inside the parent's `input {}` block (niri allows only one).
+  inputKdl = ''
     // US International with dead keys: ' " ` ~ ^ compose accents (' then e → é);
     // press space after to get the literal char. Swap variant to "altgr-intl"
     // for AltGr-only accents that leave those keys live.
-    input {
-        keyboard {
-            xkb {
-                layout "us"
-                variant "intl"
-            }
+    keyboard {
+        xkb {
+            layout "us"
+            variant "intl"
         }
     }
+  '';
 
+  # Embedded into config.kdl by the parent when this part is enabled.
+  kdl = ''
     // Dead keys arm in the compositor, but composing (dead_acute+e → é)
     // happens client-side via libxkbcommon, which finds Compose tables
     // through XLOCALEDIR. NixOS has no /usr/share/X11/locale, so without
