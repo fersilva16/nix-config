@@ -177,5 +177,13 @@ in
       [GroupOrder]
       0=Default
     '';
+
+    # fcitx5 warns at every startup that GTK_IM_MODULE is set while its
+    # wayland frontend runs. That's deliberate here (niri#3850, see kdl
+    # above), so mute it. Drop together with GTK_IM_MODULE "simple".
+    xdg.configFile."fcitx5/conf/notifications.conf".text = ''
+      [HiddenNotifications]
+      0=wayland-diagnose-other
+    '';
   };
 }
