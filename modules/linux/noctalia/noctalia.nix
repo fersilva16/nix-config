@@ -21,10 +21,32 @@
   mkUserModule,
   inputs,
   system,
+  config,
+  pkgs,
   lib,
   ...
 }:
 let
+  baseSettings = lib.importJSON ./settings.json;
+
+  # v4's SystemMonitor can't show GPU usage/VRAM and can't be extended, so on
+  # NVIDIA hosts it's swapped for ./sysmon: a local plugin with the same
+  # CPU/temp/RAM gauges plus GPU + VRAM, and a merged history panel on click.
+  # Installed read-only into ~/.config/noctalia/plugins.
+  hasNvidia = config.modules.system.nvidia.enable or false;
+  sysmonFiles = {
+    "manifest.json" = ./sysmon/manifest.json;
+    "BarWidget.qml" = ./sysmon/BarWidget.qml;
+    "Metric.qml" = ./sysmon/Metric.qml;
+    "Panel.qml" = ./sysmon/Panel.qml;
+    "Main.qml" = pkgs.replaceVars ./sysmon/Main.qml {
+      nvidiaSmi = "${lib.getBin config.hardware.nvidia.package}/bin/nvidia-smi";
+    };
+  };
+  leftWidgets = map (
+    w: if hasNvidia && w.id == "SystemMonitor" then { id = "plugin:sysmon"; } else w
+  ) baseSettings.bar.widgets.left;
+
   # Single source for the palette: noctalia scheme.
   ink = {
     black = "#0a0a0a";
@@ -111,7 +133,7 @@ mkUserModule {
     programs.noctalia-shell = {
       enable = true;
       package = inputs.noctalia.packages.${system}.default;
-      settings = lib.recursiveUpdate (lib.importJSON ./settings.json) {
+      settings = lib.recursiveUpdate baseSettings {
         colorSchemes = {
           predefinedScheme = "Ink";
           useWallpaperColors = false;
@@ -131,6 +153,7 @@ mkUserModule {
           showOutline = true;
           backgroundOpacity = 1;
           frameRadius = 0;
+          widgets.left = leftWidgets;
         };
         ui = {
           boxBorderEnabled = true;
@@ -139,22 +162,46 @@ mkUserModule {
           panelBackgroundOpacity = 1;
         };
       };
+      # Enables ./sysmon. Default source listed so noctalia doesn't try
+      # to write it back into the read-only plugins.json on load.
+      plugins = lib.mkIf hasNvidia {
+        version = 2;
+        sources = [
+          {
+            name = "Noctalia Plugins";
+            url = "https://github.com/noctalia-dev/noctalia-plugins";
+            enabled = true;
+          }
+        ];
+        states.sysmon = {
+          enabled = true;
+          sourceUrl = "local";
+        };
+      };
     };
 
-    # Noctalia scans colorschemes/<Name>/<Name>.json (find -L, so a store
-    # symlink is fine). Always dark; light mirrors it as ink-on-paper.
-    xdg.configFile."noctalia/colorschemes/Ink/Ink.json".text = builtins.toJSON {
-      dark = scheme;
-      light = scheme // {
-        mPrimary = ink.black;
-        mOnPrimary = ink.bone;
-        mSurface = ink.bone;
-        mOnSurface = ink.black;
-        mSurfaceVariant = ink.ash;
-        mOnSurfaceVariant = ink.slate;
-        mOutline = ink.slate;
-        mHover = ink.black;
-        mOnHover = ink.bone;
+    xdg.configFile = {
+      # noctalia writes a default plugins.json on first start; replace it.
+      "noctalia/plugins.json".force = hasNvidia;
+      "noctalia/plugins/sysmon" = lib.mkIf hasNvidia {
+        source = pkgs.linkFarm "noctalia-sysmon" sysmonFiles;
+      };
+
+      # Noctalia scans colorschemes/<Name>/<Name>.json (find -L, so a store
+      # symlink is fine). Always dark; light mirrors it as ink-on-paper.
+      "noctalia/colorschemes/Ink/Ink.json".text = builtins.toJSON {
+        dark = scheme;
+        light = scheme // {
+          mPrimary = ink.black;
+          mOnPrimary = ink.bone;
+          mSurface = ink.bone;
+          mOnSurface = ink.black;
+          mSurfaceVariant = ink.ash;
+          mOnSurfaceVariant = ink.slate;
+          mOutline = ink.slate;
+          mHover = ink.black;
+          mOnHover = ink.bone;
+        };
       };
     };
   };

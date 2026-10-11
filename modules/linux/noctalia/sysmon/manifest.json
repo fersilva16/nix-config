@@ -1,0 +1,18 @@
+{
+  "id": "sysmon",
+  "name": "System Monitor",
+  "version": "1.0.0",
+  "author": "fernando",
+  "description": "SystemMonitor replacement: CPU, temperature, RAM, NVIDIA GPU and VRAM gauges in one bar widget, with a history panel on click.",
+  "entryPoints": {
+    "main": "Main.qml",
+    "barWidget": "BarWidget.qml",
+    "panel": "Panel.qml"
+  },
+  "dependencies": {
+    "plugins": []
+  },
+  "metadata": {
+    "defaultSettings": {}
+  }
+}
