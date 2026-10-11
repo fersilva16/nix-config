@@ -52,7 +52,8 @@ mkUserModule {
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${pkgs.runtimeShell} -c 'exec ${xremap}/bin/xremap --watch=device,config --allow-launch true %h/.config/xremap/*.yml'";
+      # --mouse: the mac part remaps Cmd+click, so xremap must see buttons.
+      ExecStart = "${pkgs.runtimeShell} -c 'exec ${xremap}/bin/xremap --mouse --watch=device,config --allow-launch true %h/.config/xremap/*.yml'";
       Restart = "always";
       RestartSec = 1;
     };

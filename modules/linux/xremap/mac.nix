@@ -41,23 +41,30 @@ let
   # Cmd+Q stays Super for niri (close window ≈ quit).
   cmdKeys = lib.subtractLists [ "q" ] letters ++ digits ++ symbols;
 
-  gui = cmdAs "C" cmdKeys // {
-    Super_L-left = "home";
-    Super_L-right = "end";
-    Super_L-up = "C-home";
-    Super_L-down = "C-end";
-    Super_L-backspace = [
-      "Shift-home"
-      "backspace"
-    ];
-    Super_L-Shift-leftbrace = "C-pageup"; # previous tab
-    Super_L-Shift-rightbrace = "C-pagedown"; # next tab
-    Alt_L-left = "C-left";
-    Alt_L-right = "C-right";
-    Alt_L-up = "C-up";
-    Alt_L-down = "C-down";
-    Alt_L-backspace = "C-backspace";
-  };
+  # Cmd+click → Ctrl+click (open link / new tab, as on macOS). Left as
+  # Super, niri would eat it as Mod+drag window move (Right Cmd still does).
+  cmdClick.Super_L-btn_left = "C-btn_left";
+
+  gui =
+    cmdAs "C" cmdKeys
+    // cmdClick
+    // {
+      Super_L-left = "home";
+      Super_L-right = "end";
+      Super_L-up = "C-home";
+      Super_L-down = "C-end";
+      Super_L-backspace = [
+        "Shift-home"
+        "backspace"
+      ];
+      Super_L-Shift-leftbrace = "C-pageup"; # previous tab
+      Super_L-Shift-rightbrace = "C-pagedown"; # next tab
+      Alt_L-left = "C-left";
+      Alt_L-right = "C-right";
+      Alt_L-up = "C-up";
+      Alt_L-down = "C-down";
+      Alt_L-backspace = "C-backspace";
+    };
 
   # Hammerspoon passes Cmd/Opt through hyper, so Hyper+Cmd+h is Cmd+Left.
   guiHyper = {
@@ -74,6 +81,7 @@ let
   # Cmd+P stays Super for ghostty's super+p → nvim bind (modules/terminal/ghostty.nix).
   term =
     cmdAs "C-Shift" (lib.subtractLists [ "q" "p" ] letters)
+    // cmdClick
     // {
       Super_L-Shift-f = "C-Alt-Shift-f"; # → nvim; Super+Shift+F is niri's
       Super_L-d = "C-Shift-o"; # new_split:right
