@@ -117,6 +117,27 @@ assert.strictEqual(attn(), "error")
 bus.get("herdr:blocked")?.({ active: true, label: "Q" })
 assert.strictEqual(attn(), "question")
 
+// An extension reload inside the debounce leaves the timer holding a ctx
+// from the old generation; omo throws on it, and must not die of it.
+// Bun only logs an uncaught timer error, so record it -- only around the
+// timer, or the listener would also swallow the assertion failures below.
+const uncaught: unknown[] = []
+const record = (err: unknown) => uncaught.push(err)
+process.on("uncaughtException", record)
+const staleCtx: Ctx = {
+  ...ctx,
+  isIdle: () => {
+    throw new Error("stale extension generation after reload")
+  },
+}
+emit("agent_start")
+emit("agent_end", { messages: [{ role: "assistant", stopReason: "stop" }] })
+handlers.get("agent_settled")?.({}, staleCtx)
+await debounce()
+process.off("uncaughtException", record)
+assert.deepStrictEqual(uncaught, [], "a stale ctx must not throw out of the timer")
+assert.strictEqual(attn(), undefined, "a stale ctx skips the notification")
+
 emit("session_shutdown")
 assert.deepStrictEqual([...options().keys()], [], "a clean exit leaves no options behind")
 
