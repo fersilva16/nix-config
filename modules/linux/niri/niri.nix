@@ -185,16 +185,10 @@ mkUserModule {
             command = "niri msg action power-off-monitors";
           }
         ];
-        events = [
-          {
-            event = "before-sleep";
-            command = "loginctl lock-session";
-          }
-          {
-            event = "lock";
-            command = "${noctalia} ipc call lockScreen lock";
-          }
-        ];
+        events = {
+          before-sleep = "loginctl lock-session";
+          lock = "${noctalia} ipc call lockScreen lock";
+        };
       };
 
       home.packages = with pkgs; [ wl-clipboard ];

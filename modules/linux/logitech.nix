@@ -5,9 +5,7 @@
 mkSystemModule {
   name = "logitech";
   config = {
-    hardware.logitech.wireless = {
-      enable = true;
-      enableGraphical = true; # solaar
-    };
+    hardware.logitech.wireless.enable = true;
+    programs.solaar.enable = true;
   };
 }

@@ -42,8 +42,11 @@ mkNixOSHost {
         networking.networkmanager.wifi.powersave = false;
 
         # Windows (separate disk) keeps the RTC in localtime; adjusting here
-        # avoids registry surgery on the Windows side.
+        # avoids registry surgery on the Windows side. The timezone must be
+        # the real one for that to work: under UTC every boot started 3 h
+        # behind until NTP caught up.
         time.hardwareClockInLocalTime = true;
+        time.timeZone = "America/Sao_Paulo";
 
         # CUDA cache (ollama-cuda; cache.nixos.org never has unfree CUDA).
         # Always on, not set by the ollama module: a module's nix.settings
