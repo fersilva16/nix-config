@@ -81,6 +81,13 @@ mkUser {
 
   # Security
   "1password".enable = true;
+  yubikey = {
+    enable = true;
+    # Touch-to-authenticate (sudo, lock screen). `pamu2fcfg` on polaris.
+    u2fKeys = [
+      "uPIFzVCaaqHhUL3MfvUcihgs/qp9KuA8uq/5ujm/sYJLj0G1ISpFvHVIAxM6SebbF2fNUpDkSv3k3nL+nEJDCg==,0WQqbztd1fklkvGHIE9W7i1SqpFccbgJvD4RUetcswX7YAXlSnT7nHS5I9vDpick43KW3jDF89M0ckZO4WSJhg==,es256,+presence"
+    ];
+  };
 
   # Desktop sessions
   xremap.enable = true;
