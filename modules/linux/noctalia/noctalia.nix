@@ -48,15 +48,7 @@ let
   ) baseSettings.bar.widgets.left;
 
   # Single source for the palette: noctalia scheme.
-  ink = {
-    black = "#0a0a0a";
-    raised = "#161616";
-    bone = "#e8e2d4";
-    ash = "#bdb6a6";
-    stone = "#8f8a80";
-    slate = "#3a3833";
-    red = "#b23a2e";
-  };
+  ink = import ./ink.nix;
 
   terminal = {
     normal = {
