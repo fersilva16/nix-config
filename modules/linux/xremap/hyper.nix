@@ -70,6 +70,18 @@ let
   };
 in
 {
+  # Caps Lock → F18 at the kernel, the linux twin of vega's hidutil map
+  # (modules/darwin/hammerspoon). F18 has a real key-up and no lock state, so
+  # hyper works and, while lan-mouse sends keys to vega with xremap stopped,
+  # it crosses as F18 for Hammerspoon without toggling polaris's caps lock.
+  # Applies to keyboards on connect: replug (or reboot) after a change.
+  system.services.udev.extraHwdb = ''
+    evdev:input:b0003*
+     KEYBOARD_KEY_70039=f18
+    evdev:input:b0005*
+     KEYBOARD_KEY_70039=f18
+  '';
+
   home =
     { userCfg, ... }:
     {
@@ -77,8 +89,9 @@ in
         modmap = [
           {
             name = "Hyper: tap for Caps Lock";
-            # F18 is a Mac's Caps Lock (hammerspoon's hidutil remap), as it
-            # arrives over lan-mouse from vega.
+            # Caps Lock arrives as F18: from the hwdb above, and from vega's
+            # keyboard over lan-mouse (its hidutil map). CapsLock covers any
+            # keyboard the hwdb doesn't match.
             remap = lib.genAttrs [ hyperKey "F18" ] (_: {
               held = hyperKey;
               alone = "BTN_TRIGGER_HAPPY1";
