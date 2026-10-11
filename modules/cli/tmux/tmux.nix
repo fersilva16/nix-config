@@ -98,15 +98,24 @@ let
     bashOptions = [ ];
     runtimeInputs = [ pkgs.tmux ];
     text = ''
+      # Cold start (e.g. after a reboot): bring the server up empty —
+      # exit-empty is off — and, when the resurrect part is loaded, restore
+      # the saved sessions before attaching. Sequential, so there is no
+      # throwaway session to clean up; `main` only exists when nothing does.
+      if ! tmux has-session 2>/dev/null; then
+        tmux start-server
+        restore=$(tmux show-option -gqv @resurrect-restore-script-path)
+        if [ -n "$restore" ]; then
+          # Through run-shell (which still blocks): resurrect addresses the
+          # server via the socket in $TMUX, which only a tmux job has.
+          tmux run-shell "$restore"
+        fi
+      fi
       SESSION=$(tmux list-sessions -F "#{session_name}" 2>/dev/null | head -1)
       if [ -z "$SESSION" ]; then
-        # Unnamed on purpose: a fresh server gets session "0", which is the
-        # name tmux-resurrect's restore-from-scratch kills once it has
-        # restored the saved sessions, switching this client to the last
-        # active one. Any other name survives as a stray empty session.
-        exec tmux new-session
+        exec tmux new-session -s main
       fi
-      exec tmux attach-session -t "$SESSION"
+      exec tmux attach-session -t "=$SESSION"
     '';
   };
 
@@ -129,8 +138,8 @@ let
         export TMUX_HOP_FROM="''${2:?usage: tmux-hop --remote <from-host>}"
         # No target: tmux picks the most recently used session.
         tmux has-session 2>/dev/null && exec tmux attach-session
-        # Unnamed so resurrect can replace it (see tmux-attach).
-        exec tmux new-session
+        # Cold peer: restore it the same way a local terminal would.
+        exec ${tmux-attach}/bin/tmux-attach
       fi
 
       back="''${1:?usage: tmux-hop <back-session> <peer> [ssh args...]}"
@@ -372,6 +381,10 @@ mkUserModule {
             # client still exits when nothing is left, so the last session out
             # closes Ghostty.
             set -g detach-on-destroy off
+
+            # Keep the server alive with no sessions, so tmux-attach can start
+            # it empty and restore into it before attaching.
+            set -g exit-empty off
 
             # Renumber compacts every window with no way to exempt one, so the
             # nvim window can't just sit at a high index — it gets dragged back
