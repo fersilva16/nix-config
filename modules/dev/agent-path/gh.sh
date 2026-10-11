@@ -72,10 +72,13 @@ if [ "${1:-}" = pr ] && [ "${2:-}" = create ]; then
   [ "$status" -eq 0 ] || exit "$status"
   # `--web` already opened it and prints no URL.
   url=$(printf '%s\n' "$out" | grep -Eo 'https://[^[:space:]]+/pull/[0-9]+' | tail -n 1)
-  # Detached: on linux, xdg-open can exec the browser itself (no Chrome
-  # running yet), and gh waits on it, holding the agent's terminal open.
+  # On linux, xdg-open can exec the browser itself (no Chrome running yet),
+  # and gh waits on it, holding the agent's terminal open; setsid -f returns
+  # at once. Not `&`: the agent's tool call kills its whole process tree on
+  # exit, before gh gets to open anything.
   if [ -n "$url" ]; then
-    gh pr view "$url" --web </dev/null >/dev/null 2>&1 &
+    [ "$(uname)" = Linux ] && GH_BROWSER='setsid -f xdg-open' && export GH_BROWSER
+    gh pr view "$url" --web >&2 || echo "gh (agent shim): could not open $url" >&2
   fi
   exit 0
 fi
