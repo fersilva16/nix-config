@@ -18,6 +18,9 @@ mkSystemModule {
       open = true;
       modesetting.enable = true;
       nvidiaSettings = true;
+      # Saves VRAM across sleep (nvidia-suspend/resume units). Without it the
+      # one suspend ever attempted never resumed and needed a hard reboot.
+      powerManagement.enable = true;
     };
     boot.kernelParams = [
       "nvidia_drm.modeset=1"

@@ -79,4 +79,10 @@
   };
 
   zramSwap.enable = true;
+  # zram swap is RAM-speed, so prefer swapping cold pages over dropping
+  # page cache, and skip readahead (no seek cost to amortise).
+  boot.kernel.sysctl = {
+    "vm.swappiness" = 180;
+    "vm.page-cluster" = 0;
+  };
 }

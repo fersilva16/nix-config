@@ -70,6 +70,21 @@ mkUserModule {
             Mod+Space { spawn "${lib.getExe' pkgs.vicinae "vicinae"}" "toggle"; }
         }
       '';
+
+      # Nix-owned settings live in nix.json, which Vicinae only reads; this
+      # makes the GUI-written settings.json import it (seeding it if absent).
+      importNixJson = awk: seed: ''
+        cfg="$HOME/.config/vicinae/settings.json"
+        if [ ! -e "$cfg" ]; then
+          mkdir -p "$(dirname "$cfg")"
+          echo '${seed}' > "$cfg"
+        elif ! grep -q '"imports"' "$cfg"; then
+          ${awk} '!done && sub(/[{]/, "{ \"imports\": [ \"./nix.json\" ],") { done = 1 } 1' "$cfg" > "$cfg.tmp"
+          mv "$cfg.tmp" "$cfg"
+        elif ! grep -q 'nix\.json' "$cfg"; then
+          echo "vicinae: settings.json has its own imports; add \"./nix.json\" to them by hand" >&2
+        fi
+      '';
     in
     forPlatform {
       darwin = {
@@ -96,21 +111,11 @@ mkUserModule {
         home.activation.vicinaeHotkey = {
           after = [ "writeBoundary" ];
           before = [ ];
-          data = ''
-            cfg="$HOME/.config/vicinae/settings.json"
-            if [ ! -e "$cfg" ]; then
-              mkdir -p "$(dirname "$cfg")"
-              echo '{ "imports": [ "./nix.json" ], "global_shortcuts": { "toggle": "cmd+space" } }' > "$cfg"
-            elif ! grep -q '"imports"' "$cfg"; then
-              /usr/bin/awk '!done && sub(/[{]/, "{ \"imports\": [ \"./nix.json\" ],") { done = 1 } 1' "$cfg" > "$cfg.tmp"
-              mv "$cfg.tmp" "$cfg"
-            elif ! grep -q 'nix\.json' "$cfg"; then
-              echo "vicinae: settings.json has its own imports; add \"./nix.json\" to them by hand" >&2
-            fi
-          ''
-          + lib.optionalString userCfg.raycast.enable ''
-            /usr/bin/defaults write com.raycast.macos raycastGlobalHotkey -string "Option-Command-49"
-          '';
+          data =
+            importNixJson "/usr/bin/awk" ''{ "imports": [ "./nix.json" ], "global_shortcuts": { "toggle": "cmd+space" } }''
+            + lib.optionalString userCfg.raycast.enable ''
+              /usr/bin/defaults write com.raycast.macos raycastGlobalHotkey -string "Option-Command-49"
+            '';
         };
       };
 
@@ -120,10 +125,24 @@ mkUserModule {
           systemd.enable = true;
         };
 
-        xdg.configFile = lib.mkIf userCfg.niri.enable {
-          "niri/config.kdl".text = lib.mkAfter ''
-            include "${niriBinds}"
-          '';
+        xdg.configFile = {
+          # Launch apps in their own transient scope. Otherwise they stay in
+          # vicinae.service's cgroup: billed to it, and killed or orphaned
+          # with it (a vicinae crash once took Steam along).
+          "vicinae/nix.json".text = builtins.toJSON {
+            providers.applications.preferences.launchPrefix = "${pkgs.systemd}/bin/systemd-run --user --scope --collect --";
+          };
+          "niri/config.kdl" = lib.mkIf userCfg.niri.enable {
+            text = lib.mkAfter ''
+              include "${niriBinds}"
+            '';
+          };
+        };
+
+        home.activation.vicinaeImports = {
+          after = [ "writeBoundary" ];
+          before = [ ];
+          data = importNixJson "${pkgs.gawk}/bin/awk" ''{ "imports": [ "./nix.json" ] }'';
         };
       };
     };
