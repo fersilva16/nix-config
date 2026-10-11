@@ -137,7 +137,13 @@ export default function (pi: Pi, idleDelayMs = 1500) {
     cancelPending()
     pendingComplete = setTimeout(() => {
       pendingComplete = undefined
-      if (!ctx.isIdle()) return
+      // A reload inside idleDelayMs leaves ctx on the old extension
+      // generation, where isIdle() throws; uncaught in a timer, that kills omo.
+      try {
+        if (!ctx.isIdle()) return
+      } catch {
+        return
+      }
       dispatch(lastRun === "ok" ? "complete" : "error")
     }, idleDelayMs)
   }
