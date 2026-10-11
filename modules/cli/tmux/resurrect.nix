@@ -34,8 +34,11 @@ in
     # it loads. home-manager writes plugins before extraConfig, so as a plugin
     # its hook was overwritten by the statusbar part's `set -g status-right`
     # and auto-save never ran. mkAfter loads it after every status-right set.
+    #
+    # Continuum only saves. Restoring is tmux-attach's job: it restores before
+    # any session exists and attaches to the last active one, instead of
+    # continuum's 1s timer racing the first client's session.
     extraConfig = lib.mkAfter ''
-      set -g @continuum-restore 'on'
       set -g @continuum-save-interval '10'
       run-shell ${pkgs.tmuxPlugins.continuum.rtp}
     '';
