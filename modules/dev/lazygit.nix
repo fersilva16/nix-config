@@ -47,6 +47,22 @@ let
       fi
     '';
   };
+
+  # delta's light defaults shade a changed word barely darker than its line,
+  # so in-line edits are hard to spot. Keep its line tints, mark the changed
+  # words with a much darker shade plus bold. (Flexoki's greens looked muddy
+  # against the paper background.) No boxes or rules around headers: the
+  # file name is a bold Flexoki-blue line, each hunk a muted "line: context".
+  delta = lib.concatStringsSep " " [
+    "delta --light --paging=never"
+    "--minus-emph-style='normal #FF9E9E bold'"
+    "--plus-emph-style='syntax #8EDE9A bold'"
+    "--file-style='#205EA6 bold'"
+    "--file-decoration-style=none"
+    "--hunk-header-style='line-number syntax'"
+    "--hunk-header-line-number-style='#6F6E69'"
+    "--hunk-header-decoration-style=none"
+  ];
 in
 mkUserModule {
   name = "lazygit";
@@ -102,10 +118,10 @@ mkUserModule {
           # usually a half-width tmux split, too narrow for side-by-side.
           git = {
             diffRenderers = [
-              { command = "delta --light --paging=never"; }
+              { command = delta; }
               {
                 name = "delta side-by-side";
-                command = "delta --light --paging=never --side-by-side";
+                command = "${delta} --side-by-side";
               }
             ];
             log.showGraph = "always";
@@ -117,6 +133,9 @@ mkUserModule {
             showPanelJumps = false;
             showListFooter = false;
             animateExplosion = false;
+            # The pane is usually a half-width tmux split; a quarter for the
+            # side panels instead of a third gives the diff ~80 of ~106 columns.
+            sidePanelWidth = 0.25;
             # Three panels instead of five: status, submodules and tags are
             # dropped; stash becomes a tab next to commits and reflog.
             sidePanels = [
