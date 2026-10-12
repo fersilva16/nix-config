@@ -37,7 +37,9 @@ mkSystemModule {
             edk2-uefi-shell.enable = true;
           };
           efi.canTouchEfiVariables = true;
-          timeout = 5;
+          # Skip the menu; hold Space at boot to show it. `boot-windows`
+          # covers the usual reason to pick an entry.
+          timeout = 0;
         };
 
         # systemd stage-1: required for TPM2 LUKS auto-unlock
