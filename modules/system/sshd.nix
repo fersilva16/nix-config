@@ -1,14 +1,20 @@
 # SSH daemon hardening, expressed per platform because the two OSes take it
 # by different routes:
 #
-#   darwin — the daemon itself is not managed here: Remote Login (System
-#     Settings > General > Sharing) turns it on or off, so only the drop-in
-#     is declared. macOS sshd_config ends with an
-#     Include of sshd_config.d/*, which is what makes this file take effect.
+#   darwin — services.openssh.enable turns Remote Login on (launchctl, not
+#     the Sharing toggle). Apple's sshd is inetd-style: launchd holds :22 and
+#     spawns sshd per connection, so nothing runs while idle. The rules are a
+#     drop-in: macOS sshd_config Includes sshd_config.d/* above its own
+#     settings, and the first value sshd reads wins. Keys come only from
+#     users.users.<name>.openssh.authorizedKeys (modules/cli/ssh.nix), which
+#     nix-darwin serves through AuthorizedKeysCommand; `AuthorizedKeysFile
+#     none` stops ~/.ssh/authorized_keys from adding keys nix doesn't know.
 #
 #   linux — NixOS generates sshd_config wholesale from services.openssh and
 #     emits no sshd_config.d include, so the same rules have to be settings.
-#     The daemon IS declared here: polaris is reached over SSH by design.
+#
+# Both advertise "ssh" to the fleet, which gives every peer an ssh Host block
+# and a tmux hop target for this machine.
 #
 # Kerberos/GSSAPI are omitted on linux rather than disabled: both already
 # default to no in OpenSSH, and naming a directive the local build lacks
@@ -16,11 +22,16 @@
 { mkSystemModule, forPlatform, ... }:
 mkSystemModule {
   name = "sshd";
-  config = forPlatform {
+  config = {
+    fleet.services = [ "ssh" ];
+  }
+  // forPlatform {
+    darwin.services.openssh.enable = true;
     darwin.environment.etc."ssh/sshd_config.d/200-hardening.conf" = {
       text = ''
         # Key-only authentication — no passwords, no keyboard-interactive
         PubkeyAuthentication yes
+        AuthorizedKeysFile none
         PasswordAuthentication no
         KbdInteractiveAuthentication no
         PermitEmptyPasswords no
@@ -40,7 +51,6 @@ mkSystemModule {
       '';
     };
 
-    linux.fleet.services = [ "ssh" ];
     linux.services.openssh = {
       enable = true;
       settings = {

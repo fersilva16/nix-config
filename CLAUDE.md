@@ -25,6 +25,7 @@ modules/hosts/vega.nix         # Host definition: mkDarwinHost call with host-sp
 modules/hosts/fleet.nix        # Every host, keyed by hostname; flake.nix splits it by class
 modules/system/fleet.nix       # `fleet` option: what a host advertises; the others read it lazily as `fleetPeers`
 modules/users/vega-fernando.nix # User composition: mkUser with enable flags
+keys/<user>.nix              # Public keys per person (data, not modules); user files import them
 modules/<category>/<app>.nix # Individual app/tool modules
 modules/<category>/<app>/    # Module with parts (<app>.nix + part files)
 ```
