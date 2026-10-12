@@ -111,8 +111,13 @@ darwin.lib.darwinSystem {
 
     {
       networking.hostName = hostName;
-      system.primaryUser = resolveUserName primaryUser;
-      system.stateVersion = stateVersion;
+      system = {
+        primaryUser = resolveUserName primaryUser;
+        inherit stateVersion;
+        # The commit this generation was built from (`-dirty` when the tree
+        # had uncommitted changes); read it with `darwin-version`.
+        configurationRevision = inputs.self.rev or inputs.self.dirtyRev or null;
+      };
 
       nixpkgs = {
         config.allowUnfree = true;

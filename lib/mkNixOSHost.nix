@@ -99,6 +99,9 @@ nixpkgs.lib.nixosSystem {
     {
       networking.hostName = hostName;
       system.stateVersion = stateVersion;
+      # The commit this generation was built from (`-dirty` when the tree
+      # had uncommitted changes); read it with `nixos-version`.
+      system.configurationRevision = inputs.self.rev or inputs.self.dirtyRev or null;
 
       nixpkgs = {
         config.allowUnfree = true;
