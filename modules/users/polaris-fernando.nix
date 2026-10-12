@@ -9,11 +9,7 @@ mkUser {
   bat.enable = true;
   ssh = {
     enable = true;
-    # 1Password "SSH Key" — the auth key, distinct from the "SSH Signing Key"
-    # that modules/security/1password.nix hands to git.
-    authorizedKeys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBF9AdnNjLReo7Z2U0gifKkH3FR4str9pMvBbAcCzaj"
-    ];
+    authorizedKeys = import ../../keys/fernando.nix;
   };
   fish.enable = true;
   starship.enable = true;

@@ -23,13 +23,11 @@ mkUserModule {
     description = "Public keys accepted for SSH login as this user.";
   };
 
-  # linux only: on darwin the daemon is left to Remote Login and the
-  # keys are handed out by the 1Password agent, so there is no declarative
-  # authorized_keys to own there. forPlatform yields {} on darwin.
+  # The only keys sshd accepts for this user (modules/system/sshd.nix).
   user =
     { cfg, ... }:
-    forPlatform {
-      linux.openssh.authorizedKeys.keys = cfg.authorizedKeys;
+    {
+      openssh.authorizedKeys.keys = cfg.authorizedKeys;
     };
 
   system = {

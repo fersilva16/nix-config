@@ -5,7 +5,10 @@ mkUser {
   # Shell & CLI
   atuin.enable = true;
   bat.enable = true;
-  ssh.enable = true;
+  ssh = {
+    enable = true;
+    authorizedKeys = import ../../keys/fernando.nix;
+  };
   fish.enable = true;
   starship.enable = true;
   direnv.enable = true;
