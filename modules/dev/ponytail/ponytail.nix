@@ -76,6 +76,6 @@ mkUserModule {
       ];
 
       xdg.configFile = lib.mkIf userCfg.opencode.enable (commandFiles // skillFiles);
-      home.file = lib.mkIf userCfg.omo.enable omoFiles;
+      home.file = lib.mkIf userCfg.omo-home.enable omoFiles;
     };
 }

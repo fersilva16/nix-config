@@ -25,7 +25,7 @@ mkUserModule {
       };
       # Same file as an omo prompt template: same frontmatter, no
       # opencode-only syntax.
-      home.file = lib.mkIf userCfg.omo.enable {
+      home.file = lib.mkIf userCfg.omo-home.enable {
         ".omo/agent/prompts/show-me.md".source = ./show-me.md;
       };
     };

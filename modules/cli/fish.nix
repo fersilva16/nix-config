@@ -36,7 +36,7 @@ mkUserModule {
       xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
         text = "\n" + agentRule;
       };
-      home.file.".omo/rules/fish.md" = lib.mkIf userCfg.omo.enable {
+      home.file.".omo/rules/fish.md" = lib.mkIf userCfg.omo-home.enable {
         text = "---\nalwaysApply: true\n---\n\n" + agentRule;
       };
 

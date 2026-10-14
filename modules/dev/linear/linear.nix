@@ -966,7 +966,7 @@ mkUserModule {
       };
 
       # omo's `/lin` runs the fish `lin` above, so it needs both.
-      home.file = lib.mkIf (userCfg.omo.enable && userCfg.fish.enable) {
+      home.file = lib.mkIf (userCfg.omo-home.enable && userCfg.fish.enable) {
         ".omo/agent/extensions/lin.ts".source = ./lin.ts;
       };
     };

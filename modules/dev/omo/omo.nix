@@ -117,6 +117,7 @@ let
 in
 mkUserModule {
   name = "omo";
+  requires = [ "omo-home" ];
   parts = {
     agent = import ./agent/agent.nix { inherit pkgs lib; };
     notifier = import ./notifier/notifier.nix { inherit pkgs lib; };

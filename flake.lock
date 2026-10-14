@@ -287,6 +287,26 @@
         "type": "github"
       }
     },
+    "limi": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792014580,
+        "narHash": "sha256-UfSIgOGI1l2kcgliYl9h1xs8FNq3uqfk67HYlzrmsnM=",
+        "ref": "refs/heads/main",
+        "rev": "a69f02af26433474d0397171e263229c620b8849",
+        "revCount": 31,
+        "type": "git",
+        "url": "ssh://git@github.com/fersilva16/limi"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/fersilva16/limi"
+      }
+    },
     "nix-homebrew": {
       "inputs": {
         "brew-src": [
@@ -659,6 +679,7 @@
         "homebrew-cask": "homebrew-cask",
         "homebrew-core": "homebrew-core",
         "homebrew-schpet-tap": "homebrew-schpet-tap",
+        "limi": "limi",
         "nix-homebrew": "nix-homebrew",
         "nix-openclaw": "nix-openclaw",
         "nix-vscode-extensions": "nix-vscode-extensions",

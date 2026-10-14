@@ -11,7 +11,7 @@ mkUserModule {
   home =
     { userCfg, ... }:
     {
-      home.file = lib.mkIf userCfg.omo.enable {
+      home.file = lib.mkIf userCfg.omo-home.enable {
         ".omo/agent/prompts/unsupervised.md".source = ./unsupervised.md;
       };
     };
