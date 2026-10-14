@@ -1,6 +1,6 @@
 { pkgs }:
 let
-  figma-developer-mcp = pkgs.callPackage ./figma-developer-mcp.nix { };
+  figma-developer-mcp = pkgs.callPackage ../../productivity/figma/figma-developer-mcp.nix { };
 in
 {
   default = true;
