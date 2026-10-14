@@ -10,7 +10,7 @@
   python3,
 }:
 let
-  # See figma-developer-mcp.nix for context: Node.js 24.15.0 in current
+  # See productivity/figma/figma-developer-mcp.nix for context: Node.js 24.15.0 in current
   # nixpkgs crashes pnpm with "Abort trap: 6". Pin the pnpm runtime to
   # nodejs_22 (LTS) which doesn't have the FD-tracking regression.
   pnpm = pnpm_10.override { nodejs-slim = nodejs_22; };
