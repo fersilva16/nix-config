@@ -31,7 +31,7 @@ mkUserModule {
         text = "\n" + builtins.readFile ./i-have-adhd.md;
       };
       # omo only applies a ~/.omo/rules file whose frontmatter says so.
-      home.file.".omo/rules/i-have-adhd.md" = lib.mkIf userCfg.omo.enable {
+      home.file.".omo/rules/i-have-adhd.md" = lib.mkIf userCfg.omo-home.enable {
         text = "---\nalwaysApply: true\n---\n\n" + builtins.readFile ./i-have-adhd.md;
       };
     };

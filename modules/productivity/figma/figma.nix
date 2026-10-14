@@ -15,7 +15,7 @@ mkUserModule {
   home =
     { userCfg, ... }:
     {
-      home.file.".omo/agent/extensions/figma-mcp.ts" = lib.mkIf userCfg.omo.enable {
+      home.file.".omo/agent/extensions/figma-mcp.ts" = lib.mkIf userCfg.omo-home.enable {
         source = pkgs.replaceVars ./figma-mcp.ts {
           figmaMcp = "${figma-developer-mcp}/bin/figma-developer-mcp";
         };

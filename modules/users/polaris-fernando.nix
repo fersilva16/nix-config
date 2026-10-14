@@ -30,13 +30,15 @@ mkUser {
   lazygit.enable = true;
   opencode.enable = true;
   "claude-code".enable = true;
-  omo.enable = true;
+  # Nalum (limi-suite) is omo: never both.
+  limi-suite.enable = true;
   agent-path.enable = true;
   i-have-adhd.enable = true;
   ponytail.enable = true;
   autoresearch.enable = true;
   show-me.enable = true;
   ship.enable = true;
+  unsupervised.enable = true;
   ollama = {
     enable = true;
     models = [

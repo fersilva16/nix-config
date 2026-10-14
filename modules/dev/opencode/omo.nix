@@ -40,8 +40,9 @@ in
         '';
       };
 
-      # Written here only when the omo module (which owns it) is off.
-      home.file = lib.mkIf (!userCfg.omo.enable) {
+      # Written here only when neither owner is on: the omo module, or
+      # limi-suite, whose `nalum` links it into ~/.omo on every launch.
+      home.file = lib.mkIf (!userCfg.omo-home.enable) {
         ".omo/omo.jsonc".source = import ../omo/omo-jsonc.nix { inherit pkgs; };
       };
     };

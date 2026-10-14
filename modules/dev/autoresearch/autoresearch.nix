@@ -51,7 +51,7 @@ mkUserModule {
 
       # omo gets the skill and the command; the context-injection plugin is
       # opencode-only.
-      home.file = lib.mkIf userCfg.omo.enable {
+      home.file = lib.mkIf userCfg.omo-home.enable {
         ".omo/agent/skills/autoresearch/SKILL.md".source =
           "${autoresearch-src}/skills/autoresearch/SKILL.md";
         ".omo/agent/prompts/autoresearch.md".source = "${autoresearch-src}/commands/autoresearch.md";

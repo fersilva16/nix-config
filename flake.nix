@@ -146,6 +146,16 @@
     nix-openclaw = {
       url = "github:openclaw/nix-openclaw";
     };
+
+    # Limi ships everything as one package, limi-suite; users opt in via
+    # modules/dev/limi-suite.nix, which installs it and wires the host side.
+    # Private repo, hence ssh, but flake.lock pins it, so ssh only runs on
+    # `nix flake update limi`. To try local Limi changes:
+    # --override-input limi git+file:///home/fernando/limi
+    limi = {
+      url = "git+ssh://git@github.com/fersilva16/limi";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
