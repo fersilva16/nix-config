@@ -31,6 +31,16 @@ in
 mkUserModule {
   name = "limi-suite";
   requires = [ "omo-home" ];
+  parts = {
+    gateway = import ./gateway.nix {
+      inherit
+        pkgs
+        host
+        homeOf
+        forPlatform
+        ;
+    };
+  };
   # Nalum's linux binary is generic glibc (/lib64/ld-linux-x86-64.so.2), and so
   # are the native modules and senpi-desktop-engine it unpacks into
   # ~/.omo/binary-runtime at run time, where patchelf can't reach them.
