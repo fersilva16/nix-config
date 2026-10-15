@@ -17,6 +17,22 @@
         "type": "github"
       }
     },
+    "crane": {
+      "locked": {
+        "lastModified": 1787326676,
+        "narHash": "sha256-lWhBbBvC05/xwivKBBiM2YNizpmgqCgyOIzomvRuwxs=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "692f7e9ef2ece8125b466f66f2af532b3edaed0d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ipetkov",
+        "ref": "v0.24.0",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
     "darwin": {
       "inputs": {
         "nixpkgs": [
@@ -289,16 +305,17 @@
     },
     "limi": {
       "inputs": {
+        "crane": "crane",
         "nixpkgs": [
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1792030423,
-        "narHash": "sha256-fuJXJBkEliUjqglQSl1W9iRoUv2Q+fFwdlHpjUz0CS0=",
+        "lastModified": 1792083445,
+        "narHash": "sha256-AK7Yruz31PX2hTflYK/KGEXMgkrDmFi6XGgXDeG9gBQ=",
         "ref": "refs/heads/main",
-        "rev": "07e91c3964674dfa84900445b2eb7db2ad40dbec",
-        "revCount": 51,
+        "rev": "17c4106d0cb1d7a509946479e3f0027115b9238e",
+        "revCount": 70,
         "type": "git",
         "url": "ssh://git@github.com/fersilva16/limi"
       },
