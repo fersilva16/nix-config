@@ -146,7 +146,7 @@ mkUserModule {
         binds {
             Mod+Shift+Slash { show-hotkey-overlay; }
 
-            Mod+Return  { spawn "ghostty"; }
+            Mod+Return  { spawn "limi-desktop"; }
             Mod+S       { spawn "${noctalia}" "ipc" "call" "controlCenter" "toggle"; }
             Mod+Q       { close-window; }
             Mod+Shift+L { spawn "${noctalia}" "ipc" "call" "lockScreen" "lock"; }

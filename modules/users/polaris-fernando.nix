@@ -55,9 +55,6 @@ mkUser {
   firefox.enable = true;
   chrome.enable = true;
 
-  # Terminal
-  ghostty.enable = true;
-
   # Chat
   discord.enable = true;
 

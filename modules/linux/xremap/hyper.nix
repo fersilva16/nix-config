@@ -25,13 +25,13 @@ let
     ++ args;
   };
 
-  # Hyper+Space — toggle between Ghostty and VSCode, mirroring the
+  # Hyper+Space — toggle between limi-desktop and VSCode, mirroring the
   # Hammerspoon binding on darwin. Focuses an existing window via niri IPC,
   # launches the app when none exists.
   # ponytail: darwin also opens VSCode at the current tmux session's git
   # root; port that if plain focus-toggling ever feels lacking.
-  ghostty-code-toggle = pkgs.writeShellApplication {
-    name = "niri-ghostty-code-toggle";
+  terminal-code-toggle = pkgs.writeShellApplication {
+    name = "niri-terminal-code-toggle";
     runtimeInputs = [
       pkgs.jq
       pkgs.niri
@@ -51,8 +51,8 @@ let
 
       focused=$(niri msg -j focused-window | jq -r '.app_id // ""')
       case "$focused" in
-        *ghostty*) focus_or_launch '^code' code ;;
-        *) focus_or_launch 'ghostty' ghostty ;;
+        limi-desktop) focus_or_launch '^code' code ;;
+        *) focus_or_launch '^limi-desktop$' limi-desktop ;;
       esac
     '';
   };
@@ -61,12 +61,12 @@ let
     "${hyperKey}-t" = action [
       "spawn"
       "--"
-      "ghostty"
+      "limi-desktop"
     ];
     "${hyperKey}-f" = action [ "maximize-column" ];
     "${hyperKey}-tab" = action [ "focus-monitor-next" ];
     "${hyperKey}-backslash" = action [ "move-column-to-monitor-next" ];
-    "${hyperKey}-space".launch = [ (lib.getExe ghostty-code-toggle) ];
+    "${hyperKey}-space".launch = [ (lib.getExe terminal-code-toggle) ];
   };
 in
 {
