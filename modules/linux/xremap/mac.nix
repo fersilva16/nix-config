@@ -4,7 +4,7 @@
 #
 #   - GUI apps: Cmd → Ctrl; Cmd+arrows → line/document ends; Opt+arrows →
 #     word/paragraph moves; Cmd/Opt+Backspace → delete line/word.
-#   - ghostty: Cmd → Ctrl+Shift (its Linux defaults for copy/paste/tab/
+#   - ghostty and limi-desktop: Cmd → Ctrl+Shift (its Linux defaults for copy/paste/tab/
 #     window/search; Ctrl+C/W/T stay the shell's), plus the macOS ghostty
 #     defaults Linux lacks. Opt stays Alt, like macos-option-as-alt on vega.
 #
@@ -18,7 +18,12 @@
   hyperKey,
 }:
 let
-  ghostty = "com.mitchellh.ghostty";
+  # Terminals get ghostty's rules. limi-desktop reads ghostty's config and
+  # encodes keys like it, so it takes the same chords.
+  terminals = [
+    "com.mitchellh.ghostty"
+    "limi-desktop"
+  ];
 
   letters = lib.stringToCharacters "abcdefghijklmnopqrstuvwxyz";
   digits = map toString (lib.range 0 9);
@@ -129,13 +134,13 @@ in
       xdg.configFile."xremap/mac.yml".source = yaml.generate "xremap-mac.yml" {
         keymap = [
           {
-            name = "Mac: ghostty";
-            application.only = [ ghostty ];
+            name = "Mac: terminals";
+            application.only = terminals;
             remap = withHyper term termHyper;
           }
           {
             name = "Mac: GUI apps";
-            application.not = [ ghostty ];
+            application.not = terminals;
             remap = withHyper gui guiHyper;
           }
         ];
