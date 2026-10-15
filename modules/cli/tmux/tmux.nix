@@ -410,6 +410,10 @@ mkUserModule {
             # bare CR and is indistinguishable from enter without this line.
             set -as terminal-features ",xterm-ghostty:extkeys"
             set -g allow-passthrough on
+            # Forward OSC 52 from panes to the outer terminal. The default
+            # (`external`) drops it, so a TUI with no WAYLAND_DISPLAY (panes
+            # of the boot-started server, ssh) cannot copy at all.
+            set -g set-clipboard on
 
             # Copy to system clipboard from vi copy mode
             bind-key -T copy-mode-vi MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "${tmux-clipboard}"
