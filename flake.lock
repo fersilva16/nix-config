@@ -294,11 +294,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1792014580,
-        "narHash": "sha256-UfSIgOGI1l2kcgliYl9h1xs8FNq3uqfk67HYlzrmsnM=",
+        "lastModified": 1792022530,
+        "narHash": "sha256-WqpzQvWgfakDgq45MY6noBZ3tf6Q6xfZPDfOIyoueTs=",
         "ref": "refs/heads/main",
-        "rev": "a69f02af26433474d0397171e263229c620b8849",
-        "revCount": 31,
+        "rev": "f6ab87de9b77227a91921c65794fbbd1bea0c2e0",
+        "revCount": 36,
         "type": "git",
         "url": "ssh://git@github.com/fersilva16/limi"
       },

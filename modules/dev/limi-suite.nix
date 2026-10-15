@@ -1,16 +1,12 @@
 # Limi (inputs.limi): everything it ships, as one package (limi-suite). Limi
-# ships no modules; the host-side wiring its tools need lives here.
+# owns its tools, its `limi` CLI and the paths a host wires (`lib.host`); this
+# module is only the host glue.
 #
 # The suite lives in its own Nix profile, not in the Home Manager build, so a
-# Limi change never touches nix-config:
-#   limi switch            build ~/limi's working tree into the profile
-#   limi switch --pinned   back to the version flake.lock pins
-#   limi rollback          previous generation
-#   limi status            which one is active
-# A rebuild moves the profile to the pinned version only when it is missing or
-# still on the pin the last rebuild set, so a fresh machine works, bumping the
-# lock (`nix flake update limi`) takes effect, and a rebuild never undoes
-# `limi switch`.
+# Limi change never touches nix-config: `limi switch` builds ~/limi into it,
+# `limi switch --pinned` goes back to the version flake.lock pins. Each
+# activation hands that pin to `limi pin`, which follows it unless a
+# `limi switch` build is active.
 #
 # Can't be enabled together with `omo` (asserted below): Limi's Nalum is omo,
 # and both install `omo` and write the same ~/.omo files.
@@ -24,59 +20,12 @@
 }:
 let
   pinned = inputs.limi.packages.${pkgs.stdenv.hostPlatform.system}.limi-suite;
-
-  # Next to Home Manager's own profile, so Nix treats it as a GC root too.
-  profileRel = ".local/state/nix/profiles/limi";
+  inherit (inputs.limi.lib) host;
   homeOf =
     username:
     forPlatform {
       darwin = "/Users/${username}";
       linux = "/home/${username}";
-    };
-
-  limi =
-    profile:
-    pkgs.writeShellApplication {
-      name = "limi";
-      text = ''
-        profile=${profile}
-        src="''${LIMI_SRC:-$HOME/limi}"
-        # A running tmux sourced Nalum's tmux.conf at startup; re-source it so
-        # the switched version applies without restarting the server.
-        reload_tmux() {
-          if command -v tmux >/dev/null && tmux has-session 2>/dev/null; then
-            tmux source-file -q "$profile/share/nalum/tmux.conf"
-          fi
-        }
-        case "''${1:-status}" in
-          switch)
-            if [ "''${2:-}" = --pinned ]; then
-              nix-env --profile "$profile" --set ${pinned}
-            else
-              # Pure build of the working tree. Git flakes see tracked files
-              # only: `git add -N` new ones first.
-              nix build --no-link --profile "$profile" "git+file://$src#limi-suite"
-            fi
-            reload_tmux
-            ;;
-          rollback)
-            nix-env --profile "$profile" --rollback
-            reload_tmux
-            ;;
-          status)
-            current="$(readlink -f "$profile")"
-            if [ "$current" = ${pinned} ]; then
-              echo "limi: pinned ($current)"
-            else
-              echo "limi: local build ($current)"
-            fi
-            ;;
-          *)
-            echo "usage: limi [switch [--pinned] | rollback | status]" >&2
-            exit 2
-            ;;
-        esac
-      '';
     };
 in
 mkUserModule {
@@ -95,16 +44,13 @@ mkUserModule {
     linux = {
       programs.nix-ld.enable = true;
       # Last, so it never shadows /run/wrappers or the system profiles.
-      environment.profiles = lib.mkAfter [ "$HOME/${profileRel}" ];
+      environment.profiles = lib.mkAfter [ "$HOME/${host.profile}" ];
     };
   };
   home =
     { username, userCfg, ... }:
     let
-      profile = "${homeOf username}/${profileRel}";
-      # Symlink to the pin the last rebuild set; outside the profiles dir so
-      # nix never mistakes it for a profile.
-      lastPin = "${homeOf username}/.local/state/limi/pinned";
+      profile = "${homeOf username}/${host.profile}";
     in
     lib.mkMerge [
       {
@@ -115,40 +61,31 @@ mkUserModule {
           }
         ];
         home = {
-          packages = [ (limi profile) ];
           sessionPath = [ "${profile}/bin" ];
+          # `limi pin` runs nix-env from PATH; hand it this host's nix.
           activation.limiProfile = {
             after = [ "writeBoundary" ];
             before = [ ];
             data = ''
-              # Missing, or still on the last pin: follow the lock. Anything
-              # else is a `limi switch` build, which a rebuild leaves alone.
-              if [ ! -e ${profile} ] || [ "$(readlink -f ${profile})" = "$(readlink ${lastPin} 2>/dev/null)" ]; then
-                if [ "$(readlink -f ${profile} 2>/dev/null)" != ${pinned} ]; then
-                  run mkdir -p "$(dirname ${profile})"
-                  run ${pkgs.nix}/bin/nix-env --profile ${profile} --set ${pinned}
-                fi
-              fi
-              run mkdir -p "$(dirname ${lastPin})"
-              run ln -sfn ${pinned} ${lastPin}
+              run env PATH="${pkgs.nix}/bin:$PATH" ${pinned}/bin/limi pin ${pinned}
             '';
           };
         };
       }
-      # Nalum's tmux wiring: csi-u, prefix+N and the notifier hooks, the
-      # notifier's status-bar widget, and the window icon for omo panes. Read
-      # through the profile, so `limi switch` updates them too.
+      # The suite's tmux config and status-bar widget, read through the
+      # profile so `limi switch` updates them too, plus the window icon for
+      # omo panes.
       (lib.mkIf userCfg.tmux.enable {
-        programs.tmux.extraConfig = "source-file -q ${profile}/share/nalum/tmux.conf";
+        programs.tmux.extraConfig = "source-file -q ${profile}/${host.tmuxConf}";
         xdg.configFile = {
           # Appends to the `icons:` map cli/tmux/theme.nix writes, so it must
           # land after it. Glyph is U+F51B, chosen by hand: keep it.
-          "tmux/tmux-nerd-font-window-name.yml".text = lib.mkAfter "  omo: \"\"";
-          "tmux/widgets/10-notify" = {
+          "tmux/tmux-nerd-font-window-name.yml".text = lib.mkAfter "  omo: \"\"";
+          "tmux/widgets/10-limi" = {
             executable = true;
             text = ''
               #!/usr/bin/env bash
-              exec ${profile}/bin/tmux-agent-notify widget
+              exec ${profile}/${host.tmuxWidget} "$@"
             '';
           };
         };
