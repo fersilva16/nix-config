@@ -17,6 +17,10 @@
 # Enter hops this terminal to that machine's tmux via tmux-hop. Nothing is
 # fetched from them — the row is static, so opening the picker never connects.
 # A client that arrived by hop gets a "host ⇠" row that goes back.
+#
+# In a limi-desktop window the same list opens as the app's native modal
+# instead (`--json`, same rows, same keys); every other terminal keeps the
+# fzf popup.
 {
   pkgs,
   choose-tree-picker,
@@ -241,6 +245,7 @@ let
       tmux
       fzf
       gh
+      jq
       coreutils
       gnugrep
       tmux-hop
@@ -255,6 +260,14 @@ let
       DIM=$'\033[2m'
       RST=$'\033[0m'
       CUR=$'\033[32m'
+
+      # Set when limi-desktop runs the picker as a native modal: the window's
+      # pty, which tmux knows as its client. The modal runs outside tmux, so
+      # every client command names that client; in the popup both stay empty.
+      cflag=() tflag=()
+      if [[ -n "''${LIMI_MODAL_TTY:-}" ]]; then
+        cflag=(-c "$LIMI_MODAL_TTY") tflag=(-t "$LIMI_MODAL_TTY")
+      fi
 
       # ── view mode (main | agents) ────────────────────────────────────────
       # Agent-spawned sessions (agents/*) are noise in the human's list but
@@ -282,7 +295,7 @@ let
       # the session name (used by the binds via {1}); display is the decorated,
       # tree-indented label shown by fzf (--with-nth=2).
       build_list() {
-        current=$(tmux display-message -p '#S' 2>/dev/null || true)
+        current=$(tmux display-message -p "''${cflag[@]}" '#S' 2>/dev/null || true)
         # Keyed by session name. STATUS holds a key for every listed session,
         # so it doubles as the "is this a visible session" set in pass 1.
         declare -A STATUS LABEL PARENT LV SHOWN KIDS SEEN LAST
@@ -445,13 +458,43 @@ let
           hop:*)
             peer=''${t#hop:}
             read -ra args <<<"$(tmux show-options -gqv "@hop-ssh-$peer" 2>/dev/null || true)"
-            here=$(tmux display-message -p '#S')
+            here=$(tmux display-message -p "''${cflag[@]}" '#S')
             printf -v cmd '%q ' "$(command -v tmux-hop)" "$here" "$peer" "''${args[@]}"
-            exec tmux detach-client -E "$cmd"
+            exec tmux detach-client "''${tflag[@]}" -E "$cmd"
             ;;
-          back:*) exec tmux detach-client ;;
-          *) exec tmux switch-client -t "=$t" ;;
+          back:*) exec tmux detach-client "''${tflag[@]}" ;;
+          *) exec tmux switch-client "''${cflag[@]}" -t "=$t" ;;
         esac
+      fi
+
+      # The native modal in limi-desktop: the same rows as --list, plus the
+      # keys, as the JSON its modal reads (rust/apps/desktop/src/modal.rs in
+      # limi). LIMI_MODAL_TAB is the view tab picks; the app draws the header.
+      if [[ "''${1:-}" == "--json" ]]; then
+        case "''${LIMI_MODAL_TAB:-}" in
+          agents) printf 'agents\n' >"$mode_file" ;;
+          *) printf 'main\n' >"$mode_file" ;;
+        esac
+        current=$(tmux display-message -p "''${cflag[@]}" '#S' 2>/dev/null || true)
+        "$0" --list | jq -Rn \
+          --arg self "$0" --arg tmux "$(command -v tmux)" --arg tab "$(mode)" \
+          --arg current "$current" --arg agents "agents $(agent_count)" '
+          {
+            title: "sessions",
+            size: [60, 60],
+            tab: $tab,
+            tabs: [{id: "main", label: "sessions"}, {id: "agents", label: $agents}],
+            actions: [
+              {key: "enter", label: "switch", run: [$self, "--enter", "{id}"], then: "close"},
+              {key: "x", label: "kill", confirm: "kill {id}?", run: [$tmux, "kill-session", "-t", "={id}"], then: "reload"},
+              {key: "o", label: "PR", run: [$self, "--open-pr", "{id}"]}
+            ],
+            rows: [inputs | select(length > 0) | split("\t") | .[0] as $id
+              | {id: $id, text: (.[1:] | join("\t")), current: ($id == $current)}
+              # Peer rows (hop:/back:) are not sessions: enter only.
+              + (if $id | contains(":") then {keys: ["enter"]} else {} end)]
+          }'
+        exit 0
       fi
 
       # Always open on your own sessions, whatever the last toggle left behind.
@@ -527,7 +570,10 @@ in
       # Stack-aware session picker on prefix+s. The refresh runs in the
       # background while the popup opens with the previous data (self-healing
       # staleness — fresh by the next open).
-      bind-key s run-shell -b '${tmux-wt-refresh}/bin/tmux-wt-refresh >/dev/null 2>&1' \; display-popup -E -w 60% -h 60% '${tmux-wt-pick}/bin/tmux-wt-pick'
+      # In a limi-desktop window the picker opens as its native modal; the
+      # app refuses (exit 1) when it does not own this client, and so does a
+      # host without it, and then the fzf popup opens as before.
+      bind-key s run-shell -b '${tmux-wt-refresh}/bin/tmux-wt-refresh >/dev/null 2>&1' \; run-shell -b 'limi-desktop modal "#{client_tty}" ${tmux-wt-pick}/bin/tmux-wt-pick --json 2>/dev/null || tmux display-popup -c "#{client_tty}" -E -w 60% -h 60% ${tmux-wt-pick}/bin/tmux-wt-pick'
 
       # Original native choose-tree picker (same rules) as fallback.
       bind-key S ${choose-tree-picker}
