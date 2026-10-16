@@ -153,9 +153,10 @@
     # `nix flake update limi`. To try local Limi changes, run `limi switch`
     # (no rebuild). Only a change to `lib.host` needs a rebuild with
     # --override-input limi git+file:///home/fernando/limi
+    # No nixpkgs follows: Limi builds on its own pin, so a rebuild gets the
+    # same derivations as `limi switch` and reuses its cached Rust deps.
     limi = {
       url = "git+ssh://git@github.com/fersilva16/limi";
-      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
