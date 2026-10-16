@@ -174,6 +174,9 @@ mkUserModule {
           { ".omo/agent/themes/flexoki.json".source = ./flexoki.json; }
           # opencode-style prompt, status line, sidebar and tool blocks.
           { ".omo/agent/extensions/ui".source = ./ui; }
+          # Shift+Tab cycles the agent back (ui/prompt.ts), not thinking;
+          # /thinking still sets the level.
+          { ".omo/agent/keybindings.json".text = builtins.toJSON { "app.thinking.cycle" = [ ]; }; }
         ];
 
         # omo runs from a copy of itself in ~/.omo/binary-runtime/<version>/ and
