@@ -82,8 +82,10 @@ commands in your own shell, in the main checkout.
 
 ## Briefs
 
-The agent sees nothing of this conversation, so each prompt is
-self-contained: the goal, the files and context you already know, and what
-"done" looks like for it (for example "open a PR" or "stop and wait for the
-user"). Tell the user which agents you started and how to reach them:
+The agent sees nothing of this conversation and is as capable as you. Brief it
+the way the user would: a few lines with the goal, what only this conversation
+knows (evidence, other agents working nearby), and what "done" is. Pass hunches
+on as hunches; let it read the code and decide the rest.
+
+Tell the user which agents you started and how to reach them:
 `agent open <name>`, or `<project>/<name>` in the session picker.
