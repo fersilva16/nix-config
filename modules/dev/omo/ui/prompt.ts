@@ -30,8 +30,10 @@ type Prompt = {
   isShowingAutocomplete(): boolean
 }
 
-// Key table. Tab on an empty draft cycles the primary agent, as in opencode;
-// with text (or an open autocomplete) it stays omo's completion. ctrl+c copies
+// Key table. Tab on an empty draft cycles the primary agent, as in opencode,
+// and Shift+Tab cycles it back (omo's own Shift+Tab, thinking cycling, is
+// unbound in omo.nix); with text (or an open autocomplete) Tab stays omo's
+// completion. ctrl+c copies
 // a mouse selection, else clears the draft, else exits (asking first while
 // the agent works). The ctrl+x leader: l opens /resume, a cycles the agent,
 // y replays ctrl+x for omo's own copy.
@@ -58,6 +60,7 @@ function intents(pi: Pi, ctx: Session): Intent<Prompt>[] {
   }
   return [
     { id: "agent.cycle", key: "tab", when: (editor) => editor.getText() === "" && !editor.isShowingAutocomplete(), run: cycleAgent },
+    { id: "agent.cyclePrevious", key: "shift+tab", run: () => pi.events.emit("agents:cycle", -1) },
     {
       id: "app.exitOrConfirm",
       key: "ctrl+c",

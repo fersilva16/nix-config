@@ -42,10 +42,10 @@ export default function (pi: ExtensionAPI) {
     use(agent)
     pi.appendEntry(ENTRY, { agent })
   }
-  const next = () => AGENTS[(AGENTS.indexOf(active) + 1) % AGENTS.length]
+  const next = (step = 1) => AGENTS[(AGENTS.indexOf(active) + step + AGENTS.length) % AGENTS.length]
 
-  // The prompt's Tab (empty draft) and ctrl+x a.
-  pi.events.on("agents:cycle", () => switchTo(next()))
+  // The prompt's Tab (empty draft) and ctrl+x a; Shift+Tab sends -1.
+  pi.events.on("agents:cycle", (step: unknown) => switchTo(next(step === -1 ? -1 : 1)))
 
   pi.registerFlag("agent", { description: `Primary agent to start with (${AGENTS.join(", ")})`, type: "string" })
 
