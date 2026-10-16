@@ -82,8 +82,21 @@ commands in your own shell, in the main checkout.
 
 ## Briefs
 
-The agent sees nothing of this conversation, so each prompt is
-self-contained: the goal, the files and context you already know, and what
-"done" looks like for it (for example "open a PR" or "stop and wait for the
-user"). Tell the user which agents you started and how to reach them:
+The agent sees nothing of this conversation. Write the brief the way the user
+would: short, in their voice. The agent is as capable as you and reads the
+repo and its CLAUDE.md/AGENTS.md itself.
+
+Include only what the agent cannot find on its own:
+
+- the goal and why, with evidence from this conversation (report text,
+  session IDs, data you gathered)
+- coordination: other agents touching nearby files, what not to touch
+- what "done" is (for example "open a PR" or "stop and wait for the user")
+
+Leave out repo rules, verification commands, file-by-file plans and fixes.
+Give a suspected cause as a lead to verify, never as "already diagnosed".
+Aim for a few lines; if it needs more than ~15, you are deciding for the
+agent.
+
+Tell the user which agents you started and how to reach them:
 `agent open <name>`, or `<project>/<name>` in the session picker.
