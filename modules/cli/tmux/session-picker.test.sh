@@ -56,9 +56,27 @@ want='  a
   mars ⇢
   vega ⇠'
 
-if [[ "$got" == "$want" ]]; then
-  echo "ok"
-else
+if [[ "$got" != "$want" ]]; then
   printf 'FAIL\n--- want\n%s\n--- got\n%s\n' "$want" "$got"
   exit 1
 fi
+
+# The binding runs the popup through run-shell, which shows a non-zero
+# exit as an error: a cancelled fzf (130) exits 0, a failed one keeps its exit.
+# The picker runs itself ("$0" --list), so it needs a path here.
+mkdir "$TMUX_TMPDIR/bin"
+pick="$TMUX_TMPDIR/bin/tmux-wt-pick"
+printf '#!/usr/bin/env bash\nset -euo pipefail\n%s\n' "$PROG" >"$pick"
+# shellcheck disable=SC2016  # $FZF_EXIT expands in the fake fzf, not here
+printf '#!/bin/sh\ncat >/dev/null\nexit "$FZF_EXIT"\n' >"$TMUX_TMPDIR/bin/fzf"
+chmod +x "$pick" "$TMUX_TMPDIR/bin/fzf"
+for want in 130:0 2:2; do
+  got=0
+  FZF_EXIT=${want%:*} PATH="$TMUX_TMPDIR/bin:$PATH" "$pick" || got=$?
+  if [[ "$got" != "${want#*:}" ]]; then
+    printf 'FAIL fzf exit %s: picker exited %s, want %s\n' "${want%:*}" "$got" "${want#*:}"
+    exit 1
+  fi
+done
+
+echo "ok"
