@@ -10,7 +10,10 @@
 #
 # Works next to `omo`: the suite's `omo` and `nalum` live in limi-path
 # (`host.path`), which only limi-desktop and its mux put on PATH, so they never
-# reach the host's own omo or ~/.omo.
+# shadow the host's own omo. Nalum keeps its own home (`host.nalumHome`) and
+# leaves ~/.omo to the host's omo. It still reads ~/.omo's omo.jsonc and rules,
+# and omo unpacks Nalum's version into ~/.omo/binary-runtime: omo has no
+# variable for either.
 {
   mkUserModule,
   forPlatform,
@@ -60,11 +63,21 @@ mkUserModule {
   };
   home =
     { username, userCfg, ... }:
+    # Nested function for home-manager's `config` (mkOutOfStoreSymlink),
+    # which mkUserModule's home builder doesn't pass.
+    { config, ... }:
     let
       profile = "${homeOf username}/${host.profile}";
       limiPath = "${profile}/${host.path}";
     in
     lib.mkMerge [
+      # With no `omo` of its own, Nalum is this host's omo, so its home is
+      # ~/.omo: the same config, sessions and login, and whatever omo-home
+      # modules drop there. It must exist before that Nalum first runs, or
+      # Nalum makes a real directory here and this link collides.
+      (lib.mkIf (!userCfg.omo.enable) {
+        home.file.${host.nalumHome}.source = config.lib.file.mkOutOfStoreSymlink "${homeOf username}/.omo";
+      })
       {
         home = {
           sessionPath = [ "${profile}/bin" ];

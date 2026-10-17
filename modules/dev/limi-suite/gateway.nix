@@ -27,7 +27,7 @@ in
         Service = {
           ExecStart = "${profile}/bin/nalum-gateway";
           # tmux must match the user's server; omo and agent are the ones the
-          # suite installs (bin/omo would sync ~/.omo on every call).
+          # suite installs (bin/omo would run Nalum's sync on every call).
           Environment = [
             "PATH=${profile}/bin:${pkgs.tmux}/bin:/run/current-system/sw/bin"
             "NALUM_GATEWAY_OMO=${profile}/libexec/omo"
