@@ -1200,6 +1200,12 @@ mkUserModule {
           # shellcheck disable=SC2016  # $FZF_PROMPT is fzf's, not bash's
           b_esc='transform~[ "$FZF_PROMPT" = "/ " ] && echo "'"$b_esc_back"'" || echo abort~'
 
+          # fzf exits 130 when you cancel (esc, ctrl-c, l). Two callers see that
+          # exit through display-popup -E: the snooze reopen runs under
+          # run-shell, which shows any non-zero exit as an error, and the
+          # morning review runs under errexit, where it would end the gate. So a
+          # cancel exits 0, and a real fzf failure keeps its exit.
+          status=0
           printf '%s\n' "$list" | fzf \
             --ansi --no-sort --layout=reverse --cycle \
             --delimiter='\t' --with-nth=2 \
@@ -1223,7 +1229,9 @@ mkUserModule {
             --bind "/:$b_search" \
             --bind 'change:clear-query' \
             --bind 'ctrl-c:abort' \
-            --bind "esc:$b_esc"
+            --bind "esc:$b_esc" || status=$?
+          ((status == 130)) && exit 0
+          exit "$status"
         '';
       };
 

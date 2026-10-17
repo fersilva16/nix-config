@@ -537,6 +537,11 @@ let
       # reliably lands on the current session (without it, pos runs before the
       # piped list is loaded and is ignored). The list is already in memory, so
       # EOF is immediate — no added latency.
+      # fzf exits 130 when you cancel (esc, q, ctrl-c). The binding runs the
+      # popup through run-shell, which shows any non-zero exit as an error, and
+      # display-popup -E passes this exit on, so a cancel exits 0. Enter execs
+      # --enter (become), so a failed switch keeps its own exit.
+      status=0
       printf '%s\n' "$list" | fzf \
         --ansi --no-sort --layout=reverse --cycle \
         --delimiter='\t' --with-nth=2 \
@@ -556,7 +561,9 @@ let
         --bind "o:$b_pr" \
         --bind 'q:abort' \
         --bind "/:$b_search" \
-        --bind "esc:$b_esc"
+        --bind "esc:$b_esc" || status=$?
+      ((status == 130)) && exit 0
+      exit "$status"
     '';
   };
 in
