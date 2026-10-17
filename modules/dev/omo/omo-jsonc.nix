@@ -91,10 +91,13 @@ jsonFormat.generate "omo.jsonc" {
   # and category-deep-split renames `deep` to `deep-low` — both break the
   # 4.19.4 plugin, which reads only the old shape. Drop them once the pin
   # reaches 5.x and the blocks below move to the new shape.
+  # opencode-routing-notice copies [opencode] models into [native] (done
+  # by hand below) and drops [opencode].codegraph, which 4.19.4 still reads.
   _migrations = [
     "2026-07-opencode-config-unification"
     "2026-08-reasoning-unification"
     "2026-09-category-deep-split"
+    "2026-09-opencode-routing-notice"
   ];
   # opencode cannot do this natively: its retry re-runs the SAME provider
   # (anomalyco/opencode#7602 is still open, and #20105/#24369/#26192 were
