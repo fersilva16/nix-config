@@ -30,7 +30,7 @@ mkUser {
   lazygit.enable = true;
   opencode.enable = true;
   "claude-code".enable = true;
-  # Nalum (limi-suite) is omo: never both.
+  # Nalum (limi-suite) is this host's omo.
   limi-suite.enable = true;
   agent-path.enable = true;
   i-have-adhd.enable = true;

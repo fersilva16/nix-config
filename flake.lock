@@ -309,11 +309,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1792084499,
-        "narHash": "sha256-5DnQwvrCocHD71tT/UgG3oIKfJzm1vcNBAeUNFe9kHI=",
+        "lastModified": 1792203815,
+        "narHash": "sha256-+rijZ21YnvPnKuL1lPkcKBdL+muR11ZtSjn/71k4wWQ=",
         "ref": "refs/heads/main",
-        "rev": "481b08c2eb4d47034ed4e02bce2806b1450c723b",
-        "revCount": 71,
+        "rev": "ab61cf5fc777cef70427c36394f5b0e0976a1dc6",
+        "revCount": 97,
         "type": "git",
         "url": "ssh://git@github.com/fersilva16/limi"
       },

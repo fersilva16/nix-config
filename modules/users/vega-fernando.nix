@@ -66,6 +66,9 @@ mkUser {
   codex.enable = true;
   opencode.enable = false;
   omo.enable = true;
+  # Limi Desktop and its mux. The suite's tmux shim, omo and tools stay in
+  # limi-path, on PATH only inside limi-desktop, so vega keeps its own.
+  limi-suite.enable = true;
   i-have-adhd.enable = true;
   ponytail.enable = true;
   autoresearch.enable = true;
