@@ -50,6 +50,9 @@ let
   # half is skipped: the now-unused hickory crate just stays vendored.
   # leave_hook (upstream 9b2b813 + a78362b, after 0.11.0) is what lets a
   # linux sender start xremap again once keys come back.
+  # Upstream spawns each hook detached, so a reconnect that fires enter and
+  # leave together can finish `stop xremap` last and leave the keyboard
+  # unmapped; ./ordered-hooks.patch runs them one at a time, in order.
   lan-mouse = pkgs.lan-mouse.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       (pkgs.fetchpatch {
@@ -71,6 +74,7 @@ let
         hash = "sha256-+0uZUZSw2qHhgDKy3qWMx46CN9IcOgCsFEyguXVkr54=";
       })
       ./macos-modifiers.patch
+      ./ordered-hooks.patch
     ];
     # Upstream taps at the session level, where Hammerspoon's hyper tap also
     # sits; whichever was inserted last runs first, and Hammerspoon recreates
