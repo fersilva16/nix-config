@@ -80,22 +80,26 @@ mkUserModule {
       }
       # The suite's tmux config and status-bar widget, read through the
       # profile so `limi switch` updates them too, plus the window icon for
-      # omo panes.
-      (lib.mkIf userCfg.tmux.enable {
-        programs.tmux.extraConfig = "source-file -q ${profile}/${host.tmuxConf}";
-        xdg.configFile = {
-          # Appends to the `icons:` map cli/tmux/theme.nix writes, so it must
-          # land after it. Glyph is U+F51B, chosen by hand: keep it. `omo`
-          # adds the same entry, and a second `omo:` key breaks the map.
-          "tmux/tmux-nerd-font-window-name.yml" = lib.mkIf (!userCfg.omo.enable) {
-            text = lib.mkAfter "  omo: \"\"";
-          };
-          "tmux/widgets/10-limi" = {
-            executable = true;
-            text = ''
-              #!/usr/bin/env bash
-              exec ${profile}/${host.tmuxWidget} "$@"
-            '';
+      # omo panes. Linux only: there the host's tmux is the suite's mux. On
+      # macOS limi-desktop runs its own mux and ships both empty, so the host
+      # tmux stays as it was.
+      (forPlatform {
+        linux = lib.mkIf userCfg.tmux.enable {
+          programs.tmux.extraConfig = "source-file -q ${profile}/${host.tmuxConf}";
+          xdg.configFile = {
+            # Appends to the `icons:` map cli/tmux/theme.nix writes, so it must
+            # land after it. Glyph is U+F51B, chosen by hand: keep it. `omo`
+            # adds the same entry, and a second `omo:` key breaks the map.
+            "tmux/tmux-nerd-font-window-name.yml" = lib.mkIf (!userCfg.omo.enable) {
+              text = lib.mkAfter "  omo: \"\"";
+            };
+            "tmux/widgets/10-limi" = {
+              executable = true;
+              text = ''
+                #!/usr/bin/env bash
+                exec ${profile}/${host.tmuxWidget} "$@"
+              '';
+            };
           };
         };
       })
