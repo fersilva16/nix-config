@@ -2,6 +2,7 @@
   mkUserModule,
   forPlatform,
   pkgs,
+  lib,
   ...
 }:
 mkUserModule {
@@ -22,4 +23,21 @@ mkUserModule {
       boot.kernel.sysctl."kernel.split_lock_mitigate" = 0;
     };
   };
+  # Steam draws its own toasts as floating X11 windows instead of using the
+  # notification daemon, so niri opens them centered. Pin them bottom-right
+  # (niri wiki, Application Issues). `or false`: the niri option only
+  # exists on linux hosts.
+  home =
+    { userCfg, ... }:
+    {
+      xdg.configFile = lib.mkIf (userCfg.niri.enable or false) {
+        "niri/config.kdl".text = ''
+
+          window-rule {
+              match app-id="steam" title=r#"^notificationtoasts_\d+_desktop$"#
+              default-floating-position x=10 y=10 relative-to="bottom-right"
+          }
+        '';
+      };
+    };
 }
