@@ -154,9 +154,9 @@ mkUserModule {
           panelBackgroundOpacity = 1;
         };
       };
-      # Enables ./sysmon. Default source listed so noctalia doesn't try
-      # to write it back into the read-only plugins.json on load.
-      plugins = lib.mkIf hasNvidia {
+      # Enables the local plugins. Default source listed so noctalia doesn't
+      # try to write it back into the read-only plugins.json on load.
+      plugins = {
         version = 2;
         sources = [
           {
@@ -165,16 +165,26 @@ mkUserModule {
             enabled = true;
           }
         ];
-        states.sysmon = {
-          enabled = true;
-          sourceUrl = "local";
+        states = {
+          polkit-agent = {
+            enabled = true;
+            sourceUrl = "local";
+          };
+          sysmon = lib.mkIf hasNvidia {
+            enabled = true;
+            sourceUrl = "local";
+          };
         };
       };
     };
 
     xdg.configFile = {
       # noctalia writes a default plugins.json on first start; replace it.
-      "noctalia/plugins.json".force = hasNvidia;
+      "noctalia/plugins.json".force = true;
+      # The polkit agent (1Password unlock, pkexec, YubiKey touch), drawn
+      # in noctalia's Ink style. Vendored from noctalia-dev/noctalia-plugins
+      # polkit-agent 1.0.6 (ea21cb6) so it can be restyled here.
+      "noctalia/plugins/polkit-agent".source = ./polkit-agent;
       "noctalia/plugins/sysmon" = lib.mkIf hasNvidia {
         source = pkgs.linkFarm "noctalia-sysmon" sysmonFiles;
       };

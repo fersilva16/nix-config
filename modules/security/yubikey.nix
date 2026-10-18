@@ -18,7 +18,8 @@ mkUserModule {
     '';
   };
 
-  # Touch ID, YubiKey edition: sudo and the noctalia lock screen ask for a
+  # Touch ID, YubiKey edition: sudo, polkit (1Password's system-auth unlock,
+  # SSH-agent and `op` approvals) and the noctalia lock screen ask for a
   # touch first and fall back to the password when the key is absent or not
   # touched. greetd stays password-only (its password unlocks gnome-keyring),
   # and it pulls in `login` as a substack, so the lock screen gets its own
@@ -41,7 +42,21 @@ mkUserModule {
         };
         security.pam.services = {
           sudo.u2fAuth = true;
+          polkit-1.u2fAuth = true;
           noctalia-lock = lib.mkIf noctalia { u2fAuth = true; };
+        };
+        # polkit >= 126 runs its PAM helper as a sandboxed unit with no
+        # devices, so pam_u2f can't see the key and falls through to the
+        # password. Let it reach hidraw. Dropping PrivateDevices also drops
+        # its implicit /dev/urandom allowance under the unit's strict
+        # DevicePolicy, and pam_u2f needs it to build the challenge.
+        systemd.services."polkit-agent-helper@".serviceConfig = {
+          PrivateDevices = false;
+          DeviceAllow = [
+            "char-hidraw rw"
+            "/dev/random r"
+            "/dev/urandom r"
+          ];
         };
         environment.sessionVariables = lib.mkIf noctalia {
           NOCTALIA_PAM_SERVICE = "noctalia-lock";
