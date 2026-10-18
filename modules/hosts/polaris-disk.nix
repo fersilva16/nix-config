@@ -6,8 +6,9 @@
 # Pro; the Windows disk (Kingston) is never referenced.
 #
 # No swap partition by design: zram covers daily memory pressure, and
-# future hibernation uses a resizable btrfs swapfile (see plan) — sized
-# to whatever RAM the machine has at that point.
+# hibernation uses a btrfs swapfile in its own @swap subvolume (a swapfile
+# must not be in a snapshotted subvolume, and @swap is never snapshotted).
+# See the swapDevices block below.
 #
 # Separate subvolumes so snapshots stay per-subvolume: modules/linux/btrfs.nix
 # snapshots @home with snapper and scrubs the filesystem monthly.
@@ -70,6 +71,18 @@
                     "noatime"
                   ];
                 };
+                # No compress: swapfiles are nocow, and btrfs never compresses
+                # nocow data. nofail: a disk installed before @swap existed
+                # still boots (input is bluetooth-only, so an emergency shell
+                # would be unusable). The swapfile unit needs this mount, so it
+                # is skipped rather than written onto @.
+                "@swap" = {
+                  mountpoint = "/swap";
+                  mountOptions = [
+                    "noatime"
+                    "nofail"
+                  ];
+                };
               };
             };
           };
@@ -77,6 +90,25 @@
       };
     };
   };
+
+  # Hibernation target. NixOS creates the file with `btrfs filesystem
+  # mkswapfile` (nocow, contiguous) when it is missing, and recreates it
+  # when `size` changes, so resizing is an edit + reboot. Sized to RAM
+  # (64 GB), so even a full-memory image fits.
+  #
+  # No resume= / resume_offset: on hibernate, systemd stores the swapfile's
+  # device and offset in the HibernateLocation EFI variable, and the systemd
+  # initrd resumes from it. A hardcoded offset would go stale on every resize.
+  #
+  # Priority 0 sits below zram (5), so zram absorbs daily pressure and this
+  # only fills once zram is full. systemd never hibernates into zram.
+  swapDevices = [
+    {
+      device = "/swap/swapfile";
+      size = 64 * 1024;
+      priority = 0;
+    }
+  ];
 
   zramSwap.enable = true;
   # zram swap is RAM-speed, so prefer swapping cold pages over dropping
