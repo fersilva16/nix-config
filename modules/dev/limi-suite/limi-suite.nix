@@ -36,9 +36,8 @@ mkUserModule {
   name = "limi-suite";
   requires = [ "omo-home" ];
   parts = {
-    gateway = import ./gateway.nix {
+    server = import ./server.nix {
       inherit
-        pkgs
         host
         homeOf
         forPlatform
