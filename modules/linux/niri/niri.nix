@@ -38,7 +38,47 @@ mkUserModule {
     environment.systemPackages = [ pkgs.xwayland-satellite ];
   };
   home =
-    { cfg, ... }:
+    { cfg, userCfg, ... }:
+    let
+      # niri spawn of a noctalia IPC call: ipc "volume increase".
+      ipc = call: ''spawn "${noctalia}" "ipc" "call" "${lib.replaceStrings [ " " ] [ ''" "'' ] call}"'';
+      recorder = userCfg.noctalia.enable && userCfg.noctalia.screen-recorder.enable;
+
+      # Cmd+Shift+5 — the macOS capture toolbar as a vicinae list: the three
+      # screenshot modes, plus recording through noctalia's recorder plugin
+      # (the portal picker then chooses a monitor or a window).
+      capture-menu = pkgs.writeShellApplication {
+        name = "niri-capture-menu";
+        runtimeInputs = [
+          pkgs.niri
+          pkgs.procps
+        ];
+        text = ''
+          items="Capture Entire Screen
+          Capture Selected Window
+          Capture Selected Portion"
+        ''
+        + lib.optionalString recorder ''
+          if pgrep -f gpu-screen-recorder >/dev/null; then
+            items="Stop Recording
+          $items"
+          else
+            items="$items
+          Record Screen or Window"
+          fi
+        ''
+        + ''
+          choice=$(printf '%s\n' "$items" | vicinae dmenu --no-section --no-quick-look -p "Capture")
+          case "$choice" in
+            "Capture Entire Screen") niri msg action screenshot-screen ;;
+            "Capture Selected Window") niri msg action screenshot-window ;;
+            "Capture Selected Portion") niri msg action screenshot ;;
+            "Record Screen or Window") ${noctalia} ipc call plugin:screen-recorder start ;;
+            "Stop Recording") ${noctalia} ipc call plugin:screen-recorder stop ;;
+          esac
+        '';
+      };
+    in
     {
       xdg.configFile."niri/config.kdl".text = ''
         hotkey-overlay {
@@ -167,8 +207,35 @@ mkUserModule {
             Mod+F       { maximize-column; }
             Mod+Shift+F { fullscreen-window; }
 
+            // macOS capture keys (Cmd = Mod, kept Super by the xremap mac
+            // part): 3 whole screen, 4 region, 5 the capture menu. niri saves
+            // to ~/Pictures/Screenshots and copies to the clipboard.
             Print       { screenshot; }
             Mod+Shift+S { screenshot; }
+            Mod+Shift+3 { screenshot-screen; }
+            Mod+Shift+4 { screenshot; }
+      ''
+      + lib.optionalString userCfg.vicinae.enable ''
+        Mod+Shift+5 { spawn "${lib.getExe capture-menu}"; }
+      ''
+      + lib.optionalString recorder ''
+        // Cmd+Ctrl+Esc stops a recording, as on macOS.
+        Mod+Ctrl+Escape { ${ipc "plugin:screen-recorder stop"}; }
+      ''
+      + ''
+
+            // Media keys through noctalia so its volume OSD shows. They come
+            // from the receiver's Consumer Control device, which xremap
+            // doesn't grab, so they reach niri untouched.
+            XF86AudioRaiseVolume allow-when-locked=true { ${ipc "volume increase"}; }
+            XF86AudioLowerVolume allow-when-locked=true { ${ipc "volume decrease"}; }
+            XF86AudioMute        allow-when-locked=true { ${ipc "volume muteOutput"}; }
+            XF86AudioMicMute     allow-when-locked=true { ${ipc "volume muteInput"}; }
+            XF86AudioPlay        allow-when-locked=true { ${ipc "media playPause"}; }
+            XF86AudioPause       allow-when-locked=true { ${ipc "media playPause"}; }
+            XF86AudioStop        allow-when-locked=true { ${ipc "media stop"}; }
+            XF86AudioNext        allow-when-locked=true { ${ipc "media next"}; }
+            XF86AudioPrev        allow-when-locked=true { ${ipc "media previous"}; }
 
             Mod+Shift+E { quit; }
         }

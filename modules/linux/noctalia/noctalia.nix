@@ -132,6 +132,7 @@ mkUserModule {
   name = "noctalia";
   # All shell glue lives in niri's config.kdl — useless without niri here.
   requires = [ "niri" ];
+  parts.screen-recorder = import ./screen-recorder.nix { inherit pkgs; };
   system = {
     # Pre-built binaries for noctalia + its quickshell fork.
     nix.settings = {
