@@ -94,4 +94,8 @@ mkUser {
   niri.enable = true;
   noctalia.enable = true;
   vicinae.enable = true;
+  nautilus.enable = true;
+  gtk.enable = true;
+  qt.enable = true;
+  xdg-user-dirs.enable = true;
 }
