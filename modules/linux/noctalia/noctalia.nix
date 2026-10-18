@@ -101,6 +101,32 @@ let
   };
 
   font = "CaskaydiaCove Nerd Font";
+
+  # Ink for GTK apps: libadwaita's named colors, which adw-gtk3 (GTK 3)
+  # reads too. Written by hand rather than via noctalia's gtk template,
+  # which would rewrite gtk.css at runtime.
+  gtkCss = ''
+    @define-color accent_color ${ink.bone};
+    @define-color accent_bg_color ${ink.bone};
+    @define-color accent_fg_color ${ink.black};
+    @define-color destructive_bg_color ${ink.red};
+    @define-color destructive_fg_color ${ink.bone};
+    @define-color error_color ${ink.red};
+    @define-color window_bg_color ${ink.black};
+    @define-color window_fg_color ${ink.bone};
+    @define-color view_bg_color ${ink.black};
+    @define-color view_fg_color ${ink.bone};
+    @define-color headerbar_bg_color ${ink.raised};
+    @define-color headerbar_fg_color ${ink.bone};
+    @define-color sidebar_bg_color ${ink.raised};
+    @define-color sidebar_fg_color ${ink.bone};
+    @define-color card_bg_color ${ink.raised};
+    @define-color card_fg_color ${ink.bone};
+    @define-color popover_bg_color ${ink.raised};
+    @define-color popover_fg_color ${ink.bone};
+    @define-color dialog_bg_color ${ink.raised};
+    @define-color dialog_fg_color ${ink.bone};
+  '';
 in
 mkUserModule {
   name = "noctalia";
@@ -119,92 +145,99 @@ mkUserModule {
     services.upower.enable = true;
     services.power-profiles-daemon.enable = true;
   };
-  home = {
-    imports = [ inputs.noctalia.homeModules.default ];
+  home =
+    { userCfg, ... }:
+    {
+      imports = [ inputs.noctalia.homeModules.default ];
 
-    programs.noctalia-shell = {
-      enable = true;
-      package = inputs.noctalia.packages.${system}.default;
-      settings = lib.recursiveUpdate baseSettings {
-        colorSchemes = {
-          predefinedScheme = "Ink";
-          useWallpaperColors = false;
-          darkMode = true;
+      gtk = lib.mkIf userCfg.gtk.enable {
+        gtk3.extraCss = gtkCss;
+        gtk4.extraCss = gtkCss;
+      };
+
+      programs.noctalia-shell = {
+        enable = true;
+        package = inputs.noctalia.packages.${system}.default;
+        settings = lib.recursiveUpdate baseSettings {
+          colorSchemes = {
+            predefinedScheme = "Ink";
+            useWallpaperColors = false;
+            darkMode = true;
+          };
+          general = {
+            radiusRatio = 0;
+            boxRadiusRatio = 0;
+            iRadiusRatio = 0;
+            screenRadiusRatio = 0;
+            enableShadows = false;
+          };
+          bar = {
+            density = "compact";
+            showCapsule = false;
+            outerCorners = false;
+            showOutline = true;
+            backgroundOpacity = 1;
+            frameRadius = 0;
+            widgets.left = leftWidgets;
+          };
+          ui = {
+            boxBorderEnabled = true;
+            fontDefault = font;
+            fontFixed = font;
+            panelBackgroundOpacity = 1;
+          };
         };
-        general = {
-          radiusRatio = 0;
-          boxRadiusRatio = 0;
-          iRadiusRatio = 0;
-          screenRadiusRatio = 0;
-          enableShadows = false;
-        };
-        bar = {
-          density = "compact";
-          showCapsule = false;
-          outerCorners = false;
-          showOutline = true;
-          backgroundOpacity = 1;
-          frameRadius = 0;
-          widgets.left = leftWidgets;
-        };
-        ui = {
-          boxBorderEnabled = true;
-          fontDefault = font;
-          fontFixed = font;
-          panelBackgroundOpacity = 1;
+        # Enables the local plugins. Default source listed so noctalia doesn't
+        # try to write it back into the read-only plugins.json on load.
+        plugins = {
+          version = 2;
+          sources = [
+            {
+              name = "Noctalia Plugins";
+              url = "https://github.com/noctalia-dev/noctalia-plugins";
+              enabled = true;
+            }
+          ];
+          states = {
+            polkit-agent = {
+              enabled = true;
+              sourceUrl = "local";
+            };
+            sysmon = lib.mkIf hasNvidia {
+              enabled = true;
+              sourceUrl = "local";
+            };
+          };
         };
       };
-      # Enables the local plugins. Default source listed so noctalia doesn't
-      # try to write it back into the read-only plugins.json on load.
-      plugins = {
-        version = 2;
-        sources = [
-          {
-            name = "Noctalia Plugins";
-            url = "https://github.com/noctalia-dev/noctalia-plugins";
-            enabled = true;
-          }
-        ];
-        states = {
-          polkit-agent = {
-            enabled = true;
-            sourceUrl = "local";
-          };
-          sysmon = lib.mkIf hasNvidia {
-            enabled = true;
-            sourceUrl = "local";
+
+      xdg.configFile = {
+        # noctalia writes a default plugins.json on first start; replace it.
+        "noctalia/plugins.json".force = true;
+        # The polkit agent (1Password unlock, pkexec, YubiKey touch), drawn
+        # in noctalia's Ink style. Vendored from noctalia-dev/noctalia-plugins
+        # polkit-agent 1.0.6 (ea21cb6) so it can be restyled here.
+        "noctalia/plugins/polkit-agent".source = ./polkit-agent;
+        "noctalia/plugins/sysmon" = lib.mkIf hasNvidia {
+          source = pkgs.linkFarm "noctalia-sysmon" sysmonFiles;
+        };
+
+        # Noctalia scans colorschemes/<Name>/<Name>.json (find -L, so a store
+        # symlink is fine). Always dark; light mirrors it as ink-on-paper.
+        "noctalia/colorschemes/Ink/Ink.json".text = builtins.toJSON {
+          dark = scheme;
+          light = scheme // {
+            mPrimary = ink.black;
+            mOnPrimary = ink.bone;
+            mSurface = ink.bone;
+            mOnSurface = ink.black;
+            mSurfaceVariant = ink.ash;
+            mOnSurfaceVariant = ink.slate;
+            mOutline = ink.slate;
+            mHover = ink.black;
+            mOnHover = ink.bone;
           };
         };
       };
     };
-
-    xdg.configFile = {
-      # noctalia writes a default plugins.json on first start; replace it.
-      "noctalia/plugins.json".force = true;
-      # The polkit agent (1Password unlock, pkexec, YubiKey touch), drawn
-      # in noctalia's Ink style. Vendored from noctalia-dev/noctalia-plugins
-      # polkit-agent 1.0.6 (ea21cb6) so it can be restyled here.
-      "noctalia/plugins/polkit-agent".source = ./polkit-agent;
-      "noctalia/plugins/sysmon" = lib.mkIf hasNvidia {
-        source = pkgs.linkFarm "noctalia-sysmon" sysmonFiles;
-      };
-
-      # Noctalia scans colorschemes/<Name>/<Name>.json (find -L, so a store
-      # symlink is fine). Always dark; light mirrors it as ink-on-paper.
-      "noctalia/colorschemes/Ink/Ink.json".text = builtins.toJSON {
-        dark = scheme;
-        light = scheme // {
-          mPrimary = ink.black;
-          mOnPrimary = ink.bone;
-          mSurface = ink.bone;
-          mOnSurface = ink.black;
-          mSurfaceVariant = ink.ash;
-          mOnSurfaceVariant = ink.slate;
-          mOutline = ink.slate;
-          mHover = ink.black;
-          mOnHover = ink.bone;
-        };
-      };
-    };
-  };
 }
