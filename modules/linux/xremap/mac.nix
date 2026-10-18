@@ -10,12 +10,12 @@
 #
 # Cmd stays a real Super key: unmapped chords reach niri, so Cmd+Q closes,
 # Cmd+Space opens the launcher and holding Cmd+Tab keeps niri's switcher
-# open like AltTab. Right Cmd is never remapped (rules name Super_L), so
-# every niri Mod bind is still reachable.
+# open like AltTab. Right Cmd is never remapped (rules name Super_L). niri's
+# Mod is Hyper, not Cmd (see ./xremap.nix).
 {
   lib,
   yaml,
-  hyperKey,
+  hyper,
 }:
 let
   # Terminals get ghostty's rules. limi-desktop reads ghostty's config and
@@ -46,8 +46,7 @@ let
   # Cmd+Q stays Super for niri (close window ≈ quit).
   cmdKeys = lib.subtractLists [ "q" ] letters ++ digits ++ symbols;
 
-  # Cmd+click → Ctrl+click (open link / new tab, as on macOS). Left as
-  # Super, niri would eat it as Mod+drag window move (Right Cmd still does).
+  # Cmd+click → Ctrl+click (open link / new tab, as on macOS).
   cmdClick.Super_L-btn_left = "C-btn_left";
 
   # Cmd+Shift+3/4/5 stay Super for niri's macOS-style capture binds
@@ -85,14 +84,14 @@ let
 
   # Hammerspoon passes Cmd/Opt through hyper, so Hyper+Cmd+h is Cmd+Left.
   guiHyper = {
-    "Super_L-${hyperKey}-h" = "home";
-    "Super_L-${hyperKey}-l" = "end";
-    "Super_L-${hyperKey}-k" = "C-home";
-    "Super_L-${hyperKey}-j" = "C-end";
-    "Alt_L-${hyperKey}-h" = "C-left";
-    "Alt_L-${hyperKey}-l" = "C-right";
-    "Alt_L-${hyperKey}-k" = "C-up";
-    "Alt_L-${hyperKey}-j" = "C-down";
+    "Super_L-${hyper}-h" = "home";
+    "Super_L-${hyper}-l" = "end";
+    "Super_L-${hyper}-k" = "C-home";
+    "Super_L-${hyper}-j" = "C-end";
+    "Alt_L-${hyper}-h" = "C-left";
+    "Alt_L-${hyper}-l" = "C-right";
+    "Alt_L-${hyper}-k" = "C-up";
+    "Alt_L-${hyper}-j" = "C-down";
   };
 
   # Cmd+P stays Super for ghostty's super+p → nvim bind (modules/terminal/ghostty.nix).
@@ -131,10 +130,10 @@ let
     );
 
   termHyper = {
-    "Super_L-${hyperKey}-h" = "C-a";
-    "Super_L-${hyperKey}-l" = "C-e";
-    "Super_L-${hyperKey}-k" = "C-Shift-pageup";
-    "Super_L-${hyperKey}-j" = "C-Shift-pagedown";
+    "Super_L-${hyper}-h" = "C-a";
+    "Super_L-${hyper}-l" = "C-e";
+    "Super_L-${hyper}-k" = "C-Shift-pageup";
+    "Super_L-${hyper}-j" = "C-Shift-pagedown";
   };
 in
 {

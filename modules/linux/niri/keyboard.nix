@@ -134,6 +134,10 @@ in
         xkb {
             layout "us"
             variant "intl"
+            // Right Ctrl → Level5 (Mod3): xremap's hyper part holds it as
+            // Hyper's placeholder for niri's mod-key. Mac keyboards have no
+            // right Ctrl, so nothing physical changes.
+            options "lv5:rctrl_switch"
         }
     }
   '';
