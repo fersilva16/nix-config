@@ -95,11 +95,15 @@ mkUserModule {
       + ''
         }
 
-        // Fade unfocused windows so the active one reads at a glance
-        // (mostly visible in the overview and with split columns).
+        // Slightly dim unfocused windows so the active one reads at a glance.
+        // niri has no real dim: the border is drawn as a solid rectangle
+        // behind the window (its dark inactive color), so the lowered opacity
+        // blends the window with that instead of showing the wallpaper.
+        // The border is already on for every window, so sizes don't change.
         window-rule {
             match is-active=false
-            opacity 0.88
+            opacity 0.9
+            draw-border-with-background true
         }
 
       ''
