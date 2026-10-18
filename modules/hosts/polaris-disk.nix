@@ -9,8 +9,8 @@
 # future hibernation uses a resizable btrfs swapfile (see plan) — sized
 # to whatever RAM the machine has at that point.
 #
-# Subvolume layout keeps snapshots cheap to add later (snapper/btrbk
-# operate per-subvolume) without configuring any snapshot tooling now.
+# Separate subvolumes so snapshots stay per-subvolume: modules/linux/btrfs.nix
+# snapshots @home with snapper and scrubs the filesystem monthly.
 { inputs, ... }:
 {
   imports = [ inputs.disko.nixosModules.disko ];
