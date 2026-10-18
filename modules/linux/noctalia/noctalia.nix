@@ -144,7 +144,14 @@ mkUserModule {
     # host-wide modules.
     services.upower.enable = true;
     services.power-profiles-daemon.enable = true;
+    # DDC/CI for the brightness slider on external monitors
+    # (brightness.enableDdcSupport): loads i2c-dev and gives the i2c group
+    # /dev/i2c-*. noctalia's wrapper already has ddcutil on PATH; the system
+    # copy is for checking by hand (`ddcutil detect`).
+    hardware.i2c.enable = true;
+    environment.systemPackages = [ pkgs.ddcutil ];
   };
+  user.extraGroups = [ "i2c" ];
   home =
     { userCfg, ... }:
     {
