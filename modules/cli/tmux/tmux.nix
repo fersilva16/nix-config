@@ -36,7 +36,7 @@ let
   # three identical empty windows nobody remembers opening.
   #
   # "Idle" is decided by pane_current_command: a window running anything
-  # (nvim, opencode, a build) reports that command and never matches, so this
+  # (nvim, omo, a build) reports that command and never matches, so this
   # can only ever land you on a bare prompt. The path test keeps it from
   # teleporting across projects when a session spans more than one root.
   # prefix+C keeps the old always-create behavior.
@@ -305,11 +305,6 @@ mkUserModule {
 
       # Outbound integration: agents run in /bin/sh and have no idea they're
       # inside a tmux server. Tell them the layout and that they can use it.
-      # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates
-      # onto opencode's global AGENTS.md.
-      xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
-        text = "\n" + agentRule;
-      };
       home.file.".omo/rules/tmux.md" = lib.mkIf userCfg.omo-home.enable {
         text = "---\nalwaysApply: true\n---\n\n" + agentRule;
       };

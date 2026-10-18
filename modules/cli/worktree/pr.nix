@@ -5,11 +5,11 @@
 #
 # `wtprr` is a throwaway PR review sandbox: a detached git worktree in a temp
 # dir holding the PR's code, with the PR context (branch, metadata, commits,
-# changed files) appended to its AGENTS.md so opencode loads it into the system
+# changed files) appended to its AGENTS.md so omo loads it into the system
 # prompt automatically. By default the session opens with a seeded, advisory
 # review brief — a summary plus a per-file pseudo-code skim of the changes in
 # dependency order; pass --raw to skip it and just type your own questions. When
-# opencode exits the worktree + temp dir are removed. Run with a PR number,
+# omo exits the worktree + temp dir are removed. Run with a PR number,
 # inside a worktree (no arg → the branch's PR), or no arg for an fzf picker.
 {
   home = {
@@ -53,7 +53,7 @@
       git worktree add --detach "$tmp" FETCH_HEAD 2>/dev/null
       or begin; echo "wtprr: failed to create worktree"; rm -rf "$tmpbase"; return 1; end
 
-      # Append the PR context to AGENTS.md so opencode loads it into the system
+      # Append the PR context to AGENTS.md so omo loads it into the system
       # prompt on startup (append, not overwrite — keeps any existing AGENTS.md).
       begin
         echo
@@ -71,18 +71,21 @@
         gh pr diff "$pr" --name-only 2>/dev/null
       end >>"$tmp/AGENTS.md"
 
-      # Open opencode on the sandbox. Default: seed an advisory review brief so
+      # Open omo on the sandbox, unsaved: the directory is gone on exit.
+      # Default: seed an advisory review brief so
       # the session opens with a reading guide (tests + asserts, duplication,
       # where to look) instead of silence; it ends with a "verify these
       # yourself" list so it stays a guide, not a verdict. --raw skips it.
+      pushd "$tmp"
       if test $raw -eq 1
-        opencode "$tmp"
+        omo --no-session
       else
         set -l review_brief "Explain PR #$pr so I can skim it without reading the real code. Start with a one- or two-sentence summary of what it does and why. Then walk the changed files in dependency order (entry point first, then what it calls), and for each file give a short pseudo-code sketch of what its change does — plain, structural terms (new branches, calls, return changes, error handling, side effects), skipping cosmetic churn — so I can grasp the change without reading it line by line. Flag anywhere the ordering or a sketch is a guess. Call out anything notable or worth reading for real. Keep it concise and scannable; this is to help me decide what to read, not a substitute for reviewing — expand to the real code (\`gh pr diff $pr\` or the checked-out files) when a sketch looks off or matters."
-        opencode --prompt "$review_brief" "$tmp"
+        omo --no-session "$review_brief"
       end
+      popd
 
-      # ponytail: cleanup is sequential (opencode runs in the foreground); no
+      # ponytail: cleanup is sequential (omo runs in the foreground); no
       # trap, so a hard kill leaves the worktree — `git worktree prune` reaps it.
       git worktree remove --force "$tmp" 2>/dev/null
       rm -rf "$tmpbase"

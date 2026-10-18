@@ -54,7 +54,6 @@ mkUser {
   stern.enable = true;
   dbeaver.enable = true;
   "studio-3t".enable = true;
-  postman.enable = true;
   ngrok.enable = true;
   orbstack.enable = true;
   tart.enable = true;
@@ -64,7 +63,6 @@ mkUser {
   claude.enable = true;
   "claude-code".enable = true;
   codex.enable = true;
-  opencode.enable = false;
   omo.enable = true;
   # Limi Desktop and its mux. The suite's tmux shim, omo and tools stay in
   # limi-path, on PATH only inside limi-desktop, so vega keeps its own.
@@ -78,16 +76,13 @@ mkUser {
   agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
-  # rtk.enable = true;
   ollama.enable = true;
   anonymize.enable = true;
-  # hermes.enable = true;
   linear.enable = true;
 
   # Editors
   nvim.enable = true;
   vscode.enable = true;
-  cursor.enable = false;
   intellij.enable = true;
   "android-studio".enable = true;
 
@@ -183,7 +178,6 @@ mkUser {
   anydesk.enable = true;
   granola.enable = true;
   "wispr-flow".enable = true;
-  "cold-turkey-blocker".enable = false;
   selfcontrol.enable = true;
 
   # Networking

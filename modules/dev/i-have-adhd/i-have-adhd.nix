@@ -18,18 +18,13 @@
 #
 # Upstream ships it as a skill, but its frontmatter sets
 # `disable-model-invocation: true`: the model can never invoke it, so as a
-# skill in opencode it would be inert.  Upstream's own always-on recipe is to
+# skill it would be inert.  Upstream's own always-on recipe is to
 # put the rules in AGENTS.md, which is what this does.
 mkUserModule {
   name = "i-have-adhd";
   home =
     { userCfg, ... }:
     {
-      # `xdg.configFile.<name>.text` is `types.lines`, so this concatenates onto
-      # opencode's global AGENTS.md.
-      xdg.configFile."opencode/AGENTS.md" = lib.mkIf userCfg.opencode.enable {
-        text = "\n" + builtins.readFile ./i-have-adhd.md;
-      };
       # omo only applies a ~/.omo/rules file whose frontmatter says so.
       home.file.".omo/rules/i-have-adhd.md" = lib.mkIf userCfg.omo-home.enable {
         text = "---\nalwaysApply: true\n---\n\n" + builtins.readFile ./i-have-adhd.md;

@@ -795,7 +795,7 @@ mkUserModule {
               ${wt-create}/bin/wt-create "$main_root" "$wt_path" "$branch" "$base_branch" "$setup_file"
               or return 1
             end
-            echo "Not in tmux — run: cd $wt_path && opencode"
+            echo "Not in tmux — run: cd $wt_path && omo"
             return 0
           end
 
@@ -837,8 +837,8 @@ mkUserModule {
           mkdir -p "$wt_path"
 
           # WT_SYNC is for callers that touch the worktree the instant `wt`
-          # returns — wtoc moves an opencode session into it, and with -c
-          # patches it. Building here, before the session exists, both gives
+          # returns — omo's agent spawn and tmux-wt start omo in it.
+          # Building here, before the session exists, both gives
           # them a finished worktree and keeps this from racing the identical
           # build wt-enter would start. wt-create is idempotent, so wt-enter
           # then finds it done and goes straight to the prompt.

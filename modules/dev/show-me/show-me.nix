@@ -12,19 +12,14 @@
 # `show-me-*.html` and reaches for a slide deck where a Mermaid diagram
 # answers the question.  Shipped as a slash command rather than upstream's
 # skill, because its description ("help the user understand the current topic
-# visually") carries no trigger phrases — as a skill opencode's matcher would
+# visually") carries no trigger phrases — as a skill a matcher would
 # fire it arbitrarily or never.  Explicit `/show-me` is the intent anyway.
 mkUserModule {
   name = "show-me";
   home =
     { userCfg, ... }:
     {
-      # Discovered under `{command,commands}/**/*.md` in the config dir.
-      xdg.configFile."opencode/commands/show-me.md" = lib.mkIf userCfg.opencode.enable {
-        source = ./show-me.md;
-      };
-      # Same file as an omo prompt template: same frontmatter, no
-      # opencode-only syntax.
+      # Shipped as an omo prompt template.
       home.file = lib.mkIf userCfg.omo-home.enable {
         ".omo/agent/prompts/show-me.md".source = ./show-me.md;
       };

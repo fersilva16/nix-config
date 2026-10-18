@@ -21,8 +21,8 @@ let
   };
   asset = assets.${pkgs.stdenv.hostPlatform.system};
 
-  # OmO Native: the standalone `omo` (senpi engine + OMO extension), not the
-  # opencode plugin in opencode/omo.nix. The release binary is bun-compiled and
+  # OmO Native: the standalone `omo` (senpi engine + OMO extension). The
+  # release binary is bun-compiled and
   # self-contained; on first run it unpacks its runtime into
   # ~/.omo/binary-runtime/<version>/. `omo update` only prints a curl line on
   # a binary install, so bumping `version` here is the update path.

@@ -10,14 +10,6 @@ let
   # markdown + dependency-free CommonJS hooks, no build step (like
   # autoresearch).
   #
-  # The opencode plugin (`.opencode/plugins/ponytail.mjs`) injects the ruleset
-  # into every chat's system prompt at the active intensity and persists
-  # `/ponytail <level>` switches.  It `require`s `../../hooks/*.js` and reads
-  # `../skills/ponytail/SKILL.md` relative to its own file, so it must point at
-  # the full source tree — the nix store preserves it, so a `file://` URL into
-  # the store path resolves all siblings.  Loaded in-process by opencode's Bun
-  # runtime; the README's `node`-on-PATH requirement is only for the Claude
-  # Code / Codex lifecycle hooks, not this plugin.
   ponytail-src = pkgs.fetchFromGitHub {
     owner = "DietrichGebert";
     repo = "ponytail";
@@ -25,10 +17,8 @@ let
     hash = "sha256-bGdXvzhWPwGdz3T2Yh2h6lf+3PBRFAfdBxP5pESmCHI=";
   };
 
-  # Slash commands (`.opencode/command/*.md`) and trigger-activated skills
-  # (`skills/*/SKILL.md`).  Command files are self-contained prompts; the
-  # `/ponytail` mode switch is persisted by the plugin's
-  # `command.execute.before` hook.
+  # Upstream ships slash commands (`.opencode/command/*.md`) and
+  # trigger-activated skills (`skills/*/SKILL.md`).
   names = [
     "ponytail"
     "ponytail-audit"
@@ -37,22 +27,8 @@ let
     "ponytail-review"
   ];
 
-  commandFiles = lib.listToAttrs (
-    map (n: {
-      name = "opencode/commands/${n}.md";
-      value.source = "${ponytail-src}/.opencode/command/${n}.md";
-    }) names
-  );
-
-  skillFiles = lib.listToAttrs (
-    map (n: {
-      name = "opencode/skills/${n}/SKILL.md";
-      value.source = "${ponytail-src}/skills/${n}/SKILL.md";
-    }) names
-  );
-  # omo loads the same files as prompt templates and skills. The plugin is
-  # opencode-only, so `/ponytail <level>` lasts for the session there instead
-  # of persisting.
+  # omo loads them as prompt templates and skills. Only upstream's opencode
+  # plugin persists `/ponytail <level>`, so here it lasts for the session.
   omoFiles = lib.listToAttrs (
     lib.concatMap (n: [
       {
@@ -71,11 +47,6 @@ mkUserModule {
   home =
     { userCfg, ... }:
     {
-      programs.opencode.settings.plugin = lib.mkIf userCfg.opencode.enable [
-        "file://${ponytail-src}/.opencode/plugins/ponytail.mjs"
-      ];
-
-      xdg.configFile = lib.mkIf userCfg.opencode.enable (commandFiles // skillFiles);
       home.file = lib.mkIf userCfg.omo-home.enable omoFiles;
     };
 }

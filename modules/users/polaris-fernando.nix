@@ -22,13 +22,13 @@ mkUser {
   gum.enable = true;
   fd.enable = true;
   ripgrep.enable = true;
+  fastfetch.enable = true;
   # No panel: it is drawn by hammerspoon, which is darwin-only.
   todoist.enable = true;
 
   # Dev tools
   git.enable = true;
   lazygit.enable = true;
-  opencode.enable = true;
   "claude-code".enable = true;
   # Nalum (limi-suite) is this host's omo.
   limi-suite.enable = true;
@@ -42,7 +42,7 @@ mkUser {
   ollama = {
     enable = true;
     models = [
-      "gpt-oss:20b" # agents/opencode: reliable tool calling
+      "gpt-oss:20b" # agents: reliable tool calling
       "gemma4:26b-a4b-qat" # general: smartest fit for 16 GB, 4B-active MoE
     ];
   };
