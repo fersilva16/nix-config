@@ -13,7 +13,7 @@
 # keyboard part (./keyboard.nix) — toggle via niri.keyboard.enable.
 #
 # The desktop shell (bar/lock/notifications) is noctalia; the app launcher
-# is vicinae (modules/productivity/vicinae), which binds Mod+Space. For
+# is vicinae (modules/productivity/vicinae), which binds Super+Space. For
 # noctalia (modules/linux/noctalia/noctalia.nix) this file wires the niri glue —
 # spawn-at-startup, IPC keybinds, layer rules.
 {
@@ -103,6 +103,13 @@ mkUserModule {
 
         layout {
             default-column-width { proportion 1.0; }
+            // Snap sizes for Mod+R and Mod+scroll. No full width here:
+            // Hyper+F (maximize-column) already covers it.
+            preset-column-widths {
+                proportion 0.33333
+                proportion 0.5
+                proportion 0.66667
+            }
             gaps 0
             background-color "#0a0a0a"
             focus-ring {
@@ -130,6 +137,12 @@ mkUserModule {
                 accel-profile "flat"
                 accel-speed -0.1
             }
+      ''
+      # Mod is Hyper alone: held Caps also holds right Ctrl (xremap's hyper
+      # part), which the keyboard part's lv5:rctrl_switch turns into Level5
+      # (Mod3). Cmd stays plain Super for the Super+ binds below.
+      + lib.optionalString (cfg.keyboard.enable && userCfg.xremap.hyper.enable) ''
+        mod-key "Mod3"
       ''
       + lib.optionalString cfg.keyboard.enable keyboard.inputKdl
       + ''
@@ -172,7 +185,7 @@ mkUserModule {
 
         // Alt-Tab bound to the current monitor — mirrors AltTab on macOS
         // (modules/darwin/alt-tab). Alt+grave cycles the focused app's windows.
-        // Mod variants are left Cmd (xremap mac part leaves Cmd+Tab as Super),
+        // Super variants are left Cmd (xremap mac part leaves Cmd+Tab as Super),
         // so holding Cmd keeps the switcher open like AltTab.
         recent-windows {
             binds {
@@ -180,10 +193,10 @@ mkUserModule {
                 Alt+Shift+Tab   { previous-window scope="output"; }
                 Alt+grave       { next-window     filter="app-id"; }
                 Alt+Shift+grave { previous-window filter="app-id"; }
-                Mod+Tab         { next-window     scope="output"; }
-                Mod+Shift+Tab   { previous-window scope="output"; }
-                Mod+grave       { next-window     filter="app-id"; }
-                Mod+Shift+grave { previous-window filter="app-id"; }
+                Super+Tab         { next-window     scope="output"; }
+                Super+Shift+Tab   { previous-window scope="output"; }
+                Super+grave       { next-window     filter="app-id"; }
+                Super+Shift+grave { previous-window filter="app-id"; }
             }
         }
 
@@ -192,7 +205,8 @@ mkUserModule {
 
             Mod+Return  { spawn "limi-desktop"; }
             Mod+S       { spawn "${noctalia}" "ipc" "call" "controlCenter" "toggle"; }
-            Mod+Q       { close-window; }
+            // Cmd+Q closes, as on macOS. Everything else is Mod (Hyper).
+            Super+Q     { close-window; }
             Mod+Shift+L { spawn "${noctalia}" "ipc" "call" "lockScreen" "lock"; }
             Mod+O       { toggle-overview; }
 
@@ -203,24 +217,37 @@ mkUserModule {
             Mod+Shift+Left  { move-column-left; }
             Mod+Shift+Right { move-column-right; }
 
+            // h/j/k/l stay xremap's Hyper arrows, hence brackets for column
+            // focus/move.
+            Mod+BracketLeft        { focus-column-left; }
+            Mod+BracketRight       { focus-column-right; }
+            Mod+Shift+BracketLeft  { move-column-left; }
+            Mod+Shift+BracketRight { move-column-right; }
+            Mod+W       { toggle-overview; }
+            Mod+G       { toggle-column-tabbed-display; }
+
+            // Snap the focused column through preset-column-widths.
             Mod+R       { switch-preset-column-width; }
+            Mod+Shift+R { switch-preset-column-width-back; }
+            Mod+WheelScrollDown cooldown-ms=150 { switch-preset-column-width; }
+            Mod+WheelScrollUp   cooldown-ms=150 { switch-preset-column-width-back; }
             Mod+F       { maximize-column; }
             Mod+Shift+F { fullscreen-window; }
 
-            // macOS capture keys (Cmd = Mod, kept Super by the xremap mac
+            // macOS capture keys (Cmd = Super, kept Super by the xremap mac
             // part): 3 whole screen, 4 region, 5 the capture menu. niri saves
             // to ~/Pictures/Screenshots and copies to the clipboard.
-            Print       { screenshot; }
-            Mod+Shift+S { screenshot; }
-            Mod+Shift+3 { screenshot-screen; }
-            Mod+Shift+4 { screenshot; }
+            Print         { screenshot; }
+            Mod+Shift+S   { screenshot; }
+            Super+Shift+3 { screenshot-screen; }
+            Super+Shift+4 { screenshot; }
       ''
       + lib.optionalString userCfg.vicinae.enable ''
-        Mod+Shift+5 { spawn "${lib.getExe capture-menu}"; }
+        Super+Shift+5 { spawn "${lib.getExe capture-menu}"; }
       ''
       + lib.optionalString recorder ''
         // Cmd+Ctrl+Esc stops a recording, as on macOS.
-        Mod+Ctrl+Escape { ${ipc "plugin:screen-recorder stop"}; }
+        Super+Ctrl+Escape { ${ipc "plugin:screen-recorder stop"}; }
       ''
       + ''
 

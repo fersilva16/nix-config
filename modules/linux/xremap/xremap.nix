@@ -25,6 +25,12 @@ let
   yaml = pkgs.formats.yaml { };
   # Shared with both parts: mac rules combine Cmd/Opt with hyper.
   hyperKey = "CapsLock";
+  # Held Caps also presses right Ctrl, a placeholder niri's keyboard part
+  # turns into Level5, niri's Mod (drag, scroll and binds in niri.nix). Mac
+  # keyboards have no right Ctrl, so only Hyper sends it. Every Hyper rule
+  # names it in its trigger: the match is then exact and xremap lifts
+  # Ctrl_R while sending the output, so Hyper+h stays a bare Left.
+  hyper = "${hyperKey}-Ctrl_R";
 in
 mkUserModule {
   name = "xremap";
@@ -35,9 +41,10 @@ mkUserModule {
         lib
         yaml
         hyperKey
+        hyper
         ;
     };
-    mac = import ./mac.nix { inherit lib yaml hyperKey; };
+    mac = import ./mac.nix { inherit lib yaml hyper; };
   };
   # Unprivileged evdev input + uinput output (xremap runs as the user).
   system.hardware.uinput.enable = true;

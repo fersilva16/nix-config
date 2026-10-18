@@ -7,12 +7,15 @@
 # modifier+arrow chords still work.
 #
 # Window actions run `niri msg action` directly via xremap's launch, so
-# hyper owns them end to end (only when niri is enabled).
+# hyper owns them end to end (only when niri is enabled). Held Caps also
+# presses Ctrl_R (see `hyper` in ./xremap.nix), so keys with no rule here
+# reach niri as Mod binds, as do Hyper+drag and Hyper+scroll.
 {
   pkgs,
   lib,
   yaml,
   hyperKey,
+  hyper,
 }:
 let
   niri = lib.getExe pkgs.niri;
@@ -58,15 +61,15 @@ let
   };
 
   windowActions = {
-    "${hyperKey}-t" = action [
+    "${hyper}-t" = action [
       "spawn"
       "--"
       "limi-desktop"
     ];
-    "${hyperKey}-f" = action [ "maximize-column" ];
-    "${hyperKey}-tab" = action [ "focus-monitor-next" ];
-    "${hyperKey}-backslash" = action [ "move-column-to-monitor-next" ];
-    "${hyperKey}-space".launch = [ (lib.getExe terminal-code-toggle) ];
+    "${hyper}-f" = action [ "maximize-column" ];
+    "${hyper}-tab" = action [ "focus-monitor-next" ];
+    "${hyper}-backslash" = action [ "move-column-to-monitor-next" ];
+    "${hyper}-space".launch = [ (lib.getExe terminal-code-toggle) ];
   };
 in
 {
@@ -93,7 +96,10 @@ in
             # keyboard over lan-mouse (its hidutil map). CapsLock covers any
             # keyboard the hwdb doesn't match.
             remap = lib.genAttrs [ hyperKey "F18" ] (_: {
-              held = hyperKey;
+              held = [
+                hyperKey
+                "Ctrl_R"
+              ];
               alone = "BTN_TRIGGER_HAPPY1";
             });
           }
@@ -104,11 +110,11 @@ in
             name = "Hyper";
             remap = {
               BTN_TRIGGER_HAPPY1 = "CapsLock";
-              "${hyperKey}-h" = "left";
-              "${hyperKey}-j" = "down";
-              "${hyperKey}-k" = "up";
-              "${hyperKey}-l" = "right";
-              "${hyperKey}-semicolon" = "end"; # macOS Cmd+Right ≈ end of line
+              "${hyper}-h" = "left";
+              "${hyper}-j" = "down";
+              "${hyper}-k" = "up";
+              "${hyper}-l" = "right";
+              "${hyper}-semicolon" = "end"; # macOS Cmd+Right ≈ end of line
             }
             // lib.optionalAttrs userCfg.niri.enable windowActions;
           }

@@ -13,7 +13,8 @@
 #
 # linux: home-manager's programs.vicinae with its systemd server. Wayland has
 # no global-shortcut API Vicinae can use, so the compositor owns the hotkey:
-# under niri, Mod+Space toggles Vicinae instead of noctalia's launcher.
+# under niri, Super+Space (Cmd+Space) toggles Vicinae instead of noctalia's
+# launcher.
 mkUserModule {
   name = "vicinae";
   system = forPlatform {
@@ -64,10 +65,11 @@ mkUserModule {
 
       # Included last in niri's config.kdl: niri includes are positional and
       # their binds override earlier ones, so this replaces noctalia's
-      # Mod+Space launcher without touching the niri module.
+      # launcher bind without touching the niri module. Super, not Mod: niri's
+      # Mod is Hyper, and Hyper+Space is xremap's terminal toggle.
       niriBinds = pkgs.writeText "vicinae-niri.kdl" ''
         binds {
-            Mod+Space { spawn "${lib.getExe' pkgs.vicinae "vicinae"}" "toggle"; }
+            Super+Space { spawn "${lib.getExe' pkgs.vicinae "vicinae"}" "toggle"; }
         }
       '';
 
