@@ -553,13 +553,10 @@ mkUserModule {
                                         set -l errfile (mktemp)
                                         set -l promptfile (mktemp)
                                         printf '%s' "$prompt" > $promptfile
-                                        # --dir: run in an empty non-repo dir so the throwaway session lands in
-                                        # opencode's "global" project instead of the picker of whatever repo we're in.
-                                        # The prompt is self-contained, so no repo context is lost.
-                                        # --title: without it these sessions are named "New session - <timestamp>".
-                                        set -l _ai_title (string shorten -m 70 -- (string replace -a \n " " -- "$task"))
+                                        # Run from an empty non-repo dir so no repo AGENTS.md joins the prompt;
+                                        # the prompt is self-contained. --no-session: nothing worth keeping.
                                         gum spin --spinner dot --title "Generating issue with AI..." -- \
-                                          sh -c 'd="$HOME/.local/share/lin/scratch"; mkdir -p "$d"; opencode run --dir "$d" --title "$4" -m "anthropic/claude-haiku-4-5" "$(cat "$1")" > "$2" 2> "$3"' _ "$promptfile" "$tmpfile" "$errfile" "linear create: $_ai_title"
+                                          sh -c 'd="$HOME/.local/share/lin/scratch"; mkdir -p "$d"; cd "$d" && omo -p --no-session --no-tools --model anthropic/claude-haiku-4-5 "$(cat "$1")" > "$2" 2> "$3"' _ "$promptfile" "$tmpfile" "$errfile"
                                         set -l ai_exit $status
 
                                         set -l result (cat $tmpfile)
@@ -744,9 +741,8 @@ mkUserModule {
                                             set -l r_err (mktemp)
                                             printf 'You are refining a Linear issue. Current issue:\n%s\n\nRequested change: %s\n\nReturn ONLY the updated raw JSON object (no markdown fences, no commentary).\nSame schema: {"title": string, "description": string, "priority": int, "labels": string[], "project_hint": string|null, "assign_to_me": boolean}\nKeep fields unchanged unless the instruction implies a change.' "$current_json" "$instruction" > $refine_file
 
-                                            set -l _r_title (string shorten -m 70 -- (string replace -a \n " " -- "$instruction"))
                                             gum spin --spinner dot --title "Refining with AI..." -- \
-                                              sh -c 'd="$HOME/.local/share/lin/scratch"; mkdir -p "$d"; opencode run --dir "$d" --title "$4" -m "anthropic/claude-haiku-4-5" "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err" "linear refine: $_r_title"
+                                              sh -c 'd="$HOME/.local/share/lin/scratch"; mkdir -p "$d"; cd "$d" && omo -p --no-session --no-tools --model anthropic/claude-haiku-4-5 "$(cat "$1")" > "$2" 2> "$3"' _ "$refine_file" "$r_out" "$r_err"
                                             set -l r_exit $status
 
                                             set -l r_result (cat $r_out)

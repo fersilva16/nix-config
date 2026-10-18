@@ -21,7 +21,7 @@ in
           # session (saved from @agent-sid, see resurrect-agents.sh) instead of
           # replaying a path that a rebuild may have removed. `( |$)` keeps
           # e.g. `nvim …/omo.nix` from matching.
-          set -g @resurrect-processes '"~/omo( |$)->${agents} resume omo" "~/opencode( |$)->${agents} resume opencode"'
+          set -g @resurrect-processes '"~/omo( |$)->${agents} resume omo"'
           # Hooks are eval'd inside resurrect's scripts, so $(last_resurrect_file)
           # expands there to its `last` symlink.
           set -g @resurrect-hook-post-save-all '${agents} save "$(last_resurrect_file)"'

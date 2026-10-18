@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Resume every agent pane (omo, opencode) into ITS OWN session after a
+# Resume every agent pane (omo) into ITS OWN session after a
 # tmux-resurrect restore. `--continue` resumes the cwd's newest session, so
 # several agent panes in one project all came back as the same one.
 #
@@ -54,7 +54,6 @@ save() {
         cmd = substr($11, 2)
         h = ""
         if (cmd ~ /\/omo / || cmd ~ /\/omo$/) h = "omo"
-        else if (cmd ~ /\/opencode / || cmd ~ /\/opencode$/) h = "opencode"
         if (h != "" && key in sid) print key "\t" h "\t" sid[key]
       }' - "$file" >"$map.tmp"
   mv "$map.tmp" "$map"
@@ -89,7 +88,7 @@ resume() {
 case ${1:-} in
 save | restore | resume) "$@" ;;
 *)
-  echo "usage: ${0##*/} save <last> | restore <last> | resume <omo|opencode>" >&2
+  echo "usage: ${0##*/} save <last> | restore <last> | resume <omo>" >&2
   exit 2
   ;;
 esac

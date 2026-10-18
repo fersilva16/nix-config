@@ -4,7 +4,7 @@
 #
 # linux (polaris: RTX 5070 Ti, 16 GB): a socket-activated CUDA server, so
 # there is nothing to start or stop by hand. systemd holds :11434; the first
-# connection (opencode on vega, `ollama run` on polaris, curl) starts
+# connection (an agent, `ollama run`, curl) starts
 # ollama-proxy, which pulls in ollama. The proxy exits after idleTimeout with
 # no traffic, and ollama is bound to it, so it stops too and frees the VRAM.
 # Nothing runs at boot except the listening socket.

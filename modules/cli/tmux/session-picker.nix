@@ -309,7 +309,7 @@ let
           else
             [[ "$name" == agents/* ]] && continue
           fi
-          # Status cluster: the three pre-colored opencode/PR/CI glyphs.
+          # Status cluster: the three pre-colored agent/PR/CI glyphs.
           cluster=""
           for g in "$agent" "$pr" "$ci"; do [[ -n "$g" ]] && cluster+="''${cluster:+ }$g"; done
           STATUS["$name"]="$cluster"

@@ -274,7 +274,7 @@ mkUserModule {
 
 ## Code style
 
-- **Never use `default.nix`** — use explicit names matching the module: `opencode/opencode.nix`, not `opencode/default.nix`.
+- **Never use `default.nix`** — use explicit names matching the module: `omo/omo.nix`, not `omo/default.nix`.
 - 2-space indentation, UTF-8, LF line endings
 - Format with `nixfmt` (nixfmt-rfc-style)
 - Lint with `statix`

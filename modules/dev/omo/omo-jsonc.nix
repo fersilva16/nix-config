@@ -1,7 +1,5 @@
 { pkgs }:
-# ~/.omo/omo.jsonc, read by both OmO Native and the oh-my-openagent opencode
-# plugin. The omo module writes it; opencode/omo.nix writes it when only
-# opencode is enabled (no omo module on the host).
+# ~/.omo/omo.jsonc, read by OmO Native. The omo module writes it.
 let
   jsonFormat = pkgs.formats.json { };
 

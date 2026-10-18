@@ -1,6 +1,5 @@
-// omo `/lin`: the opencode command (`!`fish -c lin``) sends the current
-// branch's Linear issue as the prompt. omo prompt templates have no shell
-// interpolation, so a command handler does the same.
+// omo `/lin`: sends the current branch's Linear issue as the prompt. omo
+// prompt templates have no shell interpolation, so it is a command handler.
 import { spawnSync } from "node:child_process"
 
 type Ctx = { ui: { notify(message: string, level: "info" | "warning" | "error"): void } }

@@ -115,25 +115,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    opencode = {
-      url = "github:anomalyco/opencode/v1.18.29";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    hermes-agent = {
-      url = "github:nousresearch/hermes-agent/v2026.5.29.2";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # Runtime OAuth bypass patch for hermes-agent — lets Hermes use a
-    # Claude Code Max/Pro subscription instead of pay-per-token credits.
-    # Source-only (flake = false); wired into hermes via PYTHONPATH in
-    # modules/dev/hermes/hermes.nix.
-    hermes-claude-auth = {
-      url = "github:kristianvast/hermes-claude-auth";
-      flake = false;
-    };
-
     # First-party OpenClaw flake — upstream points Nix users here rather than
     # at the nixpkgs package. Ships the home-manager module that owns the
     # launchd gateway agent and renders ~/.openclaw/openclaw.json immutably.

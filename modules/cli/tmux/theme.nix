@@ -41,7 +41,6 @@ in
         always-show-fallback-name: true
 
       icons:
-        .opencode-wrapp: ""
         lazygit: "󰊢"
         task: "󱓞"
         agents: "󰚩"

@@ -234,10 +234,6 @@ mkUserModule {
             '  Ctrl+j             accept line',
             '  Alt+] / Alt+[      next / prev suggestion',
             '  Ctrl+]             dismiss suggestion',
-            '  Ctrl+.             toggle opencode',
-            '  Ctrl+a             ask opencode',
-            '  Ctrl+x             opencode actions',
-            '  go / goo           send range/line to opencode',
             s,
             '  File Explorer',
             '  Space e            toggle sidebar (right)',
@@ -439,16 +435,7 @@ mkUserModule {
                 lualine_c = { { 'filename', path = 1 } },
                 lualine_x = { 'encoding', 'fileformat', 'filetype' },
                 lualine_y = { 'progress' },
-                lualine_z = {
-                  'location',
-                  {
-                    function()
-                      local ok, oc = pcall(require, "opencode")
-                      if ok and oc.statusline then return oc.statusline() end
-                      return ""
-                    end,
-                  },
-                },
+                lualine_z = { 'location' },
               },
             })
           '';
