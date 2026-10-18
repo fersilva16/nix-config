@@ -50,9 +50,21 @@ let
   # Super, niri would eat it as Mod+drag window move (Right Cmd still does).
   cmdClick.Super_L-btn_left = "C-btn_left";
 
+  # Cmd+Shift+3/4/5 stay Super for niri's macOS-style capture binds
+  # (modules/linux/niri/niri.nix). The digit rules match inexactly, so they
+  # would otherwise turn them into Ctrl/Alt+Shift+digit.
+  capture = lib.listToAttrs (
+    map (n: lib.nameValuePair "Super_L-Shift-${n}" "Super-Shift-${n}") [
+      "3"
+      "4"
+      "5"
+    ]
+  );
+
   gui =
     cmdAs "C" cmdKeys
     // cmdClick
+    // capture
     // {
       Super_L-left = "home";
       Super_L-right = "end";
@@ -87,6 +99,7 @@ let
   term =
     cmdAs "C-Shift" (lib.subtractLists [ "q" "p" ] letters)
     // cmdClick
+    // capture
     // {
       Super_L-Shift-f = "C-Alt-Shift-f"; # → nvim; Super+Shift+F is niri's
       Super_L-d = "C-Shift-o"; # new_split:right

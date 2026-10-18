@@ -90,7 +90,6 @@ mkUser {
   # Desktop sessions
   xremap.enable = true;
   feh.enable = true;
-  flameshot.enable = true;
   niri.enable = true;
   noctalia.enable = true;
   vicinae.enable = true;
