@@ -21,8 +21,15 @@ mkUserModule {
       # traps every few seconds; the default mitigation sleeps the offending
       # thread on each one. SteamOS/Bazzite ship this off too.
       boot.kernel.sysctl."kernel.split_lock_mitigate" = 0;
+      # Feral GameMode daemon: raises the CPU governor and priority while a
+      # game runs. Per game in Steam: launch options `gamemoderun %command%`;
+      # Heroic has a per-game GameMode toggle that uses the same daemon.
+      programs.gamemode.enable = true;
     };
   };
+  # gamemode's polkit rule only lets the `gamemode` group switch the CPU
+  # governor without a password prompt.
+  user = forPlatform { linux.extraGroups = [ "gamemode" ]; };
   # Steam draws its own toasts as floating X11 windows instead of using the
   # notification daemon, so niri opens them centered. Pin them bottom-right
   # (niri wiki, Application Issues). `or false`: the niri option only
