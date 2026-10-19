@@ -74,8 +74,19 @@ mkUserModule {
       # ~/.omo: the same config, sessions and login, and whatever omo-home
       # modules drop there. It must exist before that Nalum first runs, or
       # Nalum makes a real directory here and this link collides.
+      #
+      # Nalum's launch links its own rules/tmux.md and rules/worktree-stacks.md
+      # (its `omoHome`) into that same directory, so Home Manager must not
+      # manage them too, or the next rebuild fails with "would be clobbered".
+      # Nalum's copies cover the same ground (tmux.md adds the limi-mux shim).
       (lib.mkIf (!userCfg.omo.enable) {
-        home.file.${host.nalumHome}.source = config.lib.file.mkOutOfStoreSymlink "${homeOf username}/.omo";
+        home.file = {
+          ${host.nalumHome}.source = config.lib.file.mkOutOfStoreSymlink "${homeOf username}/.omo";
+          ".omo/rules/tmux.md".enable = lib.mkIf userCfg.tmux.enable false;
+          ".omo/rules/worktree-stacks.md".enable = lib.mkIf (
+            userCfg.worktree.enable && userCfg.worktree.stack.enable
+          ) false;
+        };
       })
       {
         home = {
