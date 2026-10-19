@@ -1,6 +1,6 @@
 # NetworkManager + redistributable firmware (WiFi/BT chips need it —
 # polaris: Realtek RTL8922AE).
-{ mkSystemModule, ... }:
+{ mkSystemModule, pkgs, ... }:
 mkSystemModule {
   name = "network";
   config = {
@@ -18,6 +18,20 @@ mkSystemModule {
         addresses = true;
       };
     };
+
+    # openresolv's avahi hook HUPs the pid in avahi's pid file on every
+    # resolv.conf change. At boot that lands before avahi installs its
+    # handler, killing it; systemd counts SIGHUP as a clean exit and never
+    # restarts it. avahi doesn't read resolv.conf here
+    # (publish-resolv-conf-dns-servers is off), so point the hook at nothing.
+    networking.resolvconf.extraConfig = ''
+      avahi_daemon_pidfile=/nonexistent
+    '';
+    # The unit's capability set can't unlink a stale pid file, so any unclean
+    # death left avahi unstartable ("Failed to create PID file"). "+" runs
+    # this with full privileges.
+    systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
+      "+${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
 
     # BBR paces by measured bandwidth/RTT instead of backing off on every
     # lost packet, so long-RTT downloads over jittery WiFi (polaris ->
