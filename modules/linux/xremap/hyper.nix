@@ -2,9 +2,8 @@
 #
 # Hold Caps = hyper layer, tap Caps = Caps Lock. hjkl→arrows works in every
 # app, and real modifiers pass through (inexact match), so hyper+shift+h
-# selects left just like on macOS. Physical arrows are blocked to force
-# hjkl, same as the Hammerspoon arrowBlocker — bare presses only, so
-# modifier+arrow chords still work.
+# selects left just like on macOS. Physical arrows stay usable (unlike the
+# Hammerspoon arrowBlocker on darwin).
 #
 # Window actions run `niri msg action` directly via xremap's launch, so
 # hyper owns them end to end (only when niri is enabled). Held Caps also
@@ -117,16 +116,6 @@ in
               "${hyper}-semicolon" = "end"; # macOS Cmd+Right ≈ end of line
             }
             // lib.optionalAttrs userCfg.niri.enable windowActions;
-          }
-          {
-            name = "Force hjkl: block bare arrows";
-            exact_match = true;
-            remap = {
-              left = [ ];
-              right = [ ];
-              up = [ ];
-              down = [ ];
-            };
           }
         ];
       };
