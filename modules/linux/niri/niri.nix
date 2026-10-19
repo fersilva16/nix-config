@@ -183,18 +183,22 @@ mkUserModule {
             place-within-backdrop true
         }
 
-        // Alt-Tab bound to the current monitor — mirrors AltTab on macOS
-        // (modules/darwin/alt-tab). Alt+grave cycles the focused app's windows.
+        // Recent-windows switcher on Cmd-Tab, open instantly with larger
+        // previews — mirrors AltTab on macOS (modules/darwin/alt-tab).
+        // Alt+grave cycles the focused app's windows. Alt-Tab itself walks
+        // the strip in layout order instead (see binds).
         // Super variants are left Cmd (xremap mac part leaves Cmd+Tab as Super),
         // so holding Cmd keeps the switcher open like AltTab.
         recent-windows {
+            open-delay-ms 0
+            previews {
+                max-height 720
+            }
             binds {
-                Alt+Tab         { next-window     scope="output"; }
-                Alt+Shift+Tab   { previous-window scope="output"; }
                 Alt+grave       { next-window     filter="app-id"; }
                 Alt+Shift+grave { previous-window filter="app-id"; }
-                Super+Tab         { next-window     scope="output"; }
-                Super+Shift+Tab   { previous-window scope="output"; }
+                Super+Tab         { next-window     scope="all"; }
+                Super+Shift+Tab   { previous-window scope="all"; }
                 Super+grave       { next-window     filter="app-id"; }
                 Super+Shift+grave { previous-window filter="app-id"; }
             }
@@ -209,6 +213,8 @@ mkUserModule {
             Super+Q     { close-window; }
             Mod+Shift+L { spawn "${noctalia}" "ipc" "call" "lockScreen" "lock"; }
             Mod+O       { toggle-overview; }
+            Alt+Tab       { focus-column-right-or-first; }
+            Alt+Shift+Tab { focus-column-left-or-last; }
 
             Mod+Left        { focus-column-left; }
             Mod+Right       { focus-column-right; }
