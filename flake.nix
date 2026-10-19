@@ -93,10 +93,14 @@
 
     # Noctalia desktop shell for niri (polaris). Pinned to the stable v4
     # line (quickshell-based); main is the v5 native-rewrite beta. nixpkgs
-    # deliberately not followed — keeping their lock maximizes hits on
-    # noctalia.cachix.org (quickshell fork is expensive to build).
+    # must follow the host's: quickshell dlopens the system Mesa EGL driver
+    # from /run/opengl-driver, which needs the system glibc. On noctalia's
+    # own (older) lock the driver fails to load, there is no GL context, and
+    # no bar/panel ever maps. Costs noctalia.cachix.org hits (the quickshell
+    # fork builds locally; Qt still comes from cache.nixos.org).
     noctalia = {
       url = "github:noctalia-dev/noctalia/legacy-v4";
+      inputs.nixpkgs.follows = "nixpkgs-nixos";
     };
 
     # Declarative disk partitioning for the NixOS host (polaris). The disko
