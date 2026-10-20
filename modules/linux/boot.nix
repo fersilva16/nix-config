@@ -35,6 +35,20 @@ mkSystemModule {
             editor = false;
             configurationLimit = 20;
             edk2-uefi-shell.enable = true;
+            # Offline RAM test, no USB stick needed. Reach it with
+            # `systemctl reboot --boot-loader-entry=memtest86.conf`.
+            # Hand-rolled instead of `memtest86.enable` (same file and entry
+            # name) because that option cannot pass boot options:
+            # nobigstatus keeps the PASS/FAIL banner from covering the error
+            # details, which matters when the keyboard does not work in
+            # memtest to dismiss it; usbinit=3 is its USB keyboard workaround.
+            extraFiles."efi/memtest86/memtest.efi" = pkgs.memtest86plus.efi;
+            extraEntries."memtest86.conf" = ''
+              title Memtest86+
+              efi /efi/memtest86/memtest.efi
+              options nobigstatus usbinit=3
+              sort-key o_memtest86
+            '';
           };
           efi.canTouchEfiVariables = true;
           # Skip the menu; hold Space at boot to show it. `boot-windows`
