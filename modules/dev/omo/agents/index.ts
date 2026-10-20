@@ -14,9 +14,10 @@ const ENTRY = "agents-active"
 const ORCHESTRATOR = readFileSync(new URL("./orchestrator.md", import.meta.url), "utf8")
 // The `agent` CLI starts every message it relays with this marker (see
 // ../agent/agent.ts); without the note, a steer arriving mid-task reads like
-// an injected instruction and gets ignored.
+// an injected instruction and gets ignored. The orchestrator holds no goal
+// (orchestrator.md), so a spawned agent's brief is where the goal lives.
 const RELAYED =
-  "A user message that starts with `[orchestrator]` was sent by the user's orchestrator session on the user's behalf. Treat it as the user's own message."
+  "A user message that starts with `[orchestrator]` was sent by the user's orchestrator session on the user's behalf. Treat it as the user's own message. When it is the first message of this session, it is your task brief: register it as your goal, done at the brief's stated end."
 
 // A `## <title>` section of orchestrator.md, heading included.
 function section(title: string): string {
