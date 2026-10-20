@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs"
 import { createConnection, type Socket } from "node:net"
 import { homedir, tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
 type Msg = Record<string, any>
 type Row = { sessionId: string; durableSessionId: string; sessionPath: string; cwd: string; status: string; name: string }
@@ -21,7 +21,7 @@ const SOCKET = join(AGENT_DIR, "rpc/rpc.sock")
 const USAGE = `agent — talk to omo sessions over omo's shared RPC host
 
   agent ls [--all]                 this project's sessions: name, state, context, PR, task
-  agent status <name>              state, branch, PR, open questions and the last reply
+  agent status <name>              state, goal, branch, PR, open questions and the last reply
   agent talk <name> [--after] <message|->
                                    steer a busy agent (after its current tool batch),
                                    or start its next turn; --after queues for when it stops
@@ -237,6 +237,17 @@ function taskOf(path: string): string {
   return line.length > 80 ? `${line.slice(0, 79)}…` : line
 }
 
+type Goal = { objective: string; status: string; blockedReason?: string }
+
+// omo's goal extension keeps a session's goal beside it, keyed by the session
+// header's id (dist/core/extensions/builtin/goal/store-ref.js in omo).
+function goalOf(sessionPath: string): Goal | undefined {
+  const id = entries(sessionPath)[0]?.id
+  if (!id) return undefined
+  const file = join(dirname(sessionPath), "extensions/goal", `${encodeURIComponent(id)}.json`)
+  return existsSync(file) ? JSON.parse(readFileSync(file, "utf8")).goal : undefined
+}
+
 function formatQuestions(pending: Pending[]): string {
   return pending
     .flatMap((p) =>
@@ -258,6 +269,8 @@ async function printStatus(rpc: Rpc, row: Row) {
     `cwd: ${row.cwd}`,
     `task: ${taskOf(row.sessionPath)}`,
   ]
+  const goal = goalOf(row.sessionPath)
+  if (goal) lines.push(`goal: ${goal.status}${goal.status === "blocked" && goal.blockedReason ? ` (${goal.blockedReason})` : ""} · ${goal.objective}`)
   const branch = git(row.cwd, ["branch", "--show-current"])
   if (branch) {
     const counts = git(row.cwd, ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"])?.split(/\s+/)
