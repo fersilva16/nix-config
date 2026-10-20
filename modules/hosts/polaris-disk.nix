@@ -94,7 +94,7 @@
   # Hibernation target. NixOS creates the file with `btrfs filesystem
   # mkswapfile` (nocow, contiguous) when it is missing, and recreates it
   # when `size` changes, so resizing is an edit + reboot. Sized to RAM
-  # (64 GB), so even a full-memory image fits.
+  # (128 GB), so even a full-memory image fits.
   #
   # No resume= / resume_offset: on hibernate, systemd stores the swapfile's
   # device and offset in the HibernateLocation EFI variable, and the systemd
@@ -105,7 +105,7 @@
   swapDevices = [
     {
       device = "/swap/swapfile";
-      size = 64 * 1024;
+      size = 128 * 1024;
       priority = 0;
     }
   ];
