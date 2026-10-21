@@ -30,6 +30,7 @@ mkUser {
   git.enable = true;
   lazygit.enable = true;
   incus.enable = true;
+  claude.enable = true;
   "claude-code".enable = true;
   # Nalum (limi-suite) is this host's omo.
   limi-suite.enable = true;
