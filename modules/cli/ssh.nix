@@ -13,6 +13,14 @@ let
   };
 
   sshPeers = lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers;
+
+  # macOS's Local Network privacy refuses LAN connections from a Nix-built nc,
+  # even to a bare address, so the LAN probe never matched on darwin. Apple's
+  # own nc is allowed.
+  nc = forPlatform {
+    darwin = "/usr/bin/nc";
+    linux = "${pkgs.netcat}/bin/nc";
+  };
 in
 mkUserModule {
   name = "ssh";
@@ -38,7 +46,7 @@ mkUserModule {
     + lib.concatStrings (
       lib.mapAttrsToList (name: _: ''
 
-        Match host ${name} exec "${pkgs.coreutils}/bin/timeout 1 ${pkgs.netcat}/bin/nc -z ${name}.local 22"
+        Match host ${name} exec "${pkgs.coreutils}/bin/timeout 1 ${nc} -z ${name}.local 22 >/dev/null 2>&1"
           HostName ${name}.local
 
         Host ${name}
