@@ -296,5 +296,29 @@ mkUserModule {
       };
 
       home.packages = with pkgs; [ wl-clipboard ];
+
+      # The portals (from programs.niri) resolve URL and MIME handlers through
+      # GIO, which watches ~/.nix-profile/share/applications through the
+      # profile symlink. A switch repoints that symlink, so a running portal
+      # never sees a newly installed app: Chrome's claude:// login callback hit
+      # "No Apps Available". Restart them when the set of desktop files
+      # changes. Costs any portal dialog open mid-switch (file chooser,
+      # screencast); switches that don't change apps leave them alone.
+      home.activation.restartPortals = {
+        after = [
+          "installPackages"
+          "linkGeneration"
+        ];
+        before = [ ];
+        data = ''
+          apps() { ls "$1/home-path/share/applications" 2>/dev/null || true; }
+          if [ -n "''${oldGenPath:-}" ] && [ "$(apps "$oldGenPath")" != "$(apps "$newGenPath")" ]; then
+            XDG_RUNTIME_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
+              run ${pkgs.systemd}/bin/systemctl --user try-restart \
+                xdg-desktop-portal.service xdg-desktop-portal-gnome.service xdg-desktop-portal-gtk.service \
+              || echo "restartPortals: could not restart portals; log out and back in to pick up new apps" >&2
+          fi
+        '';
+      };
     };
 }
