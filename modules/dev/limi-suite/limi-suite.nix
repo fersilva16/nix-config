@@ -20,6 +20,7 @@
   inputs,
   pkgs,
   lib,
+  fleetPeers,
   ...
 }:
 let
@@ -68,8 +69,21 @@ mkUserModule {
     let
       profile = "${homeOf username}/${host.profile}";
       limiPath = "${profile}/${host.path}";
+      # The tmux picker's hop targets: every fleet peer that advertises "ssh",
+      # plus the tmux module's `peers`, each with its ssh args.
+      machines =
+        lib.mapAttrs (_: _: [ ]) (lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers)
+        // userCfg.tmux.peers;
     in
     lib.mkMerge [
+      # The machines limi-desktop, its session picker and `limi attach` reach
+      # over ssh, one per line, `name [ssh args]`. The file replaces the
+      # suite's own list, so an empty one is never written.
+      (lib.mkIf (machines != { }) {
+        xdg.configFile."limi/machines".text = lib.concatStrings (
+          lib.mapAttrsToList (name: args: lib.concatStringsSep " " ([ name ] ++ args) + "\n") machines
+        );
+      })
       # With no `omo` of its own, Nalum is this host's omo, so its home is
       # ~/.omo: the same config, sessions and login, and whatever omo-home
       # modules drop there. It must exist before that Nalum first runs, or
