@@ -132,6 +132,15 @@
       url = "github:openclaw/nix-openclaw";
     };
 
+    # Claude Desktop's official Linux beta (.deb) packaged for Nix; the flake
+    # tracks Anthropic's apt repo and bumps hashes hourly. modules/dev/claude.nix
+    # callPackages its derivation against the host's nixpkgs, so the follows
+    # only keeps a second nixpkgs out of the lock.
+    claude-desktop = {
+      url = "github:poeck/claude-desktop-nix-flake";
+      inputs.nixpkgs.follows = "nixpkgs-nixos";
+    };
+
     # Limi ships everything as one package, limi-suite; users opt in via
     # modules/dev/limi-suite.nix, which installs it and wires the host side.
     # Private repo, hence ssh, but flake.lock pins it, so ssh only runs on
