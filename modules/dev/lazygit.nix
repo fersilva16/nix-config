@@ -23,7 +23,7 @@ let
   # customCommands below, which shell out to fish and gh and would inherit
   # that same stripped PATH. The login shell fixes both. It execs lazygit so
   # tmux reports the pane as `lazygit` rather than `fish`, which is what
-  # limi-desktop's bar matches the window icon on.
+  # tmux-nerd-font-window-name matches its icon on (theme.nix).
   tmux-lazygit = pkgs.writeShellApplication {
     name = "tmux-lazygit";
     runtimeInputs = [ pkgs.tmux ];
