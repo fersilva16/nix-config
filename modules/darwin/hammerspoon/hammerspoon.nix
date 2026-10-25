@@ -1,5 +1,14 @@
-{ mkUserModule, pkgs, ... }:
+{
+  mkUserModule,
+  pkgs,
+  inputs,
+  ...
+}:
 let
+  # limi-path (relative to $HOME): the mux's tmux shim and the tools that run
+  # on it. init.lua's Hyper bindings for Limi Desktop run them from there.
+  inherit (inputs.limi.lib) host;
+  limiPath = "${host.profile}/${host.path}";
   # Drops the Hyper layer so someone else can use this machine: clears the
   # hidutil map below and quits Hammerspoon. See scripts/guest-mode.sh.
   guest-mode = pkgs.writeShellApplication {
@@ -46,9 +55,9 @@ mkUserModule {
     };
   };
   home = {
-    home.file.".hammerspoon/init.lua" = {
-      source = ./init.lua;
-    };
+    home.file.".hammerspoon/init.lua".text = builtins.replaceStrings [ "@limiPath@" ] [ limiPath ] (
+      builtins.readFile ./init.lua
+    );
     home.packages = [ guest-mode ];
   };
 }
