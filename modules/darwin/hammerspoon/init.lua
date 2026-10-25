@@ -189,38 +189,54 @@ local function warpToApp(bundleID, screen, tries)
   end
 end
 
+-- Limi Desktop is the terminal. Its mux and the tools that drive it live in
+-- limi-path, which only Limi Desktop's own panes have on PATH, so commands run
+-- from here put it first themselves. hammerspoon.nix fills in @limiPath@ from
+-- inputs.limi.lib.host. Each command runs async in a login shell, so a slow
+-- mux/git can't stall the eventtap. With no TMUX set, the shim reaches the
+-- default mux: the one Limi Desktop's windows are clients of.
+local LIMI_DESKTOP = "dev.limi.desktop"
+local LIMI_PATH = os.getenv("HOME") .. "/@limiPath@"
+
+local function focusLimi()
+  hs.application.launchOrFocusByBundleID(LIMI_DESKTOP)
+  warpToApp(LIMI_DESKTOP)
+end
+
+local function onMux(script)
+  hs.task.new("/bin/sh", nil, {
+    "-l", "-c", 'PATH="' .. LIMI_PATH .. ':$PATH"; ' .. script,
+  }):start()
+end
+
+-- Sets $client to the tty of the most recently active Limi Desktop window
+-- (each window is one mux client), the name `limi-desktop modal` and
+-- `tmux-agent-notify goto` take.
+local LATEST_CLIENT = "client=$(tmux list-clients -F '#{client_activity} #{client_tty}' 2>/dev/null"
+  .. " | sort -rn | head -1 | cut -d' ' -f2); "
+
 -- Hyper + T → Todoist triage popup (mnemonic: Tasks). Same picker as `t` in a
--- pane and prefix+t in tmux, so the reflex is one key everywhere. This used to
--- open a new Ghostty window; hyper+space already reaches the terminal, so the
--- key was spent on a thing that never got pressed. Ghostty is surfaced because
--- the popup renders inside the tmux client, which has to be visible to matter.
--- The popup command runs with the tmux SERVER's environment, which has no
--- ~/.nix-profile/bin — a bare `tmux-todoist-pick` is not found, and -E closes
--- the popup the instant it exits. Hence the full path (the in-tmux binding
--- uses the nix store path for the same reason; this file can't interpolate).
--- ponytail: no fallback when tmux isn't running; add one if that ever happens.
+-- pane and prefix+t in the mux, so the reflex is one key everywhere. It opens
+-- as Limi Desktop's pty modal in the window last used, which is surfaced so
+-- the modal is visible.
+-- ponytail: no-op when no window is open yet (cold launch); press again.
 local tCode = hs.keycodes.map["t"]
 if tCode then
   keyCodeNames[tCode] = "t"
   hyperActionsByKeyCode[tCode] = function()
-    hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
-    warpToApp("com.mitchellh.ghostty")
-    hs.task.new("/bin/sh", nil, {
-      "-l", "-c",
-      'tmux display-popup -E -w 80% -h 60% "$HOME/.nix-profile/bin/tmux-todoist-pick"',
-    }):start()
+    focusLimi()
+    onMux(LATEST_CLIENT .. '[ -n "$client" ] && limi-desktop modal "$client" --pty -w 80% -h 60% "'
+      .. LIMI_PATH .. '/tmux-todoist-pick"')
   end
 end
 
--- Hyper + C → Go to nvim, never away from it: surface Ghostty, then focus
--- (or create) the persistent nvim window of the current tmux session. Both
--- halves are no-ops when already there, so repeat presses do nothing. All
--- session/window resolution lives in the tmux-nvim-window shell script; it
--- runs async so a slow tmux/git can't stall the eventtap.
+-- Hyper + C → Go to nvim, never away from it: surface Limi Desktop, then
+-- focus (or create) the persistent nvim window of the current mux session.
+-- Both halves are no-ops when already there, so repeat presses do nothing.
+-- All session/window resolution lives in limi-path's tmux-nvim-window.
 local function focusNvimWindow()
-  hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
-  warpToApp("com.mitchellh.ghostty")
-  hs.task.new("/bin/sh", nil, { "-l", "-c", "tmux-nvim-window focus" }):start()
+  focusLimi()
+  onMux("tmux-nvim-window focus")
 end
 
 local cCode = hs.keycodes.map["c"]
@@ -242,14 +258,11 @@ local function toggleApp(bundleID)
   end
 end
 
--- Hyper + Space → Focus Ghostty.
+-- Hyper + Space → Focus Limi Desktop.
 local spaceCode = hs.keycodes.map["space"]
 if spaceCode then
   keyCodeNames[spaceCode] = "space"
-  hyperActionsByKeyCode[spaceCode] = function()
-    hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
-    warpToApp("com.mitchellh.ghostty")
-  end
+  hyperActionsByKeyCode[spaceCode] = focusLimi
 end
 
 -- Hyper + I → Toggle Linear (mnemonic: Issues)
@@ -279,33 +292,15 @@ if oCode then
   end
 end
 
--- Hyper + N → Focus Ghostty and jump to last tmux notification (prefix + N)
--- Keys are posted directly to Ghostty via :post(app) (CGEventPostToPSN) so
--- they bypass our eventtap — otherwise Ctrl+Space triggers hyper+space.
+-- Hyper + N → Focus Limi Desktop and jump to the newest pane that needs you
+-- (prefix + N): the same `tmux-agent-notify goto`, aimed at the window last
+-- used.
 local nCode = hs.keycodes.map["n"]
 if nCode then
   keyCodeNames[nCode] = "n"
   hyperActionsByKeyCode[nCode] = function()
-    local ghostty = hs.application.get("com.mitchellh.ghostty")
-    if not ghostty then
-      hs.application.launchOrFocusByBundleID("com.mitchellh.ghostty")
-      return
-    end
-    ghostty:activate()
-    hs.timer.doAfter(0.1, function()
-      local g = hs.application.get("com.mitchellh.ghostty")
-      if g then
-        newKeyEvent({ "ctrl" }, "space", true):post(g)
-        newKeyEvent({ "ctrl" }, "space", false):post(g)
-        hs.timer.doAfter(0.05, function()
-          local g2 = hs.application.get("com.mitchellh.ghostty")
-          if g2 then
-            newKeyEvent({ "shift" }, "n", true):post(g2)
-            newKeyEvent({ "shift" }, "n", false):post(g2)
-          end
-        end)
-      end
-    end)
+    focusLimi()
+    onMux(LATEST_CLIENT .. '[ -n "$client" ] && tmux-agent-notify goto "$client"')
   end
 end
 
