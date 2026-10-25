@@ -53,10 +53,8 @@ in
 mkUserModule {
   name = "gum";
 
-  # modules/dev/linear.nix bakes `pkgs.gum` into its script's PATH at build
-  # time, so putting the patched build only in home.packages would leave it
-  # pointing at the unpatched 0.17.0 store path. Override the package set instead, and
-  # every consumer follows.
+  # Override the package set, not just home.packages, so every consumer that
+  # bakes `pkgs.gum` into its PATH gets the patched build too.
   system.nixpkgs.overlays = [ (_: _: { gum = gum-v2; }) ];
 
   home.home.packages = [ gum-v2 ];

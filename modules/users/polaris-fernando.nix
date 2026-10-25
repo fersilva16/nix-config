@@ -31,13 +31,6 @@ mkUser {
   "claude-code".enable = true;
   # Nalum (this host's omo), the mux as `tmux`, and the wt and Todoist tools.
   limi-suite.enable = true;
-  agent-path.enable = true;
-  i-have-adhd.enable = true;
-  ponytail.enable = true;
-  autoresearch.enable = true;
-  show-me.enable = true;
-  ship.enable = true;
-  unsupervised.enable = true;
   ollama = {
     enable = true;
     models = [
