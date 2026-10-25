@@ -1,7 +1,7 @@
 # Slack Later in tmux
 
 This opt-in integration uses an isolated Chrome profile, not desktop Slack or
-the normal Chrome "Telepatia" profile. It reads undocumented Slack endpoints;
+your regular Chrome profiles. It reads undocumented Slack endpoints;
 session expiry and workspace security policies still apply.
 
 ## Sign in or renew the session
@@ -12,7 +12,7 @@ Run this in your shell, then complete Slack sign-in in the new browser window:
 open -na "Google Chrome" --args \
   --user-data-dir="$HOME/.local/share/tmux-slack-later/chrome" \
   --profile-directory=Default --no-first-run --no-default-browser-check \
-  https://telepatiaworkspace.slack.com/
+  https://slack.com/signin
 ```
 
 Choose to use Slack in the browser. Do not import another profile or enable
