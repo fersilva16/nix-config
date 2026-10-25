@@ -1,13 +1,12 @@
 {
   mkUserModule,
   forPlatform,
-  inputs,
   lib,
   ...
 }:
-# Todoist as the personal task store: `t` at the keyboard and an always-visible
-# Hammerspoon panel. The tmux widget, the triage popup and the daily review ship
-# in Limi (limi-suite reads warnAt and reviewAt from here).
+# Todoist as the personal task store: `t` at the keyboard. The tmux widget, the
+# triage popup and the daily review ship in Limi (limi-suite reads warnAt and
+# reviewAt from here).
 #
 # Todoist owns capture — Siri, share sheet, widgets, and natural-language dates
 # on the phone are things a terminal cannot compete with. What it does not do is
@@ -46,37 +45,6 @@ mkUserModule {
       description = ''
         Local time of day, "HH:MM", for Limi's daily start review. null disables it.
       '';
-    };
-
-    # The ambient half. The tmux widget puts a count where you already are; this
-    # puts the rows there, on a monitor, above everything, on every Space — the
-    # surface that needs neither a keypress nor a visible terminal to work.
-    #
-    # Needs hammerspoon: it is drawn by an hs.canvas dropped into the extras
-    # loader, and there is no second implementation for a machine without it.
-    panel = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Always-visible Todoist panel docked to a screen edge.";
-      };
-
-      width = lib.mkOption {
-        type = lib.types.int;
-        default = 300;
-        description = "Panel width in points.";
-      };
-
-      screen = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        example = "DELL U2720Q";
-        description = ''
-          Which monitor to dock to, as an hs.screen.find pattern (name, UUID, or
-          id). null uses the primary screen. An unattached screen falls back to
-          primary rather than taking the panel away.
-        '';
-      };
     };
   };
 
@@ -124,32 +92,8 @@ mkUserModule {
       # Undated rides the same key at "9999-12-31" instead of getting a separate
       # is-null term: it lands last, and still sorts by priority among its own.
       smartSort = ''sort_by([((.due.date // .deadline.date) // "9999-12-31"), (4 - (.priority // 1)), (.deadline.date // "9999-12-31")])'';
-
-      # Both halves required: the panel IS an hs.canvas, so without hammerspoon
-      # there is nothing to draw it and the option would silently do nothing.
-      panelEnabled = cfg.panel.enable && userCfg.hammerspoon.enable;
     in
     {
-      # Outbound integration, per the repo rule: todoist is the module that
-      # knows what a task is, so it reaches into hammerspoon rather than the
-      # other way round. init.lua's extras loader picks the file up on its next
-      # reload, and hammerspoon stays unaware that todoist exists.
-      home.file.".hammerspoon/extras/todoist-panel.lua" = lib.mkIf panelEnabled {
-        # Prepended rather than templated through the body: the .lua stays valid
-        # on its own — it falls back to these same defaults when the prelude is
-        # absent — so nvim, luac and a bare `hs.dofile` can all still read the
-        # file in place.
-        text = ''
-          _G.__todoistPanelCfg = {
-            -- Limi ships the rows (todoist-panel-data) on its profile's bin/.
-            data = "${inputs.limi.lib.host.profile}/bin/todoist-panel-data",
-            width = ${toString cfg.panel.width},
-            screen = ${if cfg.panel.screen == null then "nil" else ''"${cfg.panel.screen}"''},
-          }
-        ''
-        + builtins.readFile ./todoist-panel.lua;
-      };
-
       programs.fish.functions = lib.mkIf userCfg.fish.enable {
         t = ''
           # Indices are resolved against the listing you last saw, not a fresh

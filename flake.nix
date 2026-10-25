@@ -206,20 +206,6 @@
               hostCfg.config.home-manager.users.fernando.home.file.".hammerspoon/init.lua".source
             } /dev/null && touch $out
           '';
-
-        # Same blind spot as the nvim check, one layer further: nix cannot see a
-        # Lua error, AND Hammerspoon reports one only in a log nobody reads, so a
-        # broken panel is a panel that silently never appears. This runs the
-        # panel's own assertions against the INSTALLED file — prelude included —
-        # so the generated config header is covered too.
-        todoistPanelCheck =
-          hostName: hostCfg:
-          pkgs.runCommand "todoist-panel-lua-${hostName}" { } ''
-            PANEL=${
-              hostCfg.config.home-manager.users.fernando.home.file.".hammerspoon/extras/todoist-panel.lua".source
-            } \
-              ${pkgs.luajit}/bin/luajit ${./modules/cli/todoist-panel-test.lua} && touch $out
-          '';
       in
       {
         # legacyPackages, not packages: this is the whole nixpkgs set, and
@@ -243,7 +229,6 @@
             );
             nvim-init-vega = nvimInitCheck "vega" darwinConfigurations.vega;
             hammerspoon-init-vega = hammerspoonInitCheck "vega" darwinConfigurations.vega;
-            todoist-panel-vega = todoistPanelCheck "vega" darwinConfigurations.vega;
           }
           // lib.optionalAttrs (system == "x86_64-linux") {
             eval-polaris = pkgs.writeText "eval-polaris" (

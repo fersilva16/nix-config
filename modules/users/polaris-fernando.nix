@@ -21,7 +21,6 @@ mkUser {
   fd.enable = true;
   ripgrep.enable = true;
   fastfetch.enable = true;
-  # No panel: it is drawn by hammerspoon, which is darwin-only.
   todoist.enable = true;
 
   # Dev tools
