@@ -8,9 +8,9 @@
 # activation hands that pin to `limi pin`, which follows it unless a
 # `limi switch` build is active.
 #
-# Limi owns the agent (Nalum is the host's omo), tmux (limi-desktop's mux), the
-# wt/wts family and the Todoist and Slack Later tools; nix-config has no copies
-# of them. The suite's `omo` and the tmux tools live in limi-path (`host.path`),
+# Limi owns the agent (Nalum is the host's omo, add-ons included), tmux
+# (limi-desktop's mux), the wt/wts family, `lin` and the Todoist and Slack
+# Later tools; nix-config has no copies of them. The suite's `omo` and the tmux tools live in limi-path (`host.path`),
 # which limi-desktop and its mux put first on PATH.
 {
   mkUserModule,

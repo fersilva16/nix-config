@@ -17,10 +17,6 @@ let
   # terminal collapses it to a bare CR, so binding the string would be inert.
   # v2.0.0 moved to bubbletea v2, which speaks the kitty keyboard protocol, so
   # "shift+enter" became a key string that can actually match.
-  #
-  # Built from scratch rather than `pkgs.gum.overrideAttrs` so that nothing in
-  # here reads `pkgs.gum` — the overlay below replaces that attribute, and
-  # referring to it while defining it is an infinite recursion.
   gum-v2 = pkgs.buildGoModule {
     pname = "gum";
     inherit version;
@@ -52,10 +48,6 @@ let
 in
 mkUserModule {
   name = "gum";
-
-  # Override the package set, not just home.packages, so every consumer that
-  # bakes `pkgs.gum` into its PATH gets the patched build too.
-  system.nixpkgs.overlays = [ (_: _: { gum = gum-v2; }) ];
 
   home.home.packages = [ gum-v2 ];
 }
