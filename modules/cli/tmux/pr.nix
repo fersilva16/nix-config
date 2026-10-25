@@ -496,7 +496,7 @@ let
           # wt names the new session <parent>/<name> after the session it runs
           # from, which from this popup is whatever repo you happened to be
           # in. Session groups follow the first directory under ~ instead —
-          # ~/telepatia/monobloco is "telepatia", ~/nix-config is
+          # ~/work/app is "work", ~/nix-config is
           # "nix-config". Derived from the path rather than read off tmux:
           # scanning panes for one inside the repo picked whichever session
           # had last cd'd there, and the first misnamed session then won

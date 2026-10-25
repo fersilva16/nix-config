@@ -93,13 +93,13 @@ mkUserModule {
             profile = lib.mkOption {
               type = lib.types.nullOr lib.types.str;
               default = null;
-              example = "Telepatia";
+              example = "Work";
               description = ''
                 Browser profile to open for this handler (Chromium/Firefox).
                 Use the profile's *display name* from the browser's profile
-                menu (e.g. "Telepatia"), not its on-disk directory
-                ("Profile 1"); Finicky resolves the name and passes
-                `--profile-directory`.
+                menu (e.g. "Work"); Finicky resolves the name and passes
+                `--profile-directory`. For Chromium it also accepts the
+                on-disk directory ("Profile 1") when no display name matches.
               '';
             };
           };

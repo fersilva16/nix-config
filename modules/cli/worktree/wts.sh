@@ -165,8 +165,8 @@ sess_at() {
   done < <(tmux list-sessions -F "#{session_path}	#{session_name}	#{pane_current_path}" 2>/dev/null)
   [ -z "$alt" ] || echo "$alt"
 }
-# The session this repo's worktrees hang under ("telepatia" for
-# telepatia/programas): whatever an existing worktree session uses, else the
+# The session this repo's worktrees hang under ("work" for
+# work/app): whatever an existing worktree session uses, else the
 # session on the main checkout, else the caller's — the same thing `wt` uses.
 parent_session() {
   local sp sn

@@ -104,10 +104,10 @@ mkUser {
   #
   # Finicky opens Google Chrome with a specific profile via its native
   # `profile` support, which resolves the profile's display name against
-  # Chrome's Local State and launches with `--profile-directory`. Profile
-  # display names (not the on-disk "Profile N" dirs):
+  # Chrome's Local State and launches with `--profile-directory`, falling
+  # back to the on-disk "Profile N" dir when no display name matches:
   #   "Personal"  → fernandonsilva16@gmail.com   (Chrome dir "Profile 2")
-  #   "Telepatia" → fernando.silva@telepatia.ai  (Chrome dir "Profile 1")
+  #   "Profile 1" → work account (keyed by dir)
   finicky = {
     enable = true;
     hideIcon = true;
@@ -130,17 +130,17 @@ mkUser {
         browser = "Google Chrome";
         profile = "Personal";
       }
-      # Every link clicked inside the Slack app → Telepatia (work).
+      # Every link clicked inside the Slack app → work profile.
       {
         fromApp = "com.tinyspeck.slackmacgap";
         browser = "Google Chrome";
-        profile = "Telepatia";
+        profile = "Profile 1";
       }
-      # Work GitHub org → Telepatia.
+      # Work GitHub org → work profile.
       {
         match = [ "github.com/telepatia-ai/*" ];
         browser = "Google Chrome";
-        profile = "Telepatia";
+        profile = "Profile 1";
       }
     ];
   };
