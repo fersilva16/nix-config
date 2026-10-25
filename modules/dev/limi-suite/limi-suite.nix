@@ -109,6 +109,14 @@ mkUserModule {
         "/usr/sbin"
         "/sbin"
       ];
+      # The tmux options the suite's scripts read and only the host knows.
+      # Each mirrors the option the matching nix-config module already has.
+      hostOptions =
+        lib.optionals (userCfg.slack.enable && userCfg.slack.later.enable) [
+          "set -g @slack-later-workspace ${lib.escapeShellArg userCfg.slack.later.workspace}"
+          "set -g @slack-later-group ${userCfg.slack.later.groupBy}"
+        ]
+        ++ lib.optional userCfg.todoist.enable "set -g @todoist-warn-at ${toString userCfg.todoist.warnAt}";
       inherit (userCfg.todoist) reviewAt;
       reviewHM = lib.splitString ":" (if reviewAt != null then reviewAt else "0:0");
     in
@@ -120,6 +128,13 @@ mkUserModule {
         xdg.configFile."limi/machines".text = lib.concatStrings (
           lib.mapAttrsToList (name: args: lib.concatStringsSep " " ([ name ] ++ args) + "\n") machines
         );
+      })
+      # The mux sources this file after every tmux.d, so these win over the
+      # suite's defaults; `limi switch` never touches it. A running mux reads
+      # it again on prefix+R. On Linux the host tmux reads it too, through
+      # mux.conf.
+      (lib.mkIf (hostOptions != [ ]) {
+        home.file.${host.hostConf}.text = lib.concatMapStrings (line: line + "\n") hostOptions;
       })
       # With no `omo` of its own, Nalum is this host's omo, so its home is
       # ~/.omo: the same config, sessions and login, and whatever omo-home
