@@ -53,6 +53,23 @@
         "type": "github"
       }
     },
+    "crate2nix": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1769627083,
+        "narHash": "sha256-SUuruvw1/moNzCZosHaa60QMTL+L9huWdsCBN6XZIic=",
+        "owner": "nix-community",
+        "repo": "crate2nix",
+        "rev": "7c33e664668faecf7655fa53861d7a80c9e464a2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "ref": "0.15.0",
+        "repo": "crate2nix",
+        "type": "github"
+      }
+    },
     "darwin": {
       "inputs": {
         "nixpkgs": [
@@ -263,14 +280,15 @@
     "limi": {
       "inputs": {
         "crane": "crane",
+        "crate2nix": "crate2nix",
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1792625439,
-        "narHash": "sha256-gY/RnGxN4MWv/DIkoL+kLgM2FOmaYMG2RY9KeO8Kyxs=",
+        "lastModified": 1792902118,
+        "narHash": "sha256-hQCjWApaMQc3tlWmZrSlN3uQ1o01gpPWlcAALb/csg4=",
         "ref": "refs/heads/main",
-        "rev": "260f8f8bde25064b67b6d9935e544d0fc6adf9c9",
-        "revCount": 161,
+        "rev": "6999f6728cfd5395c4fdfefc75de7b0ee7bfd3f5",
+        "revCount": 193,
         "type": "git",
         "url": "ssh://git@github.com/fersilva16/limi"
       },

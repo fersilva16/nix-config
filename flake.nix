@@ -229,26 +229,28 @@
         # and `nix build .#<anypkg>` still resolves through it.
         legacyPackages = pkgs;
 
-        checks = {
-          # `nix flake check` fully evaluates nixosConfigurations but skips
-          # darwinConfigurations, so a vega-only eval error (e.g. a home file
-          # whose `.text = mkIf false …` leaves `source` undefined) first
-          # surfaces at `darwin-rebuild switch`. Forcing drvPath evaluates the
-          # whole system; discarding its context keeps this eval-only, so it
-          # runs on every system (polaris pushes check vega too) without
-          # building vega.
-          eval-vega = pkgs.writeText "eval-vega" (
-            builtins.unsafeDiscardStringContext darwinConfigurations.vega.system.drvPath
-          );
-        }
-        // lib.optionalAttrs (system == "aarch64-darwin") {
-          nvim-init-vega = nvimInitCheck "vega" darwinConfigurations.vega;
-          hammerspoon-init-vega = hammerspoonInitCheck "vega" darwinConfigurations.vega;
-          todoist-panel-vega = todoistPanelCheck "vega" darwinConfigurations.vega;
-        }
-        // lib.optionalAttrs (system == "x86_64-linux") {
-          nvim-init-polaris = nvimInitCheck "polaris" nixosConfigurations.polaris;
-        };
+        # Forcing a host's drvPath evaluates the whole system, so an eval error
+        # (e.g. a home file whose `.text = mkIf false …` leaves `source`
+        # undefined) fails here, not at the next switch. Discarding the
+        # context keeps it eval-only. Each host is checked only on its own
+        # system: limi-suite's crate2nix import-from-derivation builds during
+        # evaluation, so evaluating the other host would need its platform's
+        # builder.
+        checks =
+          lib.optionalAttrs (system == "aarch64-darwin") {
+            eval-vega = pkgs.writeText "eval-vega" (
+              builtins.unsafeDiscardStringContext darwinConfigurations.vega.system.drvPath
+            );
+            nvim-init-vega = nvimInitCheck "vega" darwinConfigurations.vega;
+            hammerspoon-init-vega = hammerspoonInitCheck "vega" darwinConfigurations.vega;
+            todoist-panel-vega = todoistPanelCheck "vega" darwinConfigurations.vega;
+          }
+          // lib.optionalAttrs (system == "x86_64-linux") {
+            eval-polaris = pkgs.writeText "eval-polaris" (
+              builtins.unsafeDiscardStringContext nixosConfigurations.polaris.config.system.build.toplevel.drvPath
+            );
+            nvim-init-polaris = nvimInitCheck "polaris" nixosConfigurations.polaris;
+          };
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
