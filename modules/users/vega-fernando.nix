@@ -1,4 +1,21 @@
 { mkUser, ... }:
+let
+  # "polaris ⇢" in the session picker hops into polaris's mux (no nesting);
+  # detaching there comes back. Nothing connects until it is picked.
+  #
+  # The hop also opens a SOCKS5 proxy on 127.0.0.1:1080 that egresses from
+  # polaris, alive while you are over there. That is a convenience (a route
+  # out through the house), NOT the way this machine reaches the tailnet —
+  # reaching polaris is the precondition for the proxy, so it cannot also
+  # be the means. Point clients at it with `--socks5-hostname` (curl) or
+  # ProxyCommand (ssh) so names resolve on the polaris side. It is a full
+  # proxy, not a tailnet-only route: anything aimed at 1080 leaves via the
+  # house rather than via WARP.
+  peers.polaris = [
+    "-D"
+    "1080"
+  ];
+in
 mkUser {
   name = "fernando";
 
@@ -12,24 +29,10 @@ mkUser {
   fish.enable = true;
   starship.enable = true;
   direnv.enable = true;
+  # Host tmux's own picker, until the tmux module goes.
   tmux = {
     enable = true;
-    # "polaris ⇢" in the session picker hops this terminal into polaris's
-    # tmux (no nesting); prefix+d there comes back. Nothing connects until
-    # it is picked.
-    #
-    # The hop also opens a SOCKS5 proxy on 127.0.0.1:1080 that egresses from
-    # polaris, alive while you are over there. That is a convenience (a route
-    # out through the house), NOT the way this machine reaches the tailnet —
-    # reaching polaris is the precondition for the proxy, so it cannot also
-    # be the means. Point clients at it with `--socks5-hostname` (curl) or
-    # ProxyCommand (ssh) so names resolve on the polaris side. It is a full
-    # proxy, not a tailnet-only route: anything aimed at 1080 leaves via the
-    # house rather than via WARP.
-    peers.polaris = [
-      "-D"
-      "1080"
-    ];
+    inherit peers;
   };
   worktree.enable = true;
   zoxide.enable = true;
@@ -66,7 +69,10 @@ mkUser {
   omo.enable = true;
   # Limi Desktop and its mux. The suite's tmux shim, omo and tools stay in
   # limi-path, on PATH only inside limi-desktop, so vega keeps its own.
-  limi-suite.enable = true;
+  limi-suite = {
+    enable = true;
+    inherit peers;
+  };
   i-have-adhd.enable = true;
   ponytail.enable = true;
   autoresearch.enable = true;
