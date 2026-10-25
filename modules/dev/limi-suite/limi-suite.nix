@@ -36,6 +36,22 @@ in
 mkUserModule {
   name = "limi-suite";
   requires = [ "omo-home" ];
+  extraOptions.peers = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+    default = { };
+    example = {
+      polaris = [
+        "-D"
+        "1080"
+      ];
+    };
+    description = ''
+      Extra ssh arguments per machine limi-desktop, its session picker and
+      `limi attach` can reach. Fleet peers that advertise "ssh"
+      (modules/system/fleet.nix) are always listed; an entry here adds args
+      or a machine outside the fleet. Nothing connects until you pick one.
+    '';
+  };
   parts = {
     server = import ./server.nix {
       inherit
@@ -62,18 +78,39 @@ mkUserModule {
     };
   };
   home =
-    { username, userCfg, ... }:
+    {
+      cfg,
+      username,
+      userCfg,
+      ...
+    }:
     # Nested function for home-manager's `config` (mkOutOfStoreSymlink),
     # which mkUserModule's home builder doesn't pass.
     { config, ... }:
     let
       profile = "${homeOf username}/${host.profile}";
       limiPath = "${profile}/${host.path}";
-      # The tmux picker's hop targets: every fleet peer that advertises "ssh",
-      # plus the tmux module's `peers`, each with its ssh args.
+      # The picker's hop targets: every fleet peer that advertises "ssh",
+      # plus `peers`, each with its ssh args.
       machines =
         lib.mapAttrs (_: _: [ ]) (lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers)
-        // userCfg.tmux.peers;
+        // cfg.peers;
+      # launchd starts jobs with PATH=/usr/bin:/bin:/usr/sbin:/sbin. The
+      # suite's scripts call `tmux` from PATH, which must be limi-path's shim
+      # so they reach limi-desktop's mux; `td` comes from Homebrew.
+      jobPath = lib.concatStringsSep ":" [
+        limiPath
+        "${profile}/bin"
+        "/etc/profiles/per-user/${username}/bin"
+        "/run/current-system/sw/bin"
+        "/opt/homebrew/bin"
+        "/usr/bin"
+        "/bin"
+        "/usr/sbin"
+        "/sbin"
+      ];
+      inherit (userCfg.todoist) reviewAt;
+      reviewHM = lib.splitString ":" (if reviewAt != null then reviewAt else "0:0");
     in
     lib.mkMerge [
       # The machines limi-desktop, its session picker and `limi attach` reach
@@ -100,6 +137,44 @@ mkUserModule {
           ".omo/rules/worktree-stacks.md".enable = lib.mkIf (
             userCfg.worktree.enable && userCfg.worktree.stack.enable
           ) false;
+        };
+      })
+      # limi-desktop draws with Ghostty's config (~/.config/ghostty/config
+      # first). With the Ghostty app off nothing writes that file, so write
+      # the same look here: programs.ghostty with no package is only the file.
+      # Same settings as terminal/ghostty.nix; with the app on, that module
+      # writes it.
+      (lib.mkIf (!userCfg.ghostty.enable) {
+        programs.ghostty = {
+          enable = true;
+          package = null;
+          settings = {
+            theme = "Flexoki Light";
+
+            font-family = "CaskaydiaCove Nerd Font";
+            font-family-bold = "CaskaydiaCove Nerd Font";
+            font-family-italic = "auto";
+            font-family-bold-italic = "auto";
+            font-size = 12;
+
+            cursor-style = "bar";
+            cursor-style-blink = true;
+            adjust-cursor-thickness = 2;
+
+            macos-option-as-alt = true;
+            macos-titlebar-style = "transparent";
+            window-theme = "auto";
+            gtk-titlebar = false;
+
+            window-padding-x = 8;
+            window-padding-y = 8;
+
+            # Cmd+P and Cmd+Shift+F reach Neovim as CSI-u sequences.
+            keybind = [
+              "super+p=text:\\x1b[80;6u"
+              "super+shift+f=text:\\x1b[70;6u"
+            ];
+          };
         };
       })
       {
@@ -148,6 +223,48 @@ mkUserModule {
       # shim is the host's `tmux` anyway.
       (forPlatform {
         darwin = lib.mkMerge [
+          # The suite's timers, run from limi-path against limi-desktop's mux.
+          # Labels differ from nix-config's own wt-pool-refresh and
+          # tmux-todoist-review agents, which serve the host tmux while those
+          # modules are on. Two pool refreshes are safe (wt-pool-fill takes a
+          # lock); the review is the mux's only once host tmux is off, so one
+          # popup gates the day.
+          {
+            # Every 15 minutes, low priority. A run with nothing to rebuild is
+            # a fetch and a `git status` per pool.
+            launchd.agents.limi-wt-pool-refresh = {
+              enable = true;
+              config = {
+                ProgramArguments = [ "${limiPath}/wt-pool-refresh" ];
+                EnvironmentVariables.PATH = jobPath;
+                RunAtLoad = false;
+                StartInterval = 900;
+                ProcessType = "Background";
+                LowPriorityIO = true;
+                Nice = 10;
+              };
+            };
+            # Local wall-clock: 06:00 stays 06:00 after a flight, and a missed
+            # run fires on wake. Never at load, so a 3pm login does not fire
+            # the morning review.
+            launchd.agents.limi-todoist-review =
+              lib.mkIf (userCfg.todoist.enable && reviewAt != null && !userCfg.tmux.enable)
+                {
+                  enable = true;
+                  config = {
+                    ProgramArguments = [ "${limiPath}/tmux-todoist-review" ];
+                    EnvironmentVariables.PATH = jobPath;
+                    StartCalendarInterval = [
+                      {
+                        Hour = lib.toIntBase10 (builtins.elemAt reviewHM 0);
+                        Minute = lib.toIntBase10 (builtins.elemAt reviewHM 1);
+                      }
+                    ];
+                    RunAtLoad = false;
+                    ProcessType = "Interactive";
+                  };
+                };
+          }
           {
             # agents/* panes run `/bin/sh -l`, which reads ~/.profile. That
             # file isn't ours (installers append to it), so only make sure it
@@ -181,8 +298,9 @@ mkUserModule {
             };
           }
           (lib.mkIf userCfg.fish.enable {
-            # After every other init (fish's PATH juggling included). Login
-            # covers `fish -lc`; interactive covers a plain `fish` in a pane.
+            # After every other init. shellInit runs in every fish, so a
+            # plain `fish -c` gets it too; interactive runs again after
+            # fish.nix's PATH juggling, which lives there.
             programs.fish =
               let
                 first = ''
@@ -192,7 +310,7 @@ mkUserModule {
                 '';
               in
               {
-                loginShellInit = lib.mkAfter first;
+                shellInit = lib.mkAfter first;
                 interactiveShellInit = lib.mkAfter first;
               };
           })
