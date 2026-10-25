@@ -29,12 +29,14 @@ repos:
         language: system
         entry: statix check .
 
-      # Evaluates every host from any machine: nixosConfigurations are not
-      # keyed by system, so a darwin-only option leaking into polaris fails
-      # here on vega. Pre-push, not pre-commit: it evaluates both hosts.
-      - name: nix flake check
-        id: nix-flake-check
+      # The pushing machine's checks only: each host's eval-<host> plus its Lua
+      # checks. Not `nix flake check`, which evaluates nixosConfigurations from
+      # any machine: limi-suite's crate2nix import-from-derivation then needs
+      # an x86_64-linux build on vega, which has no linux builder. So a
+      # polaris-only eval error surfaces on the next push from polaris.
+      - name: nix checks (this system)
+        id: nix-checks
         pass_filenames: false
         stages: [pre-push]
         language: system
-        entry: nix flake check
+        entry: nix build --impure --no-link --expr 'builtins.attrValues (builtins.getFlake (toString ./.)).checks.${builtins.currentSystem}'
