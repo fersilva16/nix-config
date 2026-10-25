@@ -5,49 +5,6 @@
   ...
 }:
 let
-  # prefix+l toggles a lazygit split, one per tmux session, replacing tmux's
-  # last-window. The first press splits a pane running lazygit and tags it
-  # @lazygit. Pressing it again breaks that pane out into a background window
-  # of the same session; the next press joins it back beside the current
-  # pane. lazygit keeps running throughout, so it comes back with the same
-  # view, selection and scroll position. Quitting lazygit (q) closes the pane;
-  # the next press starts a fresh one. The pane never leaves its session, so
-  # killing the session (wtrm, kill-session) takes lazygit with it.
-  #
-  # lazygit runs through a LOGIN fish, not the bare binary. A command passed
-  # to split-window is exec'd from the tmux server's environment, which is
-  # whatever the server was launched with: here /usr/bin:/bin and the tmux
-  # store path, no ~/.nix-profile/bin. A bare `lazygit` is not found, the
-  # pane dies before it draws, and the split looks like it opens and
-  # instantly closes. An absolute store path would fix launching but not the
-  # customCommands below, which shell out to fish and gh and would inherit
-  # that same stripped PATH. The login shell fixes both. It execs lazygit so
-  # tmux reports the pane as `lazygit` rather than `fish`, which is what
-  # tmux-nerd-font-window-name matches its icon on (theme.nix).
-  tmux-lazygit = pkgs.writeShellApplication {
-    name = "tmux-lazygit";
-    runtimeInputs = [ pkgs.tmux ];
-    text = ''
-      pane=$(tmux list-panes -s -f '#{==:#{@lazygit},1}' -F '#{pane_id}' | head -1)
-      if [ -z "$pane" ]; then
-        pane=$(tmux split-window -h -P -F '#{pane_id}' \
-          -c "$(tmux display-message -p '#{pane_current_path}')" \
-          '${pkgs.fish}/bin/fish -lc "exec lazygit"')
-        tmux set-option -p -t "$pane" @lazygit 1
-      elif [ "$(tmux display-message -p -t "$pane" '#{window_id}')" != "$(tmux display-message -p '#{window_id}')" ]; then
-        tmux join-pane -h -s "$pane"
-      elif [ "$(tmux display-message -p '#{window_panes}')" -gt 1 ]; then
-        # @hidden_window keeps the parked window out of the status bar's
-        # window list (flexoki-bar.conf).
-        win=$(tmux break-pane -d -P -F '#{window_id}' -s "$pane" -n lazygit)
-        tmux set-option -w -t "$win" @hidden_window 1
-      else
-        # Standing in lazygit's own background window: nothing to split from.
-        tmux last-window
-      fi
-    '';
-  };
-
   # delta's light defaults shade a changed word barely darker than its line,
   # so in-line edits are hard to spot. Keep its line tints, mark the changed
   # words with a much darker shade plus bold. (Flexoki's greens looked muddy
@@ -70,10 +27,7 @@ mkUserModule {
   home =
     { userCfg, ... }:
     {
-      home.packages = [ pkgs.delta ] ++ lib.optionals userCfg.tmux.enable [ tmux-lazygit ];
-      programs.tmux.extraConfig = lib.mkIf userCfg.tmux.enable ''
-        bind-key l run-shell '${tmux-lazygit}/bin/tmux-lazygit'
-      '';
+      home.packages = [ pkgs.delta ];
 
       programs.lazygit = {
         enable = true;

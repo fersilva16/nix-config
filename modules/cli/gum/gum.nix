@@ -54,9 +54,8 @@ mkUserModule {
   name = "gum";
 
   # modules/dev/linear.nix bakes `pkgs.gum` into its script's PATH at build
-  # time, and modules/cli/todoist.nix lists it in runtimeInputs, so putting the
-  # patched build only in home.packages would leave those scripts pointing at
-  # the unpatched 0.17.0 store path. Override the package set instead, and
+  # time, so putting the patched build only in home.packages would leave it
+  # pointing at the unpatched 0.17.0 store path. Override the package set instead, and
   # every consumer follows.
   system.nixpkgs.overlays = [ (_: _: { gum = gum-v2; }) ];
 

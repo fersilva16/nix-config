@@ -8,12 +8,10 @@
 # activation hands that pin to `limi pin`, which follows it unless a
 # `limi switch` build is active.
 #
-# Works next to `omo`: the suite's `omo` and `nalum` live in limi-path
-# (`host.path`), which only limi-desktop and its mux put on PATH, so they never
-# shadow the host's own omo. Nalum keeps its own home (`host.nalumHome`) and
-# leaves ~/.omo to the host's omo. It still reads ~/.omo's omo.jsonc and rules,
-# and omo unpacks Nalum's version into ~/.omo/binary-runtime: omo has no
-# variable for either.
+# Limi owns the agent (Nalum is the host's omo), tmux (limi-desktop's mux), the
+# wt/wts family and the Todoist and Slack Later tools; nix-config has no copies
+# of them. The suite's `omo` and the tmux tools live in limi-path (`host.path`),
+# which limi-desktop and its mux put first on PATH.
 {
   mkUserModule,
   forPlatform,
@@ -36,6 +34,25 @@ in
 mkUserModule {
   name = "limi-suite";
   requires = [ "omo-home" ];
+  extraOptions.slackLater = {
+    workspace = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "example.slack.com";
+      description = ''
+        Exact Slack workspace domain for the suite's Slack Later count and
+        popup (`@slack-later-workspace`). Empty keeps Slack Later off.
+      '';
+    };
+    groupBy = lib.mkOption {
+      type = lib.types.enum [
+        "channel"
+        "flat"
+      ];
+      default = "channel";
+      description = "The view the Slack Later popup opens in (`@slack-later-group`).";
+    };
+  };
   extraOptions.peers = lib.mkOption {
     type = lib.types.attrsOf (lib.types.listOf lib.types.str);
     default = { };
@@ -110,11 +127,10 @@ mkUserModule {
         "/sbin"
       ];
       # The tmux options the suite's scripts read and only the host knows.
-      # Each mirrors the option the matching nix-config module already has.
       hostOptions =
-        lib.optionals (userCfg.slack.enable && userCfg.slack.later.enable) [
-          "set -g @slack-later-workspace ${lib.escapeShellArg userCfg.slack.later.workspace}"
-          "set -g @slack-later-group ${userCfg.slack.later.groupBy}"
+        lib.optionals (cfg.slackLater.workspace != "") [
+          "set -g @slack-later-workspace ${lib.escapeShellArg cfg.slackLater.workspace}"
+          "set -g @slack-later-group ${cfg.slackLater.groupBy}"
         ]
         ++ lib.optional userCfg.todoist.enable "set -g @todoist-warn-at ${toString userCfg.todoist.warnAt}";
       inherit (userCfg.todoist) reviewAt;
@@ -136,23 +152,28 @@ mkUserModule {
       (lib.mkIf (hostOptions != [ ]) {
         home.file.${host.hostConf}.text = lib.concatMapStrings (line: line + "\n") hostOptions;
       })
-      # With no `omo` of its own, Nalum is this host's omo, so its home is
-      # ~/.omo: the same config, sessions and login, and whatever omo-home
-      # modules drop there. It must exist before that Nalum first runs, or
-      # Nalum makes a real directory here and this link collides.
-      #
-      # Nalum's launch links its own rules/tmux.md and rules/worktree-stacks.md
-      # (its `omoHome`) into that same directory, so Home Manager must not
-      # manage them too, or the next rebuild fails with "would be clobbered".
-      # Nalum's copies cover the same ground (tmux.md adds the limi-mux shim).
-      (lib.mkIf (!userCfg.omo.enable) {
-        home.file = {
-          ${host.nalumHome}.source = config.lib.file.mkOutOfStoreSymlink "${homeOf username}/.omo";
-          ".omo/rules/tmux.md".enable = lib.mkIf userCfg.tmux.enable false;
-          ".omo/rules/worktree-stacks.md".enable = lib.mkIf (
-            userCfg.worktree.enable && userCfg.worktree.stack.enable
-          ) false;
-        };
+      # Nalum is this host's omo, so its home is ~/.omo: the same config,
+      # sessions and login, and whatever omo-home modules drop there. It must
+      # exist before that Nalum first runs, or Nalum makes a real directory
+      # here and this link collides.
+      {
+        home.file.${host.nalumHome}.source = config.lib.file.mkOutOfStoreSymlink "${homeOf username}/.omo";
+      }
+      # The nvim half of the mux's Alt+hjkl pane navigation. Normal mode only,
+      # so visual-mode Alt+j/k (move selection) still reaches nvim's map.
+      (lib.mkIf userCfg.nvim.enable {
+        programs.neovim.plugins = [
+          {
+            plugin = pkgs.vimPlugins.vim-tmux-navigator;
+            config = ''
+              vim.g.tmux_navigator_no_mappings = 1
+              vim.keymap.set('n', '<A-h>', '<cmd>TmuxNavigateLeft<cr>', { desc = 'Window/pane left', silent = true })
+              vim.keymap.set('n', '<A-j>', '<cmd>TmuxNavigateDown<cr>', { desc = 'Window/pane down', silent = true })
+              vim.keymap.set('n', '<A-k>', '<cmd>TmuxNavigateUp<cr>', { desc = 'Window/pane up', silent = true })
+              vim.keymap.set('n', '<A-l>', '<cmd>TmuxNavigateRight<cr>', { desc = 'Window/pane right', silent = true })
+            '';
+          }
+        ];
       })
       # limi-desktop draws with Ghostty's config (~/.config/ghostty/config
       # first). With the Ghostty app off nothing writes that file, so write
@@ -205,31 +226,6 @@ mkUserModule {
           };
         };
       }
-      # The suite's tmux config and status-bar widget, read through the
-      # profile so `limi switch` updates them too, plus the window icon for
-      # omo panes. Linux only: there the host's tmux is the suite's mux. On
-      # macOS limi-desktop runs its own mux and ships both empty, so the host
-      # tmux stays as it was.
-      (forPlatform {
-        linux = lib.mkIf userCfg.tmux.enable {
-          programs.tmux.extraConfig = "source-file -q ${profile}/${host.tmuxConf}";
-          xdg.configFile = {
-            # Appends to the `icons:` map cli/tmux/theme.nix writes, so it must
-            # land after it. Glyph is U+F51B, chosen by hand: keep it. `omo`
-            # adds the same entry, and a second `omo:` key breaks the map.
-            "tmux/tmux-nerd-font-window-name.yml" = lib.mkIf (!userCfg.omo.enable) {
-              text = lib.mkAfter "  omo: \"\"";
-            };
-            "tmux/widgets/10-limi" = {
-              executable = true;
-              text = ''
-                #!/usr/bin/env bash
-                exec ${profile}/${host.tmuxWidget} "$@"
-              '';
-            };
-          };
-        };
-      })
       # limi-desktop and its mux start each pane with limi-path first, so a
       # bare `tmux` there is the suite's shim. On macOS a login shell then
       # reorders PATH (path_helper, fish's PATH juggling, ~/.profile), so move
@@ -239,11 +235,6 @@ mkUserModule {
       (forPlatform {
         darwin = lib.mkMerge [
           # The suite's timers, run from limi-path against limi-desktop's mux.
-          # Labels differ from nix-config's own wt-pool-refresh and
-          # tmux-todoist-review agents, which serve the host tmux while those
-          # modules are on. Two pool refreshes are safe (wt-pool-fill takes a
-          # lock); the review is the mux's only once host tmux is off, so one
-          # popup gates the day.
           {
             # Every 15 minutes, low priority. A run with nothing to rebuild is
             # a fetch and a `git status` per pool.
@@ -262,23 +253,21 @@ mkUserModule {
             # Local wall-clock: 06:00 stays 06:00 after a flight, and a missed
             # run fires on wake. Never at load, so a 3pm login does not fire
             # the morning review.
-            launchd.agents.limi-todoist-review =
-              lib.mkIf (userCfg.todoist.enable && reviewAt != null && !userCfg.tmux.enable)
-                {
-                  enable = true;
-                  config = {
-                    ProgramArguments = [ "${limiPath}/tmux-todoist-review" ];
-                    EnvironmentVariables.PATH = jobPath;
-                    StartCalendarInterval = [
-                      {
-                        Hour = lib.toIntBase10 (builtins.elemAt reviewHM 0);
-                        Minute = lib.toIntBase10 (builtins.elemAt reviewHM 1);
-                      }
-                    ];
-                    RunAtLoad = false;
-                    ProcessType = "Interactive";
-                  };
-                };
+            launchd.agents.limi-todoist-review = lib.mkIf (userCfg.todoist.enable && reviewAt != null) {
+              enable = true;
+              config = {
+                ProgramArguments = [ "${limiPath}/tmux-todoist-review" ];
+                EnvironmentVariables.PATH = jobPath;
+                StartCalendarInterval = [
+                  {
+                    Hour = lib.toIntBase10 (builtins.elemAt reviewHM 0);
+                    Minute = lib.toIntBase10 (builtins.elemAt reviewHM 1);
+                  }
+                ];
+                RunAtLoad = false;
+                ProcessType = "Interactive";
+              };
+            };
           }
           {
             # agents/* panes run `/bin/sh -l`, which reads ~/.profile. That

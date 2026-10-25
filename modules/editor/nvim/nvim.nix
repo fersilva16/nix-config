@@ -79,7 +79,7 @@ mkUserModule {
         -- ╚══════════════════════════════════════════╝
 
         -- Move selection up/down (like Alt+Up/Down in VS Code). Visual only:
-        -- normal-mode Alt+hjkl is split/pane navigation (tmux module).
+        -- normal-mode Alt+hjkl is split/pane navigation (limi-suite module).
         vim.keymap.set('v', '<A-j>', ":m '>+1<CR>gv=gv", { desc = 'Move selection down', silent = true })
         vim.keymap.set('v', '<A-k>', ":m '<-2<CR>gv=gv", { desc = 'Move selection up', silent = true })
 

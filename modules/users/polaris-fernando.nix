@@ -14,8 +14,6 @@ mkUser {
   fish.enable = true;
   starship.enable = true;
   direnv.enable = true;
-  tmux.enable = true;
-  worktree.enable = true;
   zoxide.enable = true;
   eza.enable = true;
   fzf.enable = true;
@@ -32,7 +30,7 @@ mkUser {
   incus.enable = true;
   claude.enable = true;
   "claude-code".enable = true;
-  # Nalum (limi-suite) is this host's omo.
+  # Nalum (this host's omo), the mux as `tmux`, and the wt and Todoist tools.
   limi-suite.enable = true;
   agent-path.enable = true;
   i-have-adhd.enable = true;
