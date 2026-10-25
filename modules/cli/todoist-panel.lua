@@ -42,8 +42,9 @@ local WIDTH = cfg.width or 300
 local SCREEN = cfg.screen
 local EVERY = cfg.refresh or 60
 
--- Same reason init.lua spells out the path for tmux-todoist-pick: this file is
--- installed with `source =`, so nix cannot interpolate a store path into it.
+-- Todoist's rows come from Limi's todoist-panel-data, on the Limi profile's
+-- bin/ (cfg.data, relative to $HOME, set by the nix prelude). Guests are on
+-- the Home Manager profile.
 --
 -- /bin/sh because the glob IS the extension point for GUESTS: any other module
 -- with something worth seeing all day drops its own *-panel-data on the
@@ -54,12 +55,13 @@ local EVERY = cfg.refresh or 60
 --
 -- The expansion lives inside the -c script rather than in this table because
 -- hs.task hands arguments to the executable verbatim, never through a shell.
+local TODOIST_DATA = cfg.data or ".local/state/nix/profiles/limi/bin/todoist-panel-data"
 local DATA = "/bin/sh"
 local DATA_ARGS = {
   "-c",
-  [[
+  'td="$HOME/' .. TODOIST_DATA .. '"\n' .. [[
 b="$HOME/.nix-profile/bin"
-[ -x "$b/todoist-panel-data" ] && "$b/todoist-panel-data"
+[ -x "$td" ] && "$td"
 for f in "$b"/*-panel-data; do
   [ "$f" = "$b/todoist-panel-data" ] && continue
   [ -x "$f" ] && "$f"

@@ -29,12 +29,6 @@ mkUser {
   fish.enable = true;
   starship.enable = true;
   direnv.enable = true;
-  # Host tmux's own picker, until the tmux module goes.
-  tmux = {
-    enable = true;
-    inherit peers;
-  };
-  worktree.enable = true;
   zoxide.enable = true;
   eza.enable = true;
   fzf.enable = true;
@@ -66,12 +60,12 @@ mkUser {
   claude.enable = true;
   "claude-code".enable = true;
   codex.enable = true;
-  omo.enable = true;
-  # Limi Desktop and its mux. The suite's tmux shim, omo and tools stay in
-  # limi-path, on PATH only inside limi-desktop, so vega keeps its own.
+  # Limi Desktop and its mux, Nalum (this host's omo), and the tmux, wt,
+  # Todoist and Slack Later tools.
   limi-suite = {
     enable = true;
     inherit peers;
+    slackLater.workspace = "telepatiaworkspace.slack.com";
   };
   i-have-adhd.enable = true;
   ponytail.enable = true;
@@ -149,11 +143,7 @@ mkUser {
   ghostty.enable = true;
 
   # Chat & communication
-  slack = {
-    enable = true;
-    later.workspace = "telepatiaworkspace.slack.com";
-    later.enable = true;
-  };
+  slack.enable = true;
   teams.enable = true;
   telegram.enable = true;
   whatsapp.enable = true;

@@ -98,6 +98,6 @@ mkUserModule {
   # ForwardAgent names the 1Password socket because `yes` would forward
   # $SSH_AUTH_SOCK, which on darwin is launchd's agent, not IdentityAgent.
   #
-  # Getting a shell on polaris is the tmux picker's job (tmux `peers`), which
-  # hops this terminal into polaris's tmux instead of nesting it.
+  # Getting a shell on polaris is limi-desktop's session picker's job
+  # (limi-suite `peers`), which hops into polaris's mux instead of nesting it.
 }
