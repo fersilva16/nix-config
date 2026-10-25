@@ -130,7 +130,7 @@ create table cookies (
 SQL
   add_encrypted_cookie "$db" 1 '.slack.com' d 'xoxd-encrypted%2Fvalue' / 0 1
   add_plain_cookie "$db" 2 '.slack.com' d-s 'plain-d-s%2Fvalue' / 0 1
-  add_plain_cookie "$db" 3 'telepatiaworkspace.slack.com' workspace 'workspace%2Fvalue' /api 0 1
+  add_plain_cookie "$db" 3 'example.slack.com' workspace 'workspace%2Fvalue' /api 0 1
   add_plain_cookie "$db" 4 '.slack.com' insecure 'insecure%2Fvalue' /api 0 0
   add_plain_cookie "$db" 5 'slack.com' parent-host-only 'must-not-send' / 0 1
   add_plain_cookie "$db" 6 '.other.slack.com' other-domain 'must-not-send' / 0 1
@@ -206,7 +206,7 @@ saved_page() {
 case "$MOCK_MODE" in
   success)
     case "$config" in
-      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
+      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://example.slack.com/"}' ;;
       *saved.list*) saved_page ;;
       *conversations.info*)
         case "$config" in
@@ -234,13 +234,13 @@ case "$MOCK_MODE" in
     ;;
   server-error)
     case "$config" in
-      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
+      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://example.slack.com/"}' ;;
       *saved.list*) printf '%s\n' '{"ok":false,"error":"ratelimited"}' ;;
     esac
     ;;
   endless)
     case "$config" in
-      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
+      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://example.slack.com/"}' ;;
       *saved.list*) printf '%s\n' "$SAVED_RESPONSE" ;;
       *messages.list*) printf '%s\n' "$MESSAGE_RESPONSE" ;;
       *) printf '%s\n' '{"ok":false}' ;;
@@ -248,7 +248,7 @@ case "$MOCK_MODE" in
     ;;
   messages-error)
     case "$config" in
-      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://telepatiaworkspace.slack.com/"}' ;;
+      *auth.test*) printf '%s\n' '{"ok":true,"url":"https://example.slack.com/"}' ;;
       *saved.list*) saved_page ;;
       *messages.list*) printf '%s\n' '{"ok":false,"error":"ratelimited"}' ;;
     esac
@@ -259,7 +259,7 @@ chmod +x "$TMP/bin/security" "$TMP/bin/curl"
 export TMUX_SLACK_LATER_SECURITY="$TMP/bin/security"
 
 export TMUX_SLACK_LATER_PROFILE="$TMP/missing/Default"
-export TMUX_SLACK_LATER_WORKSPACE="telepatiaworkspace.slack.com"
+export TMUX_SLACK_LATER_WORKSPACE="example.slack.com"
 
 # 0. --cached answers from disk and never fetches — this is what lets a caller
 # paint before the network. Nothing has run yet, so the cache root is absent: a
@@ -298,7 +298,7 @@ check "first workspace cache remains intact" "profile" "$(jq -r '.error' "$first
 printf 'ok   source and workspace cache isolation\n'
 
 # 3. A corrupt count is a red error, never a silent zero.
-export TMUX_SLACK_LATER_WORKSPACE="telepatiaworkspace.slack.com"
+export TMUX_SLACK_LATER_WORKSPACE="example.slack.com"
 malformed_cache=$(cache)
 cat >"$malformed_cache" <<'EOF'
 {"counts":{"uncompleted_count":"many","uncompleted_overdue_count":0},"error":""}
@@ -327,15 +327,15 @@ check "public channel is named" "#general" "$(jq -r '.items[0].channel_name' "$s
 check "dm is named after the person" "@Ana" "$(jq -r '.items[1].channel_name' "$success_cache")"
 check "group dm lists members" "@ana, bob" "$(jq -r '.items[3].channel_name' "$success_cache")"
 check "unresolvable channel stays unnamed" "" "$(jq -r '.items[2].channel_name' "$success_cache")"
-check "non-message items are dropped" "" "$(jq -r '.items[] | select(.url == "https://telepatiaworkspace.slack.com") | .id' "$success_cache")"
+check "non-message items are dropped" "" "$(jq -r '.items[] | select(.url == "https://example.slack.com") | .id' "$success_cache")"
 check "overdue counts past due dates, not the unset sentinel" "1" "$(jq -r '.counts.uncompleted_overdue_count' "$success_cache")"
 check "message id combines channel and timestamp" "C01:1700000001.000001" "$(jq -r '.items[0].id' "$success_cache")"
 check "message title is compact and sanitized" "One summary" "$(jq -r '.items[0].title' "$success_cache")"
-check "message url is stable" "https://telepatiaworkspace.slack.com/archives/C01/p1700000001000001" "$(jq -r '.items[0].url' "$success_cache")"
+check "message url is stable" "https://example.slack.com/archives/C01/p1700000001000001" "$(jq -r '.items[0].url' "$success_cache")"
 check "last page clears truncated" "false" "$(jq -r '.truncated' "$success_cache")"
 check "cache is private" "600" "$(/usr/bin/stat -f '%Lp' "$success_cache")"
 check "derives Chrome key once" "1" "$(wc -l <"$SECURITY_LOG" | tr -d ' ')"
-contains "request uses workspace host" 'url = "https://telepatiaworkspace.slack.com/api/auth.test"' "$(cat "$CURL_LOG")"
+contains "request uses workspace host" 'url = "https://example.slack.com/api/auth.test"' "$(cat "$CURL_LOG")"
 contains "request posts supported saved limit 49" 'data-urlencode = "limit=49"' "$(cat "$CURL_LOG")"
 contains "request URLencodes message ids" 'data-urlencode = "message_ids=[{\"channel\":\"C01\"' "$(cat "$CURL_LOG")"
 check "message hydration has two channel batches" $'10\n2' "$(cat "$BATCH_LOG")"

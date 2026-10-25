@@ -16,7 +16,7 @@
     workspace = lib.mkOption {
       type = lib.types.str;
       default = "";
-      example = "telepatiaworkspace.slack.com";
+      example = "example.slack.com";
       description = ''
         Exact Slack workspace domain the Later count belongs to. It is checked
         against auth.test's URL host before any saved.list result is published.
