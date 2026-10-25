@@ -38,6 +38,7 @@ mkUser {
       "gemma4:26b-a4b-qat" # general: smartest fit for 16 GB, 4B-active MoE
     ];
   };
+  "llama-cpp".enable = true;
 
   # Editors
   nvim.enable = true;
