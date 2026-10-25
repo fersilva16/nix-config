@@ -8,9 +8,9 @@
 # activation hands that pin to `limi pin`, which follows it unless a
 # `limi switch` build is active.
 #
-# Limi owns the agent (Nalum is the host's omo), tmux (limi-desktop's mux), the
-# wt/wts family and the Todoist and Slack Later tools; nix-config has no copies
-# of them. The suite's `omo` and the tmux tools live in limi-path (`host.path`),
+# Limi owns the agent (Nalum is the host's omo, add-ons included), tmux
+# (limi-desktop's mux), the wt/wts family, `lin` and the Todoist and Slack
+# Later tools; nix-config has no copies of them. The suite's `omo` and the tmux tools live in limi-path (`host.path`),
 # which limi-desktop and its mux put first on PATH.
 {
   mkUserModule,
@@ -222,6 +222,19 @@ mkUserModule {
             before = [ ];
             data = ''
               run env PATH="${pkgs.nix}/bin:$PATH" ${pinned}/bin/limi pin ${pinned}
+            '';
+          };
+          # Login shells in agents/* tmux sessions get Nalum's agent PATH
+          # (its gh shim first). ~/.profile isn't ours (installers append to
+          # it), so only make sure it sources Nalum's file; the guard keeps it
+          # harmless once the suite is gone.
+          activation.limiAgentProfile = {
+            after = [ "writeBoundary" ];
+            before = [ ];
+            data = ''
+              f="$HOME/.profile"
+              line='[ -r "$HOME/${host.profile}/${host.agentProfile}" ] && . "$HOME/${host.profile}/${host.agentProfile}"'
+              grep -qxF "$line" "$f" 2>/dev/null || printf '%s\n' "$line" >> "$f"
             '';
           };
         };

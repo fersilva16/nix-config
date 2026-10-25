@@ -64,13 +64,6 @@ mkUser {
     inherit peers;
     slackLater.workspace = "telepatiaworkspace.slack.com";
   };
-  i-have-adhd.enable = true;
-  ponytail.enable = true;
-  autoresearch.enable = true;
-  show-me.enable = true;
-  ship.enable = true;
-  unsupervised.enable = true;
-  agent-path.enable = true;
   openclaw.enable = true;
   playwright-cli.enable = true;
   ollama.enable = true;
