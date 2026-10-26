@@ -43,7 +43,9 @@ in
           KeepAlive = true;
           # keep starts the server, which must outlive a restart of keep.
           AbandonProcessGroup = true;
-          ProcessType = "Background";
+          # Every pane the server spawns inherits this; Background throttles
+          # their CPU and I/O to macOS's lowest band.
+          ProcessType = "Interactive";
           StandardErrorPath = "${homeOf username}/Library/Logs/limi-server-keep.log";
         };
       };
