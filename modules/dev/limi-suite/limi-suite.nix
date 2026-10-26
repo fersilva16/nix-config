@@ -282,6 +282,28 @@ mkUserModule {
               };
             };
           }
+          # limi-chrome: Chrome finds the native host through the profile's
+          # manifest, and loads the unpacked extension from a real copy, since
+          # it resolves the path and a store path goes away on GC. The copy
+          # follows the pin: refresh it after limiProfile.
+          {
+            home.file.${host.chromeNativeHost}.source =
+              config.lib.file.mkOutOfStoreSymlink "${profile}/${host.chromeHostManifest}";
+            home.activation.limiChromeExtension = {
+              after = [ "limiProfile" ];
+              before = [ ];
+              data = ''
+                src="${profile}/${host.chromeExtension}"
+                dst="$HOME/${host.chromeExtensionCopy}"
+                if [ -d "$src" ]; then
+                  run rm -rf "$dst"
+                  run mkdir -p "$(dirname "$dst")"
+                  run cp -RL "$src" "$dst"
+                  run chmod -R u+w "$dst"
+                fi
+              '';
+            };
+          }
           {
             # agents/* panes run `/bin/sh -l`, which reads ~/.profile. That
             # file isn't ours (installers append to it), so only make sure it
