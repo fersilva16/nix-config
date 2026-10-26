@@ -83,15 +83,18 @@ let
     };
 
   # Hammerspoon passes Cmd/Opt through hyper, so Hyper+Cmd+h is Cmd+Left.
+  # Hyper holds Ctrl_R, which xremap counts as the Ctrl a `C-` output asks
+  # for, so it sends no Ctrl; but xkb makes Ctrl_R Level5, and apps see a
+  # bare key. `Ctrl_L-` makes xremap press left Ctrl and release Ctrl_R.
   guiHyper = {
     "Super_L-${hyper}-h" = "home";
     "Super_L-${hyper}-l" = "end";
-    "Super_L-${hyper}-k" = "C-home";
-    "Super_L-${hyper}-j" = "C-end";
-    "Alt_L-${hyper}-h" = "C-left";
-    "Alt_L-${hyper}-l" = "C-right";
-    "Alt_L-${hyper}-k" = "C-up";
-    "Alt_L-${hyper}-j" = "C-down";
+    "Super_L-${hyper}-k" = "Ctrl_L-home";
+    "Super_L-${hyper}-j" = "Ctrl_L-end";
+    "Alt_L-${hyper}-h" = "Ctrl_L-left";
+    "Alt_L-${hyper}-l" = "Ctrl_L-right";
+    "Alt_L-${hyper}-k" = "Ctrl_L-up";
+    "Alt_L-${hyper}-j" = "Ctrl_L-down";
   };
 
   # Cmd+P stays Super for ghostty's super+p → nvim bind (modules/terminal/ghostty.nix).
@@ -129,11 +132,12 @@ let
       map (n: lib.nameValuePair "Super_L-${toString n}" "Alt-${toString n}") (lib.range 1 9)
     );
 
+  # `Ctrl_L-`, not `C-`: see guiHyper.
   termHyper = {
-    "Super_L-${hyper}-h" = "C-a";
-    "Super_L-${hyper}-l" = "C-e";
-    "Super_L-${hyper}-k" = "C-Shift-pageup";
-    "Super_L-${hyper}-j" = "C-Shift-pagedown";
+    "Super_L-${hyper}-h" = "Ctrl_L-a";
+    "Super_L-${hyper}-l" = "Ctrl_L-e";
+    "Super_L-${hyper}-k" = "Ctrl_L-Shift-pageup";
+    "Super_L-${hyper}-j" = "Ctrl_L-Shift-pagedown";
   };
 in
 {
