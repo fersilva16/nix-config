@@ -9,6 +9,7 @@ mkNixOSHost {
 
   extraModules = [
     ./polaris-disk.nix
+    ./polaris-fans.nix
 
     # Host specifics; hardware config is generated at install time
     # (nixos-generate-config) and picked up when present — pathExists is
