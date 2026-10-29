@@ -119,19 +119,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # First-party OpenClaw flake — upstream points Nix users here rather than
-    # at the nixpkgs package. Ships the home-manager module that owns the
-    # launchd gateway agent and renders ~/.openclaw/openclaw.json immutably.
-    #
-    # Deliberately NOT following our nixpkgs, and this is load-bearing: openclaw
-    # refuses to start on node < 22.22.3, their pin carries nodejs_22 = 22.23.1
-    # and ours carries 22.22.2. Building it against our nixpkgs yields a gateway
-    # that exits 1 and crash-loops under launchd. Cost is a second nixpkgs in
-    # the lock.
-    nix-openclaw = {
-      url = "github:openclaw/nix-openclaw";
-    };
-
     # Claude Desktop's official Linux beta (.deb) packaged for Nix; the flake
     # tracks Anthropic's apt repo and bumps hashes hourly. modules/dev/claude.nix
     # callPackages its derivation against the host's nixpkgs, so the follows
