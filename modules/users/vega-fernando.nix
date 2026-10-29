@@ -64,7 +64,6 @@ mkUser {
     inherit peers;
     slackLater.workspace = "telepatiaworkspace.slack.com";
   };
-  openclaw.enable = true;
   playwright-cli.enable = true;
   ollama.enable = true;
   anonymize.enable = true;
