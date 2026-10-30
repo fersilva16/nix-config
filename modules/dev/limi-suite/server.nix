@@ -35,8 +35,11 @@ in
       darwin.launchd.agents.limi-server = {
         enable = true;
         config = {
+          # macOS charges every pane's privacy request to keep, the process
+          # that starts the server. The signed copy in Limi.app keeps its
+          # grants across builds; the store binary is new to macOS each time.
           ProgramArguments = [
-            server
+            "${homeOf username}/${host.macServer}"
             "keep"
           ];
           RunAtLoad = true;
