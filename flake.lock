@@ -242,14 +242,15 @@
       "inputs": {
         "crane": "crane",
         "crate2nix": "crate2nix",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "wpe-nixpkgs": "wpe-nixpkgs"
       },
       "locked": {
-        "lastModified": 1792974494,
-        "narHash": "sha256-iaG9zMmArCRoqcquGVkJxz6rWn2CevjfkXFuEqfGglU=",
+        "lastModified": 1793382697,
+        "narHash": "sha256-zYPIS5I3Rdv6kM3HOHIT66JrOTC0NmX29oLhkLIO44k=",
         "ref": "refs/heads/main",
-        "rev": "025214423d035996c2bd6ce82b85b6f1373fe2eb",
-        "revCount": 213,
+        "rev": "3cd4406488ba792b6f201d950a0fac767c30ad90",
+        "revCount": 277,
         "type": "git",
         "url": "ssh://git@github.com/fersilva16/limi"
       },
@@ -500,6 +501,22 @@
       "original": {
         "owner": "numtide",
         "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "wpe-nixpkgs": {
+      "locked": {
+        "lastModified": 1791487292,
+        "narHash": "sha256-tqM7xDEsaeK1p6VvRygeZ9LkQRpUUkbRT02BHv6hnTM=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
         "type": "github"
       }
     }
