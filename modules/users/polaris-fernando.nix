@@ -60,6 +60,8 @@ mkUser {
 
   # Networking
   tailscale.enable = true;
+  varia.enable = true; # direct downloads
+  qbittorrent.enable = true; # torrents
   # Receives vega's keyboard + mouse; with the receiver (Easy-Switch 2) in
   # use, the pointer crosses back to vega the same way. vega's address and
   # fingerprint come from what vega advertises (modules/system/fleet.nix).
