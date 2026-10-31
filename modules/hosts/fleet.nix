@@ -17,4 +17,5 @@
 {
   vega = import ./vega.nix { inherit mkDarwinHost; };
   polaris = import ./polaris.nix { inherit mkNixOSHost; };
+  altair = import ./altair.nix { inherit mkNixOSHost; };
 }

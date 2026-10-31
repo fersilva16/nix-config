@@ -222,6 +222,10 @@
               builtins.unsafeDiscardStringContext nixosConfigurations.polaris.config.system.build.toplevel.drvPath
             );
             nvim-init-polaris = nvimInitCheck "polaris" nixosConfigurations.polaris;
+            eval-altair = pkgs.writeText "eval-altair" (
+              builtins.unsafeDiscardStringContext nixosConfigurations.altair.config.system.build.toplevel.drvPath
+            );
+            nvim-init-altair = nvimInitCheck "altair" nixosConfigurations.altair;
           };
 
         devShell = pkgs.mkShell {
