@@ -42,6 +42,9 @@ mkNixOSHost {
         };
         networking.networkmanager.wifi.powersave = false;
 
+        # wlp9s0, the RTL8922AE: `wake polaris` from a LAN peer (suspend only).
+        modules.system.wake-on-lan.mac = "f8:3d:c6:c2:b2:16";
+
         # Windows (separate disk) keeps the RTC in localtime; adjusting here
         # avoids registry surgery on the Windows side. The timezone must be
         # the real one for that to work: under UTC every boot started 3 h
