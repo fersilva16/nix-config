@@ -57,6 +57,7 @@ mkUser {
   # Games
   heroic.enable = true; # Rocket League (Epic)
   steam.enable = true;
+  forza-horizon.enable = true; # FH1 ReImagined (Xbox 360 recomp)
 
   # Networking
   tailscale.enable = true;
