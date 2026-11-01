@@ -75,6 +75,9 @@ mkUserModule {
         host
         homeOf
         forPlatform
+        fleetPeers
+        lib
+        pkgs
         ;
     };
   };
