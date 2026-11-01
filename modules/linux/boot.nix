@@ -55,10 +55,6 @@ mkSystemModule {
           # covers the usual reason to pick an entry.
           timeout = 0;
         };
-
-        # systemd stage-1: required for TPM2 LUKS auto-unlock
-        # (systemd-cryptenroll), and the modern initrd generally.
-        initrd.systemd.enable = true;
       };
 
       environment.systemPackages = lib.optional (winVersions != [ ]) boot-windows;
