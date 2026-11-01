@@ -27,6 +27,24 @@
 let
   noctalia = "${import ../noctalia/package.nix { inherit inputs system; }}/bin/noctalia-shell";
   keyboard = import ./keyboard.nix { inherit pkgs lib; };
+
+  # swayidle only sees this seat's input, so an SSH login (an agent run, a
+  # rebuild from vega) looks idle. Remote=yes is how logind marks those.
+  suspend-if-idle = pkgs.writeShellApplication {
+    name = "suspend-if-idle";
+    runtimeInputs = [
+      pkgs.systemd
+      pkgs.jq
+    ];
+    text = ''
+      for s in $(loginctl list-sessions --json=short | jq -r '.[].session'); do
+        if [ "$(loginctl show-session "$s" -p Remote --value)" = yes ]; then
+          exit 0
+        fi
+      done
+      systemctl suspend
+    '';
+  };
 in
 mkUserModule {
   name = "niri";
@@ -287,6 +305,11 @@ mkUserModule {
           {
             timeout = 900;
             command = "niri msg action power-off-monitors";
+          }
+          {
+            # `wake <host>` (modules/networking/wake-on-lan.nix) brings it back.
+            timeout = 1800;
+            command = lib.getExe suspend-if-idle;
           }
         ];
         events = {
