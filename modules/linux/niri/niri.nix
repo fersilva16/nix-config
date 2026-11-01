@@ -25,7 +25,7 @@
   ...
 }:
 let
-  noctalia = "${inputs.noctalia.packages.${system}.default}/bin/noctalia-shell";
+  noctalia = "${import ../noctalia/package.nix { inherit inputs system; }}/bin/noctalia-shell";
   keyboard = import ./keyboard.nix { inherit pkgs lib; };
 in
 mkUserModule {

@@ -165,7 +165,7 @@ mkUserModule {
 
       programs.noctalia-shell = {
         enable = true;
-        package = inputs.noctalia.packages.${system}.default;
+        package = import ./package.nix { inherit inputs system; };
         settings = lib.recursiveUpdate baseSettings {
           colorSchemes = {
             predefinedScheme = "Ink";
