@@ -30,6 +30,16 @@ mkNixOSHost {
       };
 
       time.timeZone = "America/Sao_Paulo";
+
+      # Unattended server: rebuild nightly from the published flake, pinned
+      # to the repo's lock so nothing reaches it that the lock bump did not
+      # evaluate first. No automatic reboot: a new kernel waits for a manual one.
+      system.autoUpgrade = {
+        enable = true;
+        flake = "github:fersilva16/nix-config#altair";
+        dates = "04:00";
+        randomizedDelaySec = "30min";
+      };
     }
   ];
 }
