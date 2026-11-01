@@ -1,7 +1,6 @@
 # AdGuard Home — network-wide DNS with ad/tracker blocking (linux only).
 #
-# DNS on :53 for the LAN and the tailnet; the web UI on :3000, reachable only
-# over the tailnet (it has no login). Point the
+# DNS on :53 for the LAN and the tailnet; the web UI on :3000. Point the
 # router's DHCP DNS at this host (give it a DHCP reservation first) to cover
 # the whole home network.
 #
@@ -22,6 +21,8 @@ mkUserModule {
       services.adguardhome = {
         enable = true;
         mutableSettings = true;
+        # Opens the web UI port (:3000).
+        openFirewall = true;
         settings = {
           dns = {
             bind_hosts = [ "0.0.0.0" ];
@@ -85,7 +86,6 @@ mkUserModule {
       networking.firewall = {
         allowedTCPPorts = [ 53 ];
         allowedUDPPorts = [ 53 ];
-        interfaces.tailscale0.allowedTCPPorts = [ 3000 ];
       };
     };
   };
