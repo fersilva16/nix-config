@@ -166,7 +166,10 @@ mkUser {
   selfcontrol.enable = true;
 
   # Networking
-  tailscale.enable = true;
+  tailscale = {
+    enable = true;
+    userspace = true;
+  };
   "cloudflare-warp".enable = true;
   wireguard.enable = true;
   openfortivpn.enable = true;
