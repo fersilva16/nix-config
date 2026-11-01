@@ -34,9 +34,11 @@ repos:
       # any machine: limi-suite's crate2nix import-from-derivation then needs
       # an x86_64-linux build on vega, which has no linux builder. So a
       # polaris-only eval error surfaces on the next push from polaris.
+      # git+file, not a bare path: a path copies .git too, and Nix cannot copy
+      # the git fsmonitor sockets there.
       - name: nix checks (this system)
         id: nix-checks
         pass_filenames: false
         stages: [pre-push]
         language: system
-        entry: nix build --impure --no-link --expr 'builtins.attrValues (builtins.getFlake (toString ./.)).checks.${builtins.currentSystem}'
+        entry: nix build --impure --no-link --expr 'builtins.attrValues (builtins.getFlake ("git+file://" + toString ./.)).checks.${builtins.currentSystem}'
