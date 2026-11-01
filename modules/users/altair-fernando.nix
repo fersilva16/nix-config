@@ -22,6 +22,8 @@ mkUser {
 
   # Dev tools
   git.enable = true;
+  # Limi's hub: calendar, mail, feeds and the personal Nalum, for the fleet.
+  limi-hub.enable = true;
 
   # Editors
   nvim.enable = true;
