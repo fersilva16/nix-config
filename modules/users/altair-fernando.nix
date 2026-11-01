@@ -29,4 +29,7 @@ mkUser {
   # Networking
   tailscale.enable = true;
   adguardhome.enable = true;
+
+  # Monitoring
+  metrics.enable = true;
 }
