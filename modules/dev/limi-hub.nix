@@ -64,7 +64,9 @@ mkUserModule {
         systemd.tmpfiles.rules = [
           "z ${home}/nalum 2770 ${user} nalum -"
           "d ${home}/nalum/.agent 2770 ${user} nalum -"
-          "Z ${home}/nalum/.agent - ${user} nalum -"
+          # Group only: limi-hub owns its run dir in here (nalum/headless,
+          # 0700), and taking the owner back would lock it out of it.
+          "Z ${home}/nalum/.agent - - nalum -"
           "d ${home}/nalum/.agent/nalum 2770 ${user} nalum -"
           "d ${home}/.nalum 0710 ${user} nalum -"
           "d ${home}/.nalum/agent 0710 ${user} nalum -"
