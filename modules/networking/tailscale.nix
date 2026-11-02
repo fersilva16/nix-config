@@ -64,13 +64,18 @@ mkUserModule {
         darwin = lib.mkMerge [
           (lib.mkIf userspace {
             environment.systemPackages = [ pkgs.tailscale ];
-            launchd.daemons.tailscaled.serviceConfig = {
-              ProgramArguments = [
+            # `command`, not ProgramArguments: nix-darwin then waits for
+            # /nix/store, which launchd starts daemons before it is mounted. A
+            # daemon whose binary is missing at boot is never retried.
+            launchd.daemons.tailscaled.command = lib.escapeShellArgs (
+              [
                 "${pkgs.tailscale}/bin/tailscaled"
                 "--tun=userspace-networking"
                 "--statedir=/var/lib/tailscale"
               ]
-              ++ proxyFlags;
+              ++ proxyFlags
+            );
+            launchd.daemons.tailscaled.serviceConfig = {
               RunAtLoad = true;
               KeepAlive = true;
               StandardErrorPath = "/var/log/tailscaled.log";
