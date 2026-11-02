@@ -54,15 +54,18 @@ mkUserModule {
       '') sshPeers
     );
   }
-  # sudo over SSH is approved by the forwarded agent: pam_ssh_agent_auth asks
-  # it to sign with a key from /etc/ssh/authorized_keys.d/<user> (the
+  # sudo over SSH is approved by the forwarded agent: pam_rssh asks it to
+  # sign with a key from /etc/ssh/authorized_keys.d/<user> (the
   # authorizedKeys above), and 1Password on the far end gates that signature
   # behind Touch ID. No agent, or a refused prompt, falls through to the
   # password. NixOS adds `env_keep+=SSH_AUTH_SOCK` to sudoers for it.
+  # Not pam_ssh_agent_auth: when its check failed (any local terminal),
+  # sudo authenticated through the next module and then died with
+  # "unable to allocate pty: Operation not permitted".
   // forPlatform {
     linux.security.pam = {
-      sshAgentAuth.enable = true;
-      services.sudo.sshAgentAuth = true;
+      rssh.enable = true;
+      services.sudo.rssh = true;
     };
   };
 
