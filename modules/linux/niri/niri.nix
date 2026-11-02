@@ -28,6 +28,9 @@ let
   noctalia = "${import ../noctalia/package.nix { inherit inputs system; }}/bin/noctalia-shell";
   keyboard = import ./keyboard.nix { inherit pkgs lib; };
 
+  # swayidle's PATH is only bash, so its commands need absolute paths.
+  lock-session = "${lib.getExe' pkgs.systemd "loginctl"} lock-session";
+
   # swayidle only sees this seat's input, so an SSH login (an agent run, a
   # rebuild from vega) looks idle. Remote=yes is how logind marks those.
   suspend-if-idle = pkgs.writeShellApplication {
@@ -300,11 +303,11 @@ mkUserModule {
         timeouts = [
           {
             timeout = 600;
-            command = "loginctl lock-session";
+            command = lock-session;
           }
           {
             timeout = 900;
-            command = "niri msg action power-off-monitors";
+            command = "${lib.getExe pkgs.niri} msg action power-off-monitors";
           }
           {
             # `wake <host>` (modules/networking/wake-on-lan.nix) brings it back.
@@ -313,7 +316,7 @@ mkUserModule {
           }
         ];
         events = {
-          before-sleep = "loginctl lock-session";
+          before-sleep = lock-session;
           lock = "${noctalia} ipc call lockScreen lock";
         };
       };
