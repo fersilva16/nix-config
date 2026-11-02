@@ -95,6 +95,8 @@ nixpkgs.lib.nixosSystem {
 
   modules = [
     home-manager.nixosModules.home-manager
+    # Inert until modules/linux/boot.nix sets boot.lanzaboote.enable.
+    inputs.lanzaboote.nixosModules.lanzaboote
 
     {
       networking.hostName = hostName;

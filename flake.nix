@@ -111,6 +111,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Secure Boot for the NixOS hosts (modules/linux/boot.nix). Pinned to a
+    # release tag, as upstream recommends: master can change the ESP layout.
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v1.2.0";
+      inputs.nixpkgs.follows = "nixpkgs-nixos";
+    };
+
     # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
     # ships a few hundred extensions; this exposes the full marketplace so the
     # vscode module can declare extensions like oxc, supermaven, etc.

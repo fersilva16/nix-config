@@ -36,12 +36,9 @@ mkNixOSHost {
             options rtw89_core disable_ps_mode=y
             options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y
           '';
-
-          # Windows ESP lives on the other disk, so systemd-boot cannot
-          # auto-detect it. Device handle discovered via the edk2 UEFI shell
-          # (`map -c`, the FS whose \EFI contains Microsoft).
-          loader.systemd-boot.windows."11".efiDeviceHandle = "HD0b";
         };
+        # Windows 11 on the other disk; `boot-windows` reboots into it.
+        modules.system.boot.windows.enable = true;
         networking.networkmanager.wifi.powersave = false;
 
         # wlp9s0, the RTL8922AE: `wake polaris` from a LAN peer (suspend only).
