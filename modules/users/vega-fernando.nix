@@ -152,10 +152,8 @@ mkUser {
   calibre.enable = true;
   obsidian.enable = true;
   zotero.enable = true;
-  "notion-calendar".enable = true;
   loom.enable = true;
   netnewswire.enable = true;
-  sparkmail.enable = true;
   figma.enable = true;
   libreoffice.enable = true;
   word.enable = true;

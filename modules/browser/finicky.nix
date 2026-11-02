@@ -76,7 +76,6 @@ mkUserModule {
                 Common examples:
                   "com.tinyspeck.slackmacgap" — Slack
                   "com.apple.mail"            — Apple Mail
-                  "com.readdle.smartemail-Mac" — Spark
                   "com.raycast.macos"         — Raycast
                   "com.microsoft.VSCode"      — VS Code
                   "com.linear"                — Linear
