@@ -1,6 +1,7 @@
 {
   mkUserModule,
   forPlatform,
+  fleetPeers,
   pkgs,
   lib,
   ...
@@ -16,15 +17,40 @@ mkUserModule {
   # enabling users listed so system authentication prompts work.
   system =
     { enabledUsers }:
-    forPlatform {
-      linux = {
-        programs._1password.enable = true;
-        programs._1password-gui = {
-          enable = true;
-          polkitPolicyOwners = builtins.attrNames enabledUsers;
-        };
+    let
+      agent = forPlatform {
+        darwin = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
+        linux = "~/.1password/agent.sock";
       };
-    };
+      sshPeers = lib.attrNames (lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers);
+    in
+    lib.recursiveUpdate
+      {
+        # ssh uses the 1Password agent, and forwards it to fleet peers. Only
+        # where 1Password runs: IdentityAgent beats $SSH_AUTH_SOCK, so on a
+        # host without it (altair) ssh would ignore the agent forwarded in.
+        # mkBefore: ssh takes the first value it reads, and modules/cli/ssh.nix
+        # sets `ForwardAgent yes` for the same peers.
+        programs.ssh.extraConfig = lib.mkBefore (
+          lib.optionalString (sshPeers != [ ]) ''
+            Host ${lib.concatStringsSep " " sshPeers}
+              ForwardAgent "${agent}"
+          ''
+          + ''
+            Host *
+              IdentityAgent "${agent}"
+          ''
+        );
+      }
+      (forPlatform {
+        linux = {
+          programs._1password.enable = true;
+          programs._1password-gui = {
+            enable = true;
+            polkitPolicyOwners = builtins.attrNames enabledUsers;
+          };
+        };
+      });
   home =
     { userCfg, ... }:
     {
