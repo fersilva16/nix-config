@@ -7,11 +7,6 @@
   ...
 }:
 let
-  onePasswordAgent = forPlatform {
-    darwin = "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-    linux = "~/.1password/agent.sock";
-  };
-
   sshPeers = lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers;
 
   # macOS's Local Network privacy refuses LAN connections from a Nix-built nc,
@@ -39,18 +34,14 @@ mkUserModule {
     };
 
   system = {
-    programs.ssh.extraConfig = ''
-      Host *
-        IdentityAgent "${onePasswordAgent}"
-    ''
-    + lib.concatStrings (
+    programs.ssh.extraConfig = lib.concatStrings (
       lib.mapAttrsToList (name: _: ''
 
         Match host ${name} exec "${pkgs.coreutils}/bin/timeout 1 ${nc} -z ${name}.local 22 >/dev/null 2>&1"
           HostName ${name}.local
 
         Host ${name}
-          ForwardAgent "${onePasswordAgent}"
+          ForwardAgent yes
       '') sshPeers
     );
   }
@@ -98,8 +89,9 @@ mkUserModule {
   # Names, not addresses: a node re-added to the tailnet or re-leased by DHCP keeps its
   # name.
   #
-  # ForwardAgent names the 1Password socket because `yes` would forward
-  # $SSH_AUTH_SOCK, which on darwin is launchd's agent, not IdentityAgent.
+  # ForwardAgent yes forwards $SSH_AUTH_SOCK: on altair that is the agent
+  # forwarded in. Where 1Password runs, modules/security/1password.nix
+  # forwards its socket instead (on darwin $SSH_AUTH_SOCK is launchd's agent).
   #
   # Getting a shell on polaris is limi-desktop's session picker's job
   # (limi-suite `peers`), which hops into polaris's mux instead of nesting it.
