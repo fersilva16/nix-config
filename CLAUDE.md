@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+## This repo is PUBLIC
+
+Public on purpose: it's standard nix config that others can learn from. Keep it that way: the config goes in, personal details don't. Files, comments, commit messages, and PR bodies are public forever (history survives a revert).
+
+Never commit secrets, IPs/MACs/SSIDs/tailnet names, personal data (emails, account IDs, serials), work data (employer, internal URLs, Slack/Linear names), or anything an agent saw on this machine (logs, transcripts, tool output). Host names, `fernando`, `fersilva16`, and `keys/` are fine. Need a private value? Keep it outside the repo and ask how to supply it. Found one already committed? Tell the user.
+
 ## What is this repo?
 
 A nix-darwin flake configuration for a single macOS Apple Silicon host (`vega`), managing system settings, packages, and dotfiles for user `fernando`. It uses nix-darwin for system-level config and home-manager for user-level config, with declarative Homebrew for GUI apps not in nixpkgs.
