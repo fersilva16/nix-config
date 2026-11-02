@@ -1,7 +1,7 @@
 // One compact widget for every metric, in SystemMonitor's style: CPU usage,
 // CPU temp and RAM come from noctalia's SystemStatService; GPU usage and VRAM
 // from Main.qml. Left click: history panel. Middle click: external monitor.
-import QtQuick
+import QtQuick 6.11
 import QtQuick.Layouts
 import Quickshell
 import qs.Commons

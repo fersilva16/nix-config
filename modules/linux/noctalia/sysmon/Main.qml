@@ -1,7 +1,7 @@
 // GPU state for the bar widget and panel (CPU/RAM come from noctalia's
 // SystemStatService): one long-lived nvidia-smi
 // streaming a CSV line per sample (no fork per refresh).
-import QtQuick
+import QtQuick 6.11
 import Quickshell.Io
 
 Item {

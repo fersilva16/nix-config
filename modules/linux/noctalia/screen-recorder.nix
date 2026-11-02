@@ -9,11 +9,18 @@
 # polkit-agent came from, so its settings stay at the manifest defaults.
 { pkgs }:
 let
-  noctalia-plugins = pkgs.fetchFromGitHub {
-    owner = "noctalia-dev";
-    repo = "noctalia-plugins";
-    rev = "ea21cb63d063075bc0acd72d8b946ce2c5eef00d";
-    hash = "sha256-M+7SLW+wI3KvDMj8dSrW/uUmpPiYhsXA2jpbbgL5imk=";
+  # QtQuick imports pinned to 6.11 for Qt 6.12's Color clash (./package.nix).
+  noctalia-plugins = pkgs.applyPatches {
+    name = "noctalia-plugins";
+    src = pkgs.fetchFromGitHub {
+      owner = "noctalia-dev";
+      repo = "noctalia-plugins";
+      rev = "ea21cb63d063075bc0acd72d8b946ce2c5eef00d";
+      hash = "sha256-M+7SLW+wI3KvDMj8dSrW/uUmpPiYhsXA2jpbbgL5imk=";
+    };
+    postPatch = ''
+      find screen-recorder -name '*.qml' -exec sed -i -E 's/^(\s*import QtQuick(\.Window)?)\s*$/\1 6.11/' {} +
+    '';
   };
 in
 {

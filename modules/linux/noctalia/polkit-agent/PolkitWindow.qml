@@ -1,7 +1,7 @@
 import QtQuick.Layouts
 import QtQuick.Controls
 import QtQuick.Effects
-import QtQuick
+import QtQuick 6.11
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Polkit

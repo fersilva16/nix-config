@@ -1,7 +1,7 @@
 // Click-open panel, laid out like noctalia's built-in SystemStatsPanel:
 // CPU (usage + temp), memory, GPU (usage + temp) and VRAM graph cards, then
 // a details box.
-import QtQuick
+import QtQuick 6.11
 import QtQuick.Layouts
 import qs.Commons
 import qs.Services.System
