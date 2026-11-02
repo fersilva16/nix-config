@@ -29,6 +29,10 @@ mkUserModule {
     }
     // forPlatform {
       linux = {
+        # The personal Nalum's sessions run omo's generic glibc binary, as
+        # limi-suite's do; nix-ld serves its loader path.
+        programs.nix-ld.enable = true;
+
         assertions = [
           {
             assertion = lib.length (lib.attrNames enabledUsers) == 1;
