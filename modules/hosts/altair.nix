@@ -29,6 +29,16 @@ mkNixOSHost {
         caskaydia-cove.enable = false;
       };
 
+      # Names and allowed values: ls /sys/class/firmware-attributes/thinklmi/attributes
+      modules.system.bios.settings = {
+        # A headless server comes back by itself after a power cut.
+        "After Power Loss" = "Power On";
+        # Woken from the LAN, boot the normal (primary) sequence.
+        "Wake on LAN" = "Primary";
+        # lanzaboote signs the boot chain (modules/linux/boot.nix).
+        "Secure Boot" = "Enabled";
+      };
+
       time.timeZone = "America/Sao_Paulo";
     }
   ];
