@@ -47,6 +47,15 @@ mkNixOSHost {
         # wlp9s0, the RTL8922AE: `wake polaris` from a LAN peer (suspend only).
         modules.system.wake-on-lan.mac = "f8:3d:c6:c2:b2:16";
 
+        # The RTL8922AE firmware (0.35.80.3) sometimes hangs while arming
+        # WoWLAN on suspend ("failed to suspend for wow -1"); that wake is
+        # lost and WiFi stays dead after resume until the driver reloads
+        # (lwfinger/rtw89#408, no upstream fix). Reload it on every resume.
+        powerManagement.resumeCommands = ''
+          ${pkgs.kmod}/bin/modprobe -r rtw89_8922ae
+          ${pkgs.kmod}/bin/modprobe rtw89_8922ae
+        '';
+
         # Windows (separate disk) keeps the RTC in localtime; adjusting here
         # avoids registry surgery on the Windows side. The timezone must be
         # the real one for that to work: under UTC every boot started 3 h
