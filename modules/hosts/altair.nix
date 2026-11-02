@@ -40,6 +40,11 @@ mkNixOSHost {
       };
 
       time.timeZone = "America/Sao_Paulo";
+
+      # altair is deployed from another host (nixos-rebuild --target-host),
+      # which copies unsigned, locally built paths in as fernando; the daemon
+      # refuses those from an untrusted user. fernando has sudo here anyway.
+      nix.settings.trusted-users = [ "fernando" ];
     }
   ];
 }
