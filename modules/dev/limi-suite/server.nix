@@ -92,6 +92,9 @@ in
       (lib.mkIf tunnel {
         # Shells too, so `limi-host` run by hand reaches the same hub.
         home.sessionVariables = hubEnv;
+        # A daemon that Limi.app or a pane started has neither; Limi reads
+        # the address from here when the variable is unset.
+        xdg.configFile."limi/hub-url".text = hubEnv.LIMI_HUB_URL;
         launchd.agents.limi-hub-tunnel = {
           enable = true;
           config = {
