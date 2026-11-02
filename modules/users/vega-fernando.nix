@@ -24,7 +24,7 @@ mkUser {
   bat.enable = true;
   ssh = {
     enable = true;
-    authorizedKeys = import ../../keys/fernando.nix;
+    authorizedKeys = import ../../keys/fernando.nix ++ import ../../keys/nalum.nix;
   };
   fish.enable = true;
   starship.enable = true;
