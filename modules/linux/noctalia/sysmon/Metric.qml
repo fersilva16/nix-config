@@ -1,6 +1,6 @@
 // Bar metric: icon followed by one or two mini gauges (SystemMonitor's
 // compact look).
-import QtQuick
+import QtQuick 6.11
 import QtQuick.Layouts
 import qs.Commons
 import qs.Widgets
