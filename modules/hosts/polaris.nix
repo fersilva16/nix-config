@@ -30,9 +30,12 @@ mkNixOSHost {
           # RTL8922AE power saving causes 70 ms latency spikes to the router
           # and repeated "failed to update RXBD info: -11" in the kernel log.
           # Desktop, so no battery to save: keep the radio and PCIe link awake.
+          # CLKREQ too: with it on, the firmware still hung ("fw PC" / SER,
+          # fw 0.35.80.3) and failed to arm WoWLAN on suspend, leaving WiFi
+          # dead after resume (lwfinger/rtw89#408 is the same chip and fw).
           extraModprobeConfig = ''
             options rtw89_core disable_ps_mode=y
-            options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y
+            options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y disable_clkreq=y
           '';
 
           # Windows ESP lives on the other disk, so systemd-boot cannot
