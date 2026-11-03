@@ -90,6 +90,8 @@ mkUserModule {
             "d ${home}/.nalum/agent/nalum 0710 ${user} nalum -"
             "d ${home}/.nalum/agent/nalum/bridge 2770 ${user} nalum -"
             "L+ ${home}/nalum/.agent/nalum/bridge - - - - ${home}/.nalum/agent/nalum/bridge"
+            # The raisers' socket for needs-you items (needs-you.sock); group nalum may raise.
+            "d /run/limi-hub 0750 limi-hub nalum -"
           ];
 
           services.limi-hub = {
