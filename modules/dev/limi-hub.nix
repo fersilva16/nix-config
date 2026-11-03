@@ -61,20 +61,6 @@ mkUserModule {
           };
         };
 
-        systemd.tmpfiles.rules = [
-          "z ${home}/nalum 2770 ${user} nalum -"
-          "d ${home}/nalum/.agent 2770 ${user} nalum -"
-          # Group only: limi-hub owns its run dir in here (nalum/headless,
-          # 0700), and taking the owner back would lock it out of it.
-          "Z ${home}/nalum/.agent - - nalum -"
-          "d ${home}/nalum/.agent/nalum 2770 ${user} nalum -"
-          "d ${home}/.nalum 0710 ${user} nalum -"
-          "d ${home}/.nalum/agent 0710 ${user} nalum -"
-          "d ${home}/.nalum/agent/nalum 0710 ${user} nalum -"
-          "d ${home}/.nalum/agent/nalum/bridge 2770 ${user} nalum -"
-          "L+ ${home}/nalum/.agent/nalum/bridge - - - - ${home}/.nalum/agent/nalum/bridge"
-        ];
-
         security.sudo.extraRules = [
           {
             users = [ "limi-hub" ];
@@ -91,24 +77,58 @@ mkUserModule {
           }
         ];
 
-        systemd.services.limi-hub = {
-          wantedBy = [ "multi-user.target" ];
-          after = [
-            "network-online.target"
-            "tailscaled.service"
+        systemd = {
+          tmpfiles.rules = [
+            "z ${home}/nalum 2770 ${user} nalum -"
+            "d ${home}/nalum/.agent 2770 ${user} nalum -"
+            # Group only: limi-hub owns its run dir in here (nalum/headless,
+            # 0700), and taking the owner back would lock it out of it.
+            "Z ${home}/nalum/.agent - - nalum -"
+            "d ${home}/nalum/.agent/nalum 2770 ${user} nalum -"
+            "d ${home}/.nalum 0710 ${user} nalum -"
+            "d ${home}/.nalum/agent 0710 ${user} nalum -"
+            "d ${home}/.nalum/agent/nalum 0710 ${user} nalum -"
+            "d ${home}/.nalum/agent/nalum/bridge 2770 ${user} nalum -"
+            "L+ ${home}/nalum/.agent/nalum/bridge - - - - ${home}/.nalum/agent/nalum/bridge"
           ];
-          wants = [ "network-online.target" ];
-          path = [ "/run/wrappers" ];
-          environment = {
-            LIMI_NALUM_PROJECTS = "${home}/nalum";
-            OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
+
+          services.limi-hub = {
+            wantedBy = [ "multi-user.target" ];
+            after = [
+              "network-online.target"
+              "tailscaled.service"
+            ];
+            wants = [ "network-online.target" ];
+            path = [ "/run/wrappers" ];
+            environment = {
+              LIMI_NALUM_PROJECTS = "${home}/nalum";
+              OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
+            };
+            serviceConfig = {
+              User = "limi-hub";
+              Group = "limi-hub";
+              ExecStart = "${limi.limi-hub}/bin/limi-hub";
+              Restart = "always";
+              UMask = "0077";
+            };
           };
-          serviceConfig = {
-            User = "limi-hub";
-            Group = "limi-hub";
-            ExecStart = "${limi.limi-hub}/bin/limi-hub";
-            Restart = "always";
-            UMask = "0077";
+
+          # Delivers the personal Nalum's scheduled prompts (schedule_prompt).
+          # Login shell + umask 007, the way the hub starts Nalum's sessions.
+          services.nalum-schedule = {
+            wantedBy = [ "multi-user.target" ];
+            after = [
+              "network-online.target"
+              "tailscaled.service"
+            ];
+            wants = [ "network-online.target" ];
+            environment.OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
+            serviceConfig = {
+              User = user;
+              WorkingDirectory = "${home}/nalum";
+              ExecStart = "/bin/sh -l -c 'umask 007; exec nalum schedule run --watch'";
+              Restart = "always";
+            };
           };
         };
 
