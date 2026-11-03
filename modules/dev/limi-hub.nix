@@ -110,6 +110,8 @@ mkUserModule {
               ExecStart = "${limi.limi-hub}/bin/limi-hub";
               Restart = "always";
               UMask = "0077";
+              # The personal Nalum's sessions outlive a hub restart; limi-hub reattaches to them.
+              KillMode = "process";
             };
           };
 

@@ -301,11 +301,11 @@
         "wpe-nixpkgs": "wpe-nixpkgs"
       },
       "locked": {
-        "lastModified": 1793645055,
-        "narHash": "sha256-PTWS8c+VO27xN3z7q28KbiU7Vcmh9G5nQw7ElTKYIv8=",
+        "lastModified": 1793718488,
+        "narHash": "sha256-2Ckk709rUKSHAzMXsXofeGHxSHy11gC5tb9KutbTOfM=",
         "ref": "refs/heads/main",
-        "rev": "3754757eb2e271cdcfe4d018f4d16eac8b34a872",
-        "revCount": 348,
+        "rev": "7b27ffd7da269f75f3d87a5a68323a8398af15db",
+        "revCount": 354,
         "type": "git",
         "url": "ssh://git@github.com/fersilva16/limi"
       },
