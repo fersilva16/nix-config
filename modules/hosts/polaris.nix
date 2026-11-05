@@ -60,6 +60,14 @@ mkNixOSHost {
         time.hardwareClockInLocalTime = true;
         time.timeZone = "America/Sao_Paulo";
 
+        # Suspend sometimes hangs for good (black screen, hard reset) and the
+        # journal loses the tail, so the culprit device is unknown. pm_trace
+        # stores the last device suspended/resumed in the RTC; after a hang,
+        # reset within ~3 min and `journalctl -k -b | grep -i 'hash matches'`
+        # names it. Cost: the clock is wrong after every sleep until NTP
+        # syncs. Remove once the culprit is found.
+        systemd.tmpfiles.rules = [ "w /sys/power/pm_trace - - - - 1" ];
+
         # CUDA cache (ollama-cuda; cache.nixos.org never has unfree CUDA).
         # Always on, not set by the ollama module: a module's nix.settings
         # only reach nix.conf after a successful switch, and enabling ollama
