@@ -1,9 +1,11 @@
 # polaris disk layout — disko-managed, LUKS full-disk encryption → btrfs.
 #
-# The device is the real by-id path (stable across reboots/slots): every
-# rebuild derives the initrd LUKS device from it, so a placeholder here
-# would produce unbootable generations. NixOS lives on the Samsung 980
-# Pro; the Windows disk (Kingston) is never referenced.
+# `device` is only read when disko formats the disk: the generated
+# fileSystems and initrd LUKS device use /dev/disk/by-partlabel/disk-main-*,
+# so rebuilds never depend on it. It is the Samsung 980 Pro's M.2 slot
+# (by-path), not nvme1n1: with two NVMe disks the kernel names can swap,
+# and a format aimed at the wrong one would wipe Windows. NixOS lives on
+# the Samsung; the Windows disk (Kingston) is only touched by the /data block below.
 #
 # No swap partition by design: zram covers daily memory pressure, and
 # hibernation uses a btrfs swapfile in its own @swap subvolume (a swapfile
@@ -18,7 +20,7 @@
 
   disko.devices.disk.main = {
     type = "disk";
-    device = "/dev/disk/by-id/nvme-Samsung_SSD_980_PRO_1TB_S5P2NL0W513531M";
+    device = "/dev/disk/by-path/pci-0000:0c:00.0-nvme-1";
     content = {
       type = "gpt";
       partitions = {
@@ -109,6 +111,33 @@
       priority = 0;
     }
   ];
+
+  # /data: the Kingston's free half, LUKS -> btrfs, for game libraries and
+  # other bulk data. Not in disko: disko owns whole disks, and a disko
+  # format here would wipe Windows. Created once by hand in the gap between
+  # Windows' C: and its Recovery partition:
+  #   sgdisk -n 5:<start>:<end> -t 5:8309 -c 5:data-luks /dev/nvme0n1
+  #   cryptsetup luksFormat --label data /dev/disk/by-partlabel/data-luks
+  #   cryptsetup open /dev/disk/by-partlabel/data-luks data
+  #   mkfs.btrfs -L data /dev/mapper/data
+  #   systemd-cryptenroll --tpm2-device=auto /dev/disk/by-partlabel/data-luks
+  #
+  # Unlocked after the initrd (boot does not need it), by TPM2 like root,
+  # with the passphrase as fallback. nofail on both: a missing or locked
+  # volume skips /data instead of dropping into an emergency shell that
+  # bluetooth-only input cannot use. btrfs.nix scrubs it automatically.
+  environment.etc.crypttab.text = ''
+    data /dev/disk/by-partlabel/data-luks - tpm2-device=auto,discard,nofail
+  '';
+  fileSystems."/data" = {
+    device = "/dev/mapper/data";
+    fsType = "btrfs";
+    options = [
+      "compress=zstd"
+      "noatime"
+      "nofail"
+    ];
+  };
 
   zramSwap.enable = true;
   # zram swap is RAM-speed, so prefer swapping cold pages over dropping
