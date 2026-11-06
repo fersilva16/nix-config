@@ -63,4 +63,14 @@ mkUserModule {
         };
       };
     };
+
+  # noctalia only starts PAM on Enter, so the touch prompt came after a typed
+  # password that pam_u2f then ignored: both, every unlock. Starting it as the
+  # lock appears makes a touch alone unlock; once the key stops waiting for
+  # the touch, pam_unix takes the password alone.
+  home =
+    { cfg, userCfg, ... }:
+    lib.optionalAttrs ((userCfg.noctalia.enable or false) && cfg.u2fKeys != [ ]) {
+      programs.noctalia-shell.settings.general.autoStartAuth = lib.mkForce true;
+    };
 }
