@@ -30,10 +30,10 @@ repos:
         entry: statix check .
 
       # The pushing machine's checks only: each host's eval-<host> plus its Lua
-      # checks. Not `nix flake check`, which evaluates nixosConfigurations from
-      # any machine: limi-suite's crate2nix import-from-derivation then needs
-      # an x86_64-linux build on vega, which has no linux builder. So a
-      # polaris-only eval error surfaces on the next push from polaris.
+      # checks. Every host evaluates from any machine, but the Lua checks build
+      # that host's generated files, which needs its platform's builder: vega
+      # has no x86_64-linux one, polaris no aarch64-darwin one. So a
+      # polaris-only error surfaces on the next push from polaris.
       # git+file, not a bare path: a path copies .git too, and Nix cannot copy
       # the git fsmonitor sockets there.
       - name: nix checks (this system)

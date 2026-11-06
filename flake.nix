@@ -135,17 +135,9 @@
       inputs.nixpkgs.follows = "nixpkgs-nixos";
     };
 
-    # Limi ships everything as one package, limi-suite; users opt in via
-    # modules/dev/limi-suite.nix, which installs it and wires the host side.
-    # Private repo, hence ssh, but flake.lock pins it, so ssh only runs on
-    # `nix flake update limi`. To try local Limi changes, run `limi switch`
-    # (no rebuild). Only a change to `lib.host` needs a rebuild with
-    # --override-input limi git+file:///home/fernando/limi
-    # No nixpkgs follows: Limi builds on its own pin, so a rebuild gets the
-    # same derivations as `limi switch` and reuses its cached Rust deps.
-    limi = {
-      url = "git+ssh://git@github.com/fersilva16/limi";
-    };
+    # Limi is not an input: it lives only in each user's Limi profile, which
+    # `limi switch` fills (modules/dev/limi-suite/, modules/dev/limi-hub.nix).
+    # The paths both sides agree on are in lib/limiHost.nix.
   };
 
   outputs =
@@ -213,9 +205,10 @@
         # (e.g. a home file whose `.text = mkIf false …` leaves `source`
         # undefined) fails here, not at the next switch. Discarding the
         # context keeps it eval-only. Each host is checked only on its own
-        # system: limi-suite's crate2nix import-from-derivation builds during
-        # evaluation, so evaluating the other host would need its platform's
-        # builder.
+        # system. Every host evaluates from any machine (nothing imports from
+        # a derivation), but the Lua checks build the host's generated files,
+        # so vega's need an aarch64-darwin builder and polaris's and altair's
+        # an x86_64-linux one.
         checks =
           lib.optionalAttrs (system == "aarch64-darwin") {
             eval-vega = pkgs.writeText "eval-vega" (

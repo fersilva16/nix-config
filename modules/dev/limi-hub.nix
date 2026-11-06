@@ -1,21 +1,20 @@
-# limi-hub (inputs.limi): Limi's always-on daemon, for altair. It serves the
-# other machines' limi-host (limi-suite/server.nix) over the tailnet. Its
-# one-time setup is manual and lives in Limi.
+# limi-hub: Limi's always-on daemon, for altair. It serves the other
+# machines' limi-host (limi-suite/server.nix) over the tailnet. Its one-time
+# setup is manual and lives in Limi.
 #
-# The hub runs from the user's Limi profile, not from the pinned input, so
-# `limi switch --host altair` moves it to a new build and restarts it without
-# a rebuild here. The pin only seeds an empty profile.
+# The hub runs from the user's Limi profile, which `limi switch --host altair`
+# fills from polaris and moves to each new build, restarting the hub. Nothing
+# here builds Limi.
 {
   mkUserModule,
   forPlatform,
-  inputs,
+  config,
   pkgs,
   lib,
   ...
 }:
 let
-  limi = inputs.limi.packages.${pkgs.stdenv.hostPlatform.system};
-  inherit (inputs.limi.lib) host;
+  host = import ../../lib/limiHost.nix;
   port = 7377;
   # Every directory from $HOME down to the profile, which limi-hub must be
   # able to search to reach its binary.
@@ -103,7 +102,8 @@ mkUserModule {
 
           services.limi-hub = {
             wantedBy = [ "multi-user.target" ];
-            # Home Manager seeds the profile; on a first boot the hub waits for it.
+            # Home Manager makes the profile's dirs searchable first. Until
+            # `limi switch --host` fills the profile, the hub restarts below.
             after = [
               "network-online.target"
               "tailscaled.service"
@@ -114,7 +114,7 @@ mkUserModule {
               "home-manager-${user}.service"
             ];
             # `limi switch --host` asks the hub to exit and restarts it from the
-            # profile; never give up on it.
+            # profile, which may still be empty; never give up on it.
             unitConfig.StartLimitIntervalSec = 0;
             path = [ "/run/wrappers" ];
             environment = {
@@ -141,17 +141,19 @@ mkUserModule {
   home.home = forPlatform {
     linux = {
       packages = [ pkgs.tmux ];
-      # Seeds an empty profile with the pinned hub suite; `limi switch --host`
-      # owns it after that. `limi pin` runs nix-env from PATH, so hand it this
-      # host's nix. limi-hub reaches its binary through these dirs, and a
-      # shell may have made ~/.local 0700.
+      # limi-hub reaches its binary through these dirs, and a shell may have
+      # made ~/.local 0700. `limi switch --host` fills the profile; until it
+      # does, say how.
       activation.limiHubProfile = {
         after = [ "writeBoundary" ];
         before = [ ];
         data = ''
           run mkdir -p "${lib.last profileDirs}"
           run chmod o+x ${lib.concatStringsSep " " (map (d: ''"${d}"'') profileDirs)}
-          run env PATH="${pkgs.nix}/bin:$PATH" ${limi.limi-hub-suite}/bin/limi pin ${limi.limi-hub-suite}
+          if [ ! -x "$HOME/${host.profile}/${host.hub}" ]; then
+            warnEcho "No limi-hub in ~/${host.profile}: the hub waits for it."
+            warnEcho "Fill it from polaris with 'limi switch --host ${config.networking.hostName}'."
+          fi
         '';
       };
     };

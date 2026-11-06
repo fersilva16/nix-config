@@ -1,12 +1,11 @@
-# Limi (inputs.limi): everything it ships, as one package (limi-suite). Limi
-# owns its tools, its `limi` CLI and the paths a host wires (`lib.host`); this
+# Limi: everything it ships, as one package (limi-suite). Limi owns its
+# tools, its `limi` CLI and the paths a host wires (lib/limiHost.nix); this
 # module is only the host glue.
 #
-# The suite lives in its own Nix profile, not in the Home Manager build, so a
-# Limi change never touches nix-config: `limi switch` builds ~/limi into it,
-# `limi switch --pinned` goes back to the version flake.lock pins. Each
-# activation hands that pin to `limi pin`, which only seeds an empty profile:
-# a profile that already holds a suite keeps it.
+# The suite lives only in its own Nix profile: Limi is no flake input, so a
+# Limi change never touches nix-config. `limi switch` builds ~/limi into the
+# profile, and `limi switch --host <host>` fills another machine's. An
+# activation only warns while the profile is empty.
 #
 # Limi owns the agent (Nalum is the host's omo, add-ons included), tmux
 # (limi-desktop's mux), the wt/wts family, `lin` and the Todoist and Slack
@@ -15,15 +14,13 @@
 {
   mkUserModule,
   forPlatform,
-  inputs,
   pkgs,
   lib,
   fleetPeers,
   ...
 }:
 let
-  pinned = inputs.limi.packages.${pkgs.stdenv.hostPlatform.system}.limi-suite;
-  inherit (inputs.limi.lib) host;
+  host = import ../../../lib/limiHost.nix;
   homeOf =
     username:
     forPlatform {
@@ -103,9 +100,9 @@ mkUserModule {
       userCfg,
       ...
     }:
-    # Nested function for home-manager's `config` (mkOutOfStoreSymlink),
-    # which mkUserModule's home builder doesn't pass.
-    { config, ... }:
+    # Nested function for home-manager's `config` (mkOutOfStoreSymlink) and
+    # `osConfig`, which mkUserModule's home builder doesn't pass.
+    { config, osConfig, ... }:
     let
       profile = "${homeOf username}/${host.profile}";
       limiPath = "${profile}/${host.path}";
@@ -218,12 +215,17 @@ mkUserModule {
       {
         home = {
           sessionPath = [ "${profile}/bin" ];
-          # `limi pin` runs nix-env from PATH; hand it this host's nix.
+          # Nothing here builds Limi: until a `limi switch` fills the
+          # profile, say how.
           activation.limiProfile = {
             after = [ "writeBoundary" ];
             before = [ ];
             data = ''
-              run env PATH="${pkgs.nix}/bin:$PATH" ${pinned}/bin/limi pin ${pinned}
+              if [ -z "$(ls -A "$HOME/${host.profile}/" 2>/dev/null)" ]; then
+                warnEcho "No Limi suite in ~/${host.profile}. Fill it here with"
+                warnEcho "'nix run git+ssh://git@github.com/fersilva16/limi#limi -- switch',"
+                warnEcho "or from polaris with 'limi switch --host ${osConfig.networking.hostName}'."
+              fi
             '';
           };
           # Login shells in agents/* tmux sessions get Nalum's agent PATH
@@ -287,7 +289,7 @@ mkUserModule {
           # limi-chrome: Chrome finds the native host through the profile's
           # manifest, and loads the unpacked extension from a real copy, since
           # it resolves the path and a store path goes away on GC. The copy
-          # follows the pin: refresh it after limiProfile.
+          # follows the profile: refresh it on each activation.
           {
             home.file.${host.chromeNativeHost}.source =
               config.lib.file.mkOutOfStoreSymlink "${profile}/${host.chromeHostManifest}";
