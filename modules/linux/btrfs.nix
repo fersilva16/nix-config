@@ -35,7 +35,7 @@ mkSystemModule {
         TIMELINE_CLEANUP = true;
         # A day of hours, a week of days, a month of weeks, a quarter of
         # months. Short monthly tail on purpose: a snapshot pins every block
-        # changed since, and /home holds big churning data (game libraries).
+        # changed since, and /home still holds churning data outside ~/.cache.
         TIMELINE_LIMIT_HOURLY = 24;
         TIMELINE_LIMIT_DAILY = 7;
         TIMELINE_LIMIT_WEEKLY = 4;
@@ -48,6 +48,17 @@ mkSystemModule {
       # not create it. tmpfiles `v` creates a subvolume on btrfs (a plain dir
       # elsewhere) and leaves an existing one alone, so a fresh install needs
       # no manual `snapper create-config`.
-      systemd.tmpfiles.rules = lib.mkIf (isBtrfs "/home") [ "v /home/.snapshots 0750 root wheel -" ];
+      #
+      # Each user's ~/.cache is its own subvolume too: a snapshot stops at a
+      # nested subvolume, so build caches and model downloads (hundreds of
+      # GB, rewritten constantly, never worth restoring) stay out of @home's
+      # history. `v` leaves an existing plain ~/.cache alone, so converting
+      # one means moving it aside once and running `systemd-tmpfiles --create`.
+      systemd.tmpfiles.rules = lib.mkIf (isBtrfs "/home") (
+        [ "v /home/.snapshots 0750 root wheel -" ]
+        ++ lib.mapAttrsToList (name: user: "v ${user.home}/.cache 0700 ${name} ${user.group} -") (
+          lib.filterAttrs (_: user: user.isNormalUser) config.users.users
+        )
+      );
     };
 }

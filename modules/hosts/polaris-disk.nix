@@ -138,6 +138,9 @@
       "nofail"
     ];
   };
+  # Hugging Face downloads (llama.cpp GGUFs) are tens of GB each: keep them
+  # on /data rather than in ~/.cache on the root disk.
+  environment.sessionVariables.HF_HOME = "/data/huggingface";
 
   zramSwap.enable = true;
   # zram swap is RAM-speed, so prefer swapping cold pages over dropping
