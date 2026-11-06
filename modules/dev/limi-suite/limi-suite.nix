@@ -77,7 +77,6 @@ mkUserModule {
         forPlatform
         fleetPeers
         lib
-        pkgs
         ;
     };
   };
