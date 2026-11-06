@@ -1,5 +1,7 @@
-# limi-host serves the mux and Nalum's sessions; `limi-host keep` keeps the
-# main mux up with no window open, so the phone reaches it on port 7377.
+# limi-host serves the mux and Nalum's sessions. `limi-host keep` is the main
+# mux's one server, and this service is the only thing that runs it: no
+# client starts the main mux, and `limi switch` restarts the service. It
+# stays up with no window open, so the phone reaches it on port 7377.
 # `limi-host token` prints the bearer token.
 #
 # limi-host reaches limi-hub (modules/dev/limi-hub.nix) with the hub's token
@@ -38,7 +40,8 @@ in
           Unit.Description = "limi-host keep: the main mux and Nalum's API";
           Service = {
             ExecStart = "${server} keep";
-            # keep starts the server, which must outlive a restart of keep.
+            # Only the server stops: its panes' zmx sessions must outlive a
+            # restart. On SIGTERM it saves the model, then exits.
             KillMode = "process";
             Environment = [ "PATH=${profile}/${host.path}:${profile}/bin:/run/current-system/sw/bin" ];
             Restart = "always";
@@ -49,16 +52,17 @@ in
         darwin.launchd.agents.limi-host = {
           enable = true;
           config = {
-            # macOS charges every pane's privacy request to keep, the process
-            # that starts the server. The signed copy in Limi.app keeps its
-            # grants across builds; the store binary is new to macOS each time.
+            # macOS charges every pane's privacy request to the server, which
+            # starts the panes. The signed copy in Limi.app keeps its grants
+            # across builds; the store binary is new to macOS each time.
             ProgramArguments = [
               "${homeOf username}/${host.macHost}"
               "keep"
             ];
             RunAtLoad = true;
             KeepAlive = true;
-            # keep starts the server, which must outlive a restart of keep.
+            # Only the server stops: its panes' zmx sessions must outlive a
+            # restart.
             AbandonProcessGroup = true;
             # Every pane the server spawns inherits this; Background throttles
             # their CPU and I/O to macOS's lowest band.
