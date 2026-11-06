@@ -1,6 +1,10 @@
 # limi-hub (inputs.limi): Limi's always-on daemon, for altair. It serves the
 # other machines' limi-host (limi-suite/server.nix) over the tailnet. Its
 # one-time setup is manual and lives in Limi.
+#
+# The hub runs from the user's Limi profile, not from the pinned input, so
+# `limi switch --host altair` moves it to a new build and restarts it without
+# a rebuild here. The pin only seeds an empty profile.
 {
   mkUserModule,
   forPlatform,
@@ -11,7 +15,15 @@
 }:
 let
   limi = inputs.limi.packages.${pkgs.stdenv.hostPlatform.system};
+  inherit (inputs.limi.lib) host;
   port = 7377;
+  # Every directory from $HOME down to the profile, which limi-hub must be
+  # able to search to reach its binary.
+  profileDirs =
+    let
+      parts = lib.splitString "/" (dirOf host.profile);
+    in
+    lib.genList (i: "$HOME/${lib.concatStringsSep "/" (lib.take (i + 1) parts)}") (lib.length parts);
 in
 mkUserModule {
   name = "limi-hub";
@@ -32,6 +44,11 @@ mkUserModule {
         # The personal Nalum's sessions run omo's generic glibc binary, as
         # limi-suite's do; nix-ld serves its loader path.
         programs.nix-ld.enable = true;
+
+        # The hub starts Nalum's sessions in a login shell as the user, which
+        # finds `nalum` in the profile. Last, so it never shadows /run/wrappers
+        # or the system profiles.
+        environment.profiles = lib.mkAfter [ "$HOME/${host.profile}" ];
 
         assertions = [
           {
@@ -78,29 +95,27 @@ mkUserModule {
         ];
 
         systemd = {
+          # The hub makes its own runtime dirs and links.
           tmpfiles.rules = [
-            "z ${home}/nalum 2770 ${user} nalum -"
-            "d ${home}/nalum/.agent 2770 ${user} nalum -"
-            # Group only: limi-hub owns its run dir in here (nalum/headless,
-            # 0700), and taking the owner back would lock it out of it.
-            "Z ${home}/nalum/.agent - - nalum -"
-            "d ${home}/nalum/.agent/nalum 2770 ${user} nalum -"
-            "d ${home}/.nalum 0710 ${user} nalum -"
-            "d ${home}/.nalum/agent 0710 ${user} nalum -"
-            "d ${home}/.nalum/agent/nalum 0710 ${user} nalum -"
-            "d ${home}/.nalum/agent/nalum/bridge 2770 ${user} nalum -"
-            "L+ ${home}/nalum/.agent/nalum/bridge - - - - ${home}/.nalum/agent/nalum/bridge"
             # The raisers' socket for needs-you items (needs-you.sock); group nalum may raise.
             "d /run/limi-hub 0750 limi-hub nalum -"
           ];
 
           services.limi-hub = {
             wantedBy = [ "multi-user.target" ];
+            # Home Manager seeds the profile; on a first boot the hub waits for it.
             after = [
               "network-online.target"
               "tailscaled.service"
+              "home-manager-${user}.service"
             ];
-            wants = [ "network-online.target" ];
+            wants = [
+              "network-online.target"
+              "home-manager-${user}.service"
+            ];
+            # `limi switch --host` asks the hub to exit and restarts it from the
+            # profile; never give up on it.
+            unitConfig.StartLimitIntervalSec = 0;
             path = [ "/run/wrappers" ];
             environment = {
               LIMI_NALUM_PROJECTS = "${home}/nalum";
@@ -109,32 +124,12 @@ mkUserModule {
             serviceConfig = {
               User = "limi-hub";
               Group = "limi-hub";
-              ExecStart = "${limi.limi-hub}/bin/limi-hub";
+              ExecStart = "${home}/${host.profile}/${host.hub}";
               Restart = "always";
+              RestartSec = 2;
               UMask = "0077";
               # The personal Nalum's sessions outlive a hub restart; limi-hub reattaches to them.
               KillMode = "process";
-            };
-          };
-
-          # Delivers the personal Nalum's scheduled prompts (schedule_prompt).
-          # Login shell + umask 007, the way the hub starts Nalum's sessions.
-          services.nalum-schedule = {
-            wantedBy = [ "multi-user.target" ];
-            after = [
-              "network-online.target"
-              "tailscaled.service"
-            ];
-            wants = [ "network-online.target" ];
-            environment.OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
-            # ExecStart finds nalum on PATH, so the unit never changes on its
-            # own: restart on a new Limi build so errands run on it.
-            restartTriggers = [ limi.limi-hub-suite ];
-            serviceConfig = {
-              User = user;
-              WorkingDirectory = "${home}/nalum";
-              ExecStart = "/bin/sh -l -c 'umask 007; exec nalum schedule run --watch'";
-              Restart = "always";
             };
           };
         };
@@ -143,10 +138,22 @@ mkUserModule {
         networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ port ];
       };
     };
-  home.home.packages = forPlatform {
-    linux = [
-      limi.limi-hub-suite
-      pkgs.tmux
-    ];
+  home.home = forPlatform {
+    linux = {
+      packages = [ pkgs.tmux ];
+      # Seeds an empty profile with the pinned hub suite; `limi switch --host`
+      # owns it after that. `limi pin` runs nix-env from PATH, so hand it this
+      # host's nix. limi-hub reaches its binary through these dirs, and a
+      # shell may have made ~/.local 0700.
+      activation.limiHubProfile = {
+        after = [ "writeBoundary" ];
+        before = [ ];
+        data = ''
+          run mkdir -p "${lib.last profileDirs}"
+          run chmod o+x ${lib.concatStringsSep " " (map (d: ''"${d}"'') profileDirs)}
+          run env PATH="${pkgs.nix}/bin:$PATH" ${limi.limi-hub-suite}/bin/limi pin ${limi.limi-hub-suite}
+        '';
+      };
+    };
   };
 }

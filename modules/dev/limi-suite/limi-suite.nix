@@ -5,8 +5,8 @@
 # The suite lives in its own Nix profile, not in the Home Manager build, so a
 # Limi change never touches nix-config: `limi switch` builds ~/limi into it,
 # `limi switch --pinned` goes back to the version flake.lock pins. Each
-# activation hands that pin to `limi pin`, which follows it unless a
-# `limi switch` build is active.
+# activation hands that pin to `limi pin`, which only seeds an empty profile:
+# a profile that already holds a suite keeps it.
 #
 # Limi owns the agent (Nalum is the host's omo, add-ons included), tmux
 # (limi-desktop's mux), the wt/wts family, `lin` and the Todoist and Slack
