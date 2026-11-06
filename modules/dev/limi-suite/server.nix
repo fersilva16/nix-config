@@ -11,7 +11,6 @@
   forPlatform,
   fleetPeers,
   lib,
-  pkgs,
 }:
 let
   port = 7377;
@@ -19,27 +18,19 @@ let
   hub = lib.findFirst (name: lib.elem "limi-hub" fleetPeers.${name}.services) null (
     lib.attrNames fleetPeers
   );
-  # Loopback end of the tunnel below.
-  tunnelPort = 17377;
 in
 {
-  system = forPlatform {
+  system = {
+    fleet.services = [ "limi-host" ];
+  }
+  // forPlatform {
     linux.networking.firewall.allowedTCPPorts = [ port ];
   };
   home =
-    { username, userCfg, ... }:
+    { username, ... }:
     let
       profile = "${homeOf username}/${host.profile}";
       server = "${profile}/${host.path}/limi-host";
-      # A userspace tailscaled adds no route or resolver for the tailnet, so
-      # limi-host's default http://<hub>:7377 resolves nowhere. launchd hands
-      # each connection to a loopback port to `tailscale nc` instead.
-      tunnel =
-        hub != null
-        && pkgs.stdenv.hostPlatform.isDarwin
-        && userCfg.tailscale.enable
-        && userCfg.tailscale.userspace;
-      hubEnv = lib.optionalAttrs tunnel { LIMI_HUB_URL = "http://127.0.0.1:${toString tunnelPort}"; };
     in
     lib.mkMerge [
       (forPlatform {
@@ -65,7 +56,6 @@ in
               "${homeOf username}/${host.macHost}"
               "keep"
             ];
-            EnvironmentVariables = hubEnv;
             RunAtLoad = true;
             KeepAlive = true;
             # keep starts the server, which must outlive a restart of keep.
@@ -87,29 +77,6 @@ in
               warnEcho "Get it on ${hub} with 'sudo -u limi-hub -H limi-hub token' and save it there, mode 0600."
             fi
           '';
-        };
-      })
-      (lib.mkIf tunnel {
-        # Shells too, so `limi-host` run by hand reaches the same hub.
-        home.sessionVariables = hubEnv;
-        # A daemon that Limi.app or a pane started has neither; Limi reads
-        # the address from here when the variable is unset.
-        xdg.configFile."limi/hub-url".text = hubEnv.LIMI_HUB_URL;
-        launchd.agents.limi-hub-tunnel = {
-          enable = true;
-          config = {
-            ProgramArguments = [
-              "${pkgs.tailscale}/bin/tailscale"
-              "nc"
-              hub
-              (toString port)
-            ];
-            inetdCompatibility.Wait = false;
-            Sockets.Listeners = {
-              SockNodeName = "127.0.0.1";
-              SockServiceName = toString tunnelPort;
-            };
-          };
         };
       })
     ];
