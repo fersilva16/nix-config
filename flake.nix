@@ -205,9 +205,10 @@
         # (e.g. a home file whose `.text = mkIf false …` leaves `source`
         # undefined) fails here, not at the next switch. Discarding the
         # context keeps it eval-only. Each host is checked only on its own
-        # system: limi-suite's crate2nix import-from-derivation builds during
-        # evaluation, so evaluating the other host would need its platform's
-        # builder.
+        # system. Every host evaluates from any machine (nothing imports from
+        # a derivation), but the Lua checks build the host's generated files,
+        # so vega's need an aarch64-darwin builder and polaris's and altair's
+        # an x86_64-linux one.
         checks =
           lib.optionalAttrs (system == "aarch64-darwin") {
             eval-vega = pkgs.writeText "eval-vega" (
