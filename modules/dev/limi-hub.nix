@@ -127,6 +127,9 @@ mkUserModule {
             ];
             wants = [ "network-online.target" ];
             environment.OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
+            # ExecStart finds nalum on PATH, so the unit never changes on its
+            # own: restart on a new Limi build so errands run on it.
+            restartTriggers = [ limi.limi-hub-suite ];
             serviceConfig = {
               User = user;
               WorkingDirectory = "${home}/nalum";
