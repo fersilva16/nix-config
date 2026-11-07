@@ -130,6 +130,9 @@ mkUserModule {
             environment = {
               LIMI_NALUM_PROJECTS = "${home}/nalum";
               OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
+              # The 1Password service account token: the user's file, mode
+              # 640 with group limi-hub, so the hub reads it and he rotates it.
+              LIMI_OP_TOKEN = "${home}/.local/state/limi/op-token";
             };
             serviceConfig = {
               User = "limi-hub";
