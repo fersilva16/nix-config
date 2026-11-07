@@ -12,9 +12,13 @@
 # config.toml is nix-owned and read-only, so peers added or authorized from
 # the GUI do not persist: declare them in `peers`.
 #
-# darwin: a launchd agent runs the store binary. macOS gates its event tap
-# behind Accessibility for that exact binary, so a lan-mouse update (new
-# store path) needs the permission granted again.
+# darwin: macOS gates the event tap behind Accessibility, and an ad-hoc
+# signed binary is identified by its hash, so every new build would need
+# the permission granted again (one more "lan-mouse" row each time).
+# Activation copies the binary to a fixed root-owned path and re-signs it
+# with a name-based identity; the launchd agent runs that copy, so one
+# grant for /usr/local/libexec/lan-mouse survives updates. Only root can
+# replace the file the grant is tied to.
 # linux: a user service bound to the graphical session. niri provides the
 # layer-shell capture and wlroots virtual-pointer emulation. Keys go out
 # through the patched-in `uinput` backend instead (./uinput-emulation.patch):
@@ -85,6 +89,10 @@ let
     '';
   });
   exe = lib.getExe lan-mouse;
+  # The daemon needs none of the GTK env the wrapper sets, so the signed
+  # copy is the unwrapped binary.
+  darwinExe = "/usr/local/libexec/lan-mouse";
+  signingId = "org.nix-config.lan-mouse";
 in
 mkUserModule {
   name = "lan-mouse";
@@ -133,6 +141,14 @@ mkUserModule {
       );
     }
     // forPlatform {
+      # mkBefore: runs ahead of home-manager's activation, which (re)starts
+      # the agent.
+      darwin.system.activationScripts.postActivation.text = lib.mkBefore ''
+        install -d /usr/local/libexec
+        install -m 755 ${lan-mouse}/bin/.lan-mouse-wrapped ${darwinExe}
+        /usr/bin/codesign --force --sign - --identifier ${signingId} \
+          -r='designated => identifier "${signingId}"' ${darwinExe}
+      '';
       linux = {
         networking.firewall.allowedUDPPorts = [ port ];
         hardware.uinput.enable = true;
@@ -211,9 +227,12 @@ mkUserModule {
         enable = true;
         config = {
           ProgramArguments = [
-            exe
+            darwinExe
             "daemon"
           ];
+          # The path above never changes; this does per build, so an update
+          # reloads the agent onto the new binary.
+          EnvironmentVariables.LAN_MOUSE_BUILD = "${lan-mouse}";
           ProcessType = "Interactive";
           StandardErrorPath = "/Users/${username}/Library/Logs/lan-mouse.log";
         };
