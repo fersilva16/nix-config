@@ -98,6 +98,16 @@ mkUserModule {
           tmpfiles.rules = [
             # The raisers' socket for needs-you items (needs-you.sock); group nalum may raise.
             "d /run/limi-hub 0750 limi-hub nalum -"
+            # The hub resumes a personal Nalum session only if it can read its
+            # transcript, so the sessions dir and the dirs above it are group
+            # nalum, setgid so new files and subdirs inherit the group.
+            # Declaring the parents keeps tmpfiles from making them root's.
+            "d ${home}/nalum 2770 ${user} nalum -"
+            "d ${home}/nalum/.agent 2770 ${user} nalum -"
+            "d ${home}/nalum/.agent/sessions 2770 ${user} nalum -"
+            # nalum's gid is allocated per machine, so files restored from
+            # another one may carry a stale group. Group only: their modes stay.
+            "Z ${home}/nalum/.agent/sessions - - nalum -"
           ];
 
           services.limi-hub = {
