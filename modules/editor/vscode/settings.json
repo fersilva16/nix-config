@@ -51,6 +51,8 @@
   "terminal.integrated.fontLigatures": true,
   "terminal.integrated.stickyScroll.enabled": false,
 
+  "update.mode": "none",
+
   "workbench.colorTheme": "Flexoki Light",
   "workbench.sideBar.location": "right",
   "workbench.startupEditor": "none",
