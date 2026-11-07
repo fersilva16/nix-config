@@ -83,9 +83,18 @@ let
     # Upstream taps at the session level, where Hammerspoon's hyper tap also
     # sits; whichever was inserted last runs first, and Hammerspoon recreates
     # its tap every 30s. At the HID level lan-mouse always sees keys first.
+    # Scroll from a remote mouse arrives in the protocol's positive-down sign
+    # and 0.11.0 posts it to Quartz (positive-up) as is, so it scrolls the
+    # natural way. Scroll Reverser leaves app-posted scroll unchanged, so
+    # flip both axes here: a remote mouse scrolls classic, like the local
+    # one does through Scroll Reverser. Upstream is still settling this
+    # (feschber/lan-mouse#498, #537); recheck when nixpkgs bumps lan-mouse.
     postPatch = (old.postPatch or "") + ''
       substituteInPlace input-capture/src/macos.rs \
         --replace-fail "CGEventTapLocation::Session," "CGEventTapLocation::HID,"
+      substituteInPlace input-emulation/src/macos.rs \
+        --replace-fail "let value = value as i32;" "let value = -(value as i32);" \
+        --replace-fail "value / (120 / LINES_PER_STEP)" "-value / (120 / LINES_PER_STEP)"
     '';
   });
   exe = lib.getExe lan-mouse;
