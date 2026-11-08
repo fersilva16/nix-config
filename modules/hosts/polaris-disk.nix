@@ -138,6 +138,10 @@
       "nofail"
     ];
   };
+  # The fleet's encrypted backups (modules/linux/backup.nix): a disk apart
+  # from the machines they come from.
+  modules.system.backup.store = "/data/backups";
+
   # Hugging Face downloads (llama.cpp GGUFs) are tens of GB each: keep them
   # on /data rather than in ~/.cache on the root disk.
   environment.sessionVariables.HF_HOME = "/data/huggingface";

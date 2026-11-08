@@ -27,6 +27,10 @@ mkNixOSHost {
         noctalia-greeter.enable = false;
         server-mode.enable = false;
         caskaydia-cove.enable = false;
+
+        # A copy on another machine and disk: polaris's /data. altair is
+        # always on, so it pushes and wakes polaris for it.
+        backup.to = "polaris";
       };
 
       # Names and allowed values: ls /sys/class/firmware-attributes/thinklmi/attributes
