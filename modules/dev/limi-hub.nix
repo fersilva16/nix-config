@@ -24,6 +24,7 @@ let
     in
     lib.genList (i: "$HOME/${lib.concatStringsSep "/" (lib.take (i + 1) parts)}") (lib.length parts);
   hubHome = "/var/lib/limi-hub";
+  rootIsBtrfs = (config.fileSystems."/".fsType or null) == "btrfs";
   # limi-hub's server dir, relative to its home, and the mirror its
   # connectors write in it as plain text for group nalum to read.
   hubDir = ".local/state/limi/hub";
@@ -48,6 +49,9 @@ mkUserModule {
     let
       user = lib.head (lib.attrNames enabledUsers);
       home = "/home/${user}";
+      # The 1Password service account token: the user's file, mode 640 with
+      # group limi-hub, so the hub reads it and he rotates it.
+      opToken = "${home}/.local/state/limi/op-token";
     in
     {
       # limi-suite's limi-host finds the hub here (fleetPeers).
@@ -78,9 +82,9 @@ mkUserModule {
               group = "limi-hub";
               extraGroups = [ "nalum" ];
               home = hubHome;
-              createHome = true;
-              # Group search, so the ACL mask lets nalum reach the mirror.
-              homeMode = "710";
+              # tmpfiles makes the home, as a btrfs subvolume: the users
+              # module would make a plain dir first, on every fresh install.
+              createHome = false;
             };
             ${user}.homeMode = "711";
           };
@@ -111,6 +115,13 @@ mkUserModule {
 
         systemd = {
           # The hub makes its own runtime dirs and links.
+          #
+          # The hub's home is its own subvolume, so snapper keeps its history
+          # and a backup snapshots it alone. `v` makes one on btrfs (a plain
+          # dir elsewhere) and leaves an existing dir alone, so converting a
+          # live home is a one-time move by hand. The mirror is a subvolume
+          # too: connectors rewrite it constantly and rebuild it from their
+          # sources, and a snapshot stops at a nested subvolume.
           tmpfiles.rules = [
             # The raisers' socket for needs-you items (needs-you.sock); group nalum may raise.
             "d /run/limi-hub 0750 limi-hub nalum -"
@@ -131,16 +142,16 @@ mkUserModule {
           # dir and file it writes, which clears a setgid bit, so the group
           # comes from ACLs. A chmod sets an ACL's mask, so these dirs keep
           # group search (0710) for the mask to let nalum's entry through.
-          # The home is the users module's.
-          ++ lib.concatMap (
-            d:
-            lib.optional (d != hubHome) "d ${d} 0710 limi-hub limi-hub -"
-            ++ [ "a+ ${d} - - - - group:nalum:--x" ]
-          ) mirrorParents
+          ++ lib.concatMap (d: [
+            "${if d == hubHome then "v" else "d"} ${d} 0710 limi-hub limi-hub -"
+            "a+ ${d} - - - - group:nalum:--x"
+          ]) mirrorParents
           ++ [
-            "d ${mirror} 0750 limi-hub limi-hub -"
+            "v ${mirror} 0750 limi-hub limi-hub -"
             "A+ ${mirror} - - - - group:nalum:r-X,default:group:nalum:r-X"
-          ];
+          ]
+          # snapper needs the .snapshots subvolume and does not make it.
+          ++ lib.optional rootIsBtrfs "v ${hubHome}/.snapshots 0750 root wheel -";
 
           services.limi-hub = {
             wantedBy = [ "multi-user.target" ];
@@ -162,9 +173,7 @@ mkUserModule {
             environment = {
               LIMI_NALUM_PROJECTS = "${home}/nalum";
               OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
-              # The 1Password service account token: the user's file, mode
-              # 640 with group limi-hub, so the hub reads it and he rotates it.
-              LIMI_OP_TOKEN = "${home}/.local/state/limi/op-token";
+              LIMI_OP_TOKEN = opToken;
             };
             serviceConfig = {
               User = "limi-hub";
@@ -181,6 +190,33 @@ mkUserModule {
 
         # Tailnet only: never on the LAN interface.
         networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ port ];
+
+        # Hourly local history of the hub's state, like /home's in
+        # modules/linux/btrfs.nix but without the monthly tail: the off-box
+        # backup keeps the long history.
+        services.snapper.configs.limi-hub = lib.mkIf rootIsBtrfs {
+          SUBVOLUME = hubHome;
+          ALLOW_GROUPS = [ "wheel" ];
+          TIMELINE_CREATE = true;
+          TIMELINE_CLEANUP = true;
+          TIMELINE_LIMIT_HOURLY = 24;
+          TIMELINE_LIMIT_DAILY = 7;
+          TIMELINE_LIMIT_WEEKLY = 4;
+          TIMELINE_LIMIT_MONTHLY = 0;
+          TIMELINE_LIMIT_QUARTERLY = 0;
+          TIMELINE_LIMIT_YEARLY = 0;
+        };
+
+        # The hub's state exists nowhere else, so a host that backs up
+        # (modules/linux/backup.nix) takes it too. The hub's service account
+        # reads the repository password, and the hub's user hears when the
+        # backup goes stale.
+        modules.system.backup = {
+          subvolumes = [ hubHome ];
+          exclude = [ mirror ];
+          opTokenFile = lib.mkDefault opToken;
+          notify = lib.mkDefault user;
+        };
       };
     };
   home.home = forPlatform {

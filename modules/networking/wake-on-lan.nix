@@ -44,10 +44,18 @@ in
 mkSystemModule {
   name = "wake-on-lan";
 
-  extraOptions.mac = lib.mkOption {
-    type = lib.types.nullOr lib.types.str;
-    default = null;
-    description = "This host's WiFi MAC; set it to make the host wakeable over the LAN.";
+  extraOptions = {
+    mac = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "This host's WiFi MAC; set it to make the host wakeable over the LAN.";
+    };
+    package = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      default = wake;
+      description = "The `wake <peer>` command, for services that wake a peer before reaching it.";
+    };
   };
 
   config =
