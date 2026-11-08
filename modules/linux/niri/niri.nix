@@ -13,7 +13,7 @@
 # keyboard part (./keyboard.nix) — toggle via niri.keyboard.enable.
 #
 # The desktop shell (bar/lock/notifications) is noctalia; the app launcher
-# is vicinae (modules/productivity/vicinae), which binds Super+Space. For
+# is limi-launcher (modules/dev/limi-suite), which binds Super+Space. For
 # noctalia (modules/linux/noctalia/noctalia.nix) this file wires the niri glue —
 # spawn-at-startup, IPC keybinds, layer rules.
 {

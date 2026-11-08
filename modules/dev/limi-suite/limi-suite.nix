@@ -132,6 +132,24 @@ mkUserModule {
           "set -g @slack-later-group ${cfg.slackLater.groupBy}"
         ]
         ++ lib.optional userCfg.todoist.enable "set -g @todoist-warn-at ${toString userCfg.todoist.warnAt}";
+      # limi-launcher under niri: Super+Space (Cmd+Space; Super, not Mod,
+      # since niri's Mod is Hyper) toggles it, and niri blurs what is behind
+      # its 720x480 panel, rounded like the panel. xray off, so the blur
+      # shows the windows below and not only the wallpaper.
+      launcherKdl = pkgs.writeText "limi-launcher-niri.kdl" ''
+        binds {
+            Super+Space { spawn "${profile}/bin/limi-launcher"; }
+        }
+
+        layer-rule {
+            match namespace="^limi-launcher$"
+            geometry-corner-radius 18
+            background-effect {
+                blur true
+                xray false
+            }
+        }
+      '';
       inherit (userCfg.todoist) reviewAt;
       reviewHM = lib.splitString ":" (if reviewAt != null then reviewAt else "0:0");
     in
@@ -143,6 +161,14 @@ mkUserModule {
         xdg.configFile."limi/machines".text = lib.concatStrings (
           lib.mapAttrsToList (name: args: lib.concatStringsSep " " ([ name ] ++ args) + "\n") machines
         );
+      })
+      # Last in config.kdl: niri includes are positional and their binds win
+      # over earlier ones. `or false`: the niri option only exists on linux
+      # hosts.
+      (lib.mkIf (userCfg.niri.enable or false) {
+        xdg.configFile."niri/config.kdl".text = lib.mkAfter ''
+          include "${launcherKdl}"
+        '';
       })
       # The mux sources this file after every tmux.d, so these win over the
       # suite's defaults; `limi switch` never touches it. A running mux reads

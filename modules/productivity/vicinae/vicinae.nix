@@ -11,10 +11,9 @@
 # moves Raycast to ⌥⌘Space so both can run side by side. settings.json is
 # seeded once, not managed: Vicinae rewrites it from its GUI.
 #
-# linux: home-manager's programs.vicinae with its systemd server. Wayland has
-# no global-shortcut API Vicinae can use, so the compositor owns the hotkey:
-# under niri, Super+Space (Cmd+Space) toggles Vicinae instead of noctalia's
-# launcher.
+# linux: home-manager's programs.vicinae with its systemd server, kept for
+# what limi-launcher can't do yet (niri's capture menu is a `vicinae dmenu`).
+# It has no hotkey: Super+Space is limi-launcher's (modules/dev/limi-suite).
 mkUserModule {
   name = "vicinae";
   system = forPlatform {
@@ -62,16 +61,6 @@ mkUserModule {
           exec /usr/bin/open -g "hammerspoon://snap?side=${side}"
         '';
       };
-
-      # Included last in niri's config.kdl: niri includes are positional and
-      # their binds override earlier ones, so this replaces noctalia's
-      # launcher bind without touching the niri module. Super, not Mod: niri's
-      # Mod is Hyper, and Hyper+Space is xremap's terminal toggle.
-      niriBinds = pkgs.writeText "vicinae-niri.kdl" ''
-        binds {
-            Super+Space { spawn "${lib.getExe' pkgs.vicinae "vicinae"}" "toggle"; }
-        }
-      '';
 
       # Nix-owned settings live in nix.json, which Vicinae only reads; this
       # makes the GUI-written settings.json import it (seeding it if absent).
@@ -133,11 +122,6 @@ mkUserModule {
           # with it (a vicinae crash once took Steam along).
           "vicinae/nix.json".text = builtins.toJSON {
             providers.applications.preferences.launchPrefix = "${pkgs.systemd}/bin/systemd-run --user --scope --collect --";
-          };
-          "niri/config.kdl" = lib.mkIf userCfg.niri.enable {
-            text = lib.mkAfter ''
-              include "${niriBinds}"
-            '';
           };
         };
 
