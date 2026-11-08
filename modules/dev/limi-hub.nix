@@ -23,6 +23,21 @@ let
       parts = lib.splitString "/" (dirOf host.profile);
     in
     lib.genList (i: "$HOME/${lib.concatStringsSep "/" (lib.take (i + 1) parts)}") (lib.length parts);
+  hubHome = "/var/lib/limi-hub";
+  # limi-hub's server dir, relative to its home, and the mirror its
+  # connectors write in it as plain text for group nalum to read.
+  hubDir = ".local/state/limi/hub";
+  mirror = "${hubHome}/${hubDir}/mirror";
+  # Every directory from the hub's home down to the mirror, which group
+  # nalum must be able to search.
+  mirrorParents =
+    let
+      parts = lib.splitString "/" hubDir;
+    in
+    [ hubHome ]
+    ++ lib.genList (i: "${hubHome}/${lib.concatStringsSep "/" (lib.take (i + 1) parts)}") (
+      lib.length parts
+    );
 in
 mkUserModule {
   name = "limi-hub";
@@ -62,9 +77,10 @@ mkUserModule {
               isSystemUser = true;
               group = "limi-hub";
               extraGroups = [ "nalum" ];
-              home = "/var/lib/limi-hub";
+              home = hubHome;
               createHome = true;
-              homeMode = "700";
+              # Group search, so the ACL mask lets nalum reach the mirror.
+              homeMode = "710";
             };
             ${user}.homeMode = "711";
           };
@@ -108,6 +124,22 @@ mkUserModule {
             # nalum's gid is allocated per machine, so files restored from
             # another one may carry a stale group. Group only: their modes stay.
             "Z ${home}/nalum/.agent/sessions - - nalum -"
+          ]
+          # Group nalum reads the mirror and nothing else of the hub's home:
+          # search only on each dir above it, read on it, and a default entry
+          # that what the hub writes later inherits. The mirror chmods every
+          # dir and file it writes, which clears a setgid bit, so the group
+          # comes from ACLs. A chmod sets an ACL's mask, so these dirs keep
+          # group search (0710) for the mask to let nalum's entry through.
+          # The home is the users module's.
+          ++ lib.concatMap (
+            d:
+            lib.optional (d != hubHome) "d ${d} 0710 limi-hub limi-hub -"
+            ++ [ "a+ ${d} - - - - group:nalum:--x" ]
+          ) mirrorParents
+          ++ [
+            "d ${mirror} 0750 limi-hub limi-hub -"
+            "A+ ${mirror} - - - - group:nalum:r-X,default:group:nalum:r-X"
           ];
 
           services.limi-hub = {
