@@ -72,7 +72,6 @@ mkUser {
   # Editors
   nvim.enable = true;
   vscode.enable = true;
-  intellij.enable = true;
   "android-studio".enable = true;
 
   # Browsers
