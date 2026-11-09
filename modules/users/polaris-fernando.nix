@@ -19,6 +19,7 @@ mkUser {
   fzf.enable = true;
   gum.enable = true;
   fd.enable = true;
+  realdu.enable = true;
   ripgrep.enable = true;
   fastfetch.enable = true;
   todoist.enable = true;

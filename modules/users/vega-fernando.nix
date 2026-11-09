@@ -34,6 +34,7 @@ mkUser {
   fzf.enable = true;
   gum.enable = true;
   fd.enable = true;
+  realdu.enable = true;
   ripgrep.enable = true;
   chrome-cli.enable = true;
   readwise.enable = true;

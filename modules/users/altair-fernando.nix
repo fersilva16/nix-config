@@ -18,6 +18,7 @@ mkUser {
   eza.enable = true;
   fzf.enable = true;
   fd.enable = true;
+  realdu.enable = true;
   ripgrep.enable = true;
 
   # Dev tools
