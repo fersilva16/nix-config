@@ -22,6 +22,15 @@ mkUserModule {
 
           package = pkgs.git;
 
+          # Scheduled `git maintenance` (launchd agents on darwin), so a big
+          # repo is repacked on a timer instead of only when some command
+          # happens to trigger `gc --auto`. Repos opt in with
+          # `git maintenance register --config-file ~/.config/git/maintenance`:
+          # the generated config is read-only, and repo paths stay out of this
+          # public repo.
+          maintenance.enable = true;
+          includes = [ { path = "~/.config/git/maintenance"; } ];
+
           settings = {
             user = {
               email = "fernandonsilva16@gmail.com";
