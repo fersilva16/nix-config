@@ -27,4 +27,6 @@
   chromeExtensionCopy = ".local/share/limi/chrome-extension";
   # Relative to $HOME, macOS: the signed limi-host in Limi.app.
   macHost = "Applications/Limi Apps/Limi.app/Contents/MacOS/limi-host";
+  # Relative to $HOME, macOS: the signed limi-launcher in Limi Launcher.app.
+  macLauncher = "Applications/Limi Apps/Limi Launcher.app/Contents/MacOS/limi-launcher";
 }
