@@ -8,8 +8,10 @@
 # Vicinae — open-source, Raycast-compatible launcher.
 #
 # darwin: Homebrew cask. Takes over ⌘Space; when Raycast is also enabled it
-# moves Raycast to ⌥⌘Space so both can run side by side. settings.json is
-# seeded once, not managed: Vicinae rewrites it from its GUI.
+# moves Raycast to ⌥⌘Space so both can run side by side. With limi-suite on,
+# ⌘Space is limi-launcher's (modules/dev/limi-suite), so Vicinae gets no
+# hotkey, as on Linux. settings.json is seeded once, not managed: Vicinae
+# rewrites it from its GUI, so activation only swaps a ⌘Space toggle out.
 #
 # linux: home-manager's programs.vicinae with its systemd server, kept for
 # what limi-launcher can't do yet (niri's capture menu is a `vicinae dmenu`).
@@ -39,6 +41,8 @@ mkUserModule {
   home =
     { userCfg, ... }:
     let
+      # An empty toggle registers no global shortcut.
+      toggle = if userCfg.limi-suite.enable or false then "" else "cmd+space";
       # A window outline with the target half filled in.
       snapIcon =
         side:
@@ -103,7 +107,10 @@ mkUserModule {
           after = [ "writeBoundary" ];
           before = [ ];
           data =
-            importNixJson "/usr/bin/awk" ''{ "imports": [ "./nix.json" ], "global_shortcuts": { "toggle": "cmd+space" } }''
+            importNixJson "/usr/bin/awk" ''{ "imports": [ "./nix.json" ], "global_shortcuts": { "toggle": "${toggle}" } }''
+            + lib.optionalString (toggle != "cmd+space") ''
+              /usr/bin/sed -i "" 's/"toggle": "cmd+space"/"toggle": "${toggle}"/' "$HOME/.config/vicinae/settings.json"
+            ''
             + lib.optionalString userCfg.raycast.enable ''
               /usr/bin/defaults write com.raycast.macos raycastGlobalHotkey -string "Option-Command-49"
             '';

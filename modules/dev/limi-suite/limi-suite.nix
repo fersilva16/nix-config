@@ -277,6 +277,27 @@ mkUserModule {
       # shim is the host's `tmux` anyway.
       (forPlatform {
         darwin = lib.mkMerge [
+          # limi-launcher: the resident process owns Cmd+Space and keeps the
+          # clipboard history from login on. It runs the signed copy in
+          # ~/Applications, so macOS keeps its Accessibility grant (paste)
+          # across builds, and `limi switch` restarts it onto each build. A
+          # crash restarts it; `limi-launcher quit` exits cleanly and leaves
+          # it stopped until the next login or switch.
+          {
+            launchd.agents.limi-launcher = {
+              enable = true;
+              config = {
+                ProgramArguments = [
+                  "${homeOf username}/${host.macLauncher}"
+                  "serve"
+                ];
+                RunAtLoad = true;
+                KeepAlive.SuccessfulExit = false;
+                ProcessType = "Interactive";
+                StandardErrorPath = "${homeOf username}/Library/Logs/limi-launcher.log";
+              };
+            };
+          }
           # The suite's timers, run from limi-path against limi-desktop's mux.
           {
             # Every 15 minutes, low priority. A run with nothing to rebuild is
