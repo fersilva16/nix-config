@@ -135,6 +135,12 @@ mkUserModule {
             # nalum's gid is allocated per machine, so files restored from
             # another one may carry a stale group. Group only: their modes stay.
             "Z ${home}/nalum/.agent/sessions - - nalum -"
+            # The notes vault, which the user and the hub both write: each gets
+            # rwX by ACL, and the default entries pass to what either makes
+            # later, so the hub's UMask has no say. Recursive, so a vault copied
+            # in by hand is reachable too.
+            "d ${home}/${host.notes} 0700 ${user} users -"
+            "A+ ${home}/${host.notes} - - - - user:limi-hub:rwX,default:user:limi-hub:rwX,default:user:${user}:rwX"
           ]
           # Group nalum reads the mirror and nothing else of the hub's home:
           # search only on each dir above it, read on it, and a default entry
@@ -174,6 +180,8 @@ mkUserModule {
               LIMI_NALUM_PROJECTS = "${home}/nalum";
               OMO_CODING_AGENT_DIR = "${home}/nalum/.agent";
               LIMI_OP_TOKEN = opToken;
+              # The hub's own home is not the user's.
+              LIMI_NOTES = "${home}/${host.notes}";
             };
             serviceConfig = {
               User = "limi-hub";
