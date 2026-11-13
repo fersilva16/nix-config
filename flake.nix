@@ -128,7 +128,7 @@
 
     # Limi's host paths and the limi-hub NixOS module. Packages still live
     # only in each machine's Limi profile, which `limi switch` moves.
-    limi.url = "github:fersilva16/limi/metrics-module";
+    limi.url = "github:fersilva16/limi";
 
     # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
     # ships a few hundred extensions; this exposes the full marketplace so the
