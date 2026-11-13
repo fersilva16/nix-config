@@ -97,6 +97,8 @@ nixpkgs.lib.nixosSystem {
     home-manager.nixosModules.home-manager
     # Inert until modules/linux/boot.nix sets boot.lanzaboote.enable.
     inputs.lanzaboote.nixosModules.lanzaboote
+    # Inert until a module sets services.onepassword-secrets.enable.
+    inputs.opnix.nixosModules.default
 
     {
       networking.hostName = hostName;
