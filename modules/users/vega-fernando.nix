@@ -39,7 +39,6 @@ mkUser {
   nix-rebuild.enable = true;
   chrome-cli.enable = true;
   readwise.enable = true;
-  todoist.enable = true;
 
   # Dev tools
   git.enable = true;
@@ -59,8 +58,8 @@ mkUser {
   claude.enable = true;
   "claude-code".enable = true;
   codex.enable = true;
-  # Limi Desktop and its mux, Nalum (this host's omo), and the tmux, wt,
-  # Todoist and Slack Later tools.
+  # Limi Desktop and its mux, Nalum (this host's omo), and the tmux, wt
+  # and Slack Later tools.
   limi-suite = {
     enable = true;
     inherit peers;

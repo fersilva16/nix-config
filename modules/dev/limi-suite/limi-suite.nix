@@ -8,9 +8,9 @@
 # activation only warns while the profile is empty.
 #
 # Limi owns the agent (Nalum is the host's omo, add-ons included), tmux
-# (limi-desktop's mux), the wt/wts family, `lin` and the Todoist and Slack
-# Later tools; nix-config has no copies of them. The suite's `omo` and the tmux tools live in limi-path (`host.path`),
-# which limi-desktop and its mux put first on PATH.
+# (limi-desktop's mux), the wt/wts family, `lin` and the Slack Later tools;
+# nix-config has no copies of them. The suite's `omo` and the tmux tools live
+# in limi-path (`host.path`), which limi-desktop and its mux put first on PATH.
 {
   mkUserModule,
   forPlatform,
@@ -126,12 +126,10 @@ mkUserModule {
         "/sbin"
       ];
       # The tmux options the suite's scripts read and only the host knows.
-      hostOptions =
-        lib.optionals (cfg.slackLater.workspace != "") [
-          "set -g @slack-later-workspace ${lib.escapeShellArg cfg.slackLater.workspace}"
-          "set -g @slack-later-group ${cfg.slackLater.groupBy}"
-        ]
-        ++ lib.optional userCfg.todoist.enable "set -g @todoist-warn-at ${toString userCfg.todoist.warnAt}";
+      hostOptions = lib.optionals (cfg.slackLater.workspace != "") [
+        "set -g @slack-later-workspace ${lib.escapeShellArg cfg.slackLater.workspace}"
+        "set -g @slack-later-group ${cfg.slackLater.groupBy}"
+      ];
       # limi-launcher under niri: Super+Space (Cmd+Space; Super, not Mod,
       # since niri's Mod is Hyper) toggles it, and niri blurs what is behind
       # its 720x480 panel, rounded like the panel. xray off, so the blur
@@ -150,8 +148,6 @@ mkUserModule {
             }
         }
       '';
-      inherit (userCfg.todoist) reviewAt;
-      reviewHM = lib.splitString ":" (if reviewAt != null then reviewAt else "0:0");
     in
     lib.mkMerge [
       # The machines limi-desktop, its session picker and `limi attach` reach
@@ -312,24 +308,6 @@ mkUserModule {
                 ProcessType = "Background";
                 LowPriorityIO = true;
                 Nice = 10;
-              };
-            };
-            # Local wall-clock: 06:00 stays 06:00 after a flight, and a missed
-            # run fires on wake. Never at load, so a 3pm login does not fire
-            # the morning review.
-            launchd.agents.limi-todoist-review = lib.mkIf (userCfg.todoist.enable && reviewAt != null) {
-              enable = true;
-              config = {
-                ProgramArguments = [ "${limiPath}/tmux-todoist-review" ];
-                EnvironmentVariables.PATH = jobPath;
-                StartCalendarInterval = [
-                  {
-                    Hour = lib.toIntBase10 (builtins.elemAt reviewHM 0);
-                    Minute = lib.toIntBase10 (builtins.elemAt reviewHM 1);
-                  }
-                ];
-                RunAtLoad = false;
-                ProcessType = "Interactive";
               };
             };
           }
