@@ -20,6 +20,7 @@ mkUser {
   fd.enable = true;
   realdu.enable = true;
   ripgrep.enable = true;
+  nix-rebuild.enable = true;
 
   # Dev tools
   git.enable = true;

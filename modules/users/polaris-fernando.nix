@@ -21,6 +21,7 @@ mkUser {
   fd.enable = true;
   realdu.enable = true;
   ripgrep.enable = true;
+  nix-rebuild.enable = true;
   fastfetch.enable = true;
   todoist.enable = true;
 

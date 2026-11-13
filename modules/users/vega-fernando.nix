@@ -36,6 +36,7 @@ mkUser {
   fd.enable = true;
   realdu.enable = true;
   ripgrep.enable = true;
+  nix-rebuild.enable = true;
   chrome-cli.enable = true;
   readwise.enable = true;
   todoist.enable = true;
