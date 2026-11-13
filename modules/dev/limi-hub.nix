@@ -142,9 +142,11 @@ mkUserModule {
             # The notes vault, which the user and the hub both write: each gets
             # rwX by ACL, and the default entries pass to what either makes
             # later, so the hub's UMask has no say. Recursive, so a vault copied
-            # in by hand is reachable too.
-            "d ${home}/${host.notes} 0700 ${user} users -"
-            "A+ ${home}/${host.notes} - - - - user:limi-hub:rwX,default:user:limi-hub:rwX,default:user:${user}:rwX"
+            # in by hand is reachable too. A chmod sets an ACL's mask, so the
+            # vault keeps group rwx (0770) for the mask to let the hub's entry
+            # through, and the owning group's own entries give it nothing.
+            "d ${home}/${host.notes} 0770 ${user} users -"
+            "A+ ${home}/${host.notes} - - - - group::---,user:limi-hub:rwX,default:group::---,default:user:limi-hub:rwX,default:user:${user}:rwX"
           ]
           # Group nalum reads the mirror and nothing else of the hub's home:
           # search only on each dir above it, read on it, and a default entry
