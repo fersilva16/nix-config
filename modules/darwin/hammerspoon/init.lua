@@ -215,21 +215,6 @@ end
 local LATEST_CLIENT = "client=$(tmux list-clients -F '#{client_activity} #{client_tty}' 2>/dev/null"
   .. " | sort -rn | head -1 | cut -d' ' -f2); "
 
--- Hyper + T → Todoist triage popup (mnemonic: Tasks). Same picker as `t` in a
--- pane and prefix+t in the mux, so the reflex is one key everywhere. It opens
--- as Limi Desktop's pty modal in the window last used, which is surfaced so
--- the modal is visible.
--- ponytail: no-op when no window is open yet (cold launch); press again.
-local tCode = hs.keycodes.map["t"]
-if tCode then
-  keyCodeNames[tCode] = "t"
-  hyperActionsByKeyCode[tCode] = function()
-    focusLimi()
-    onMux(LATEST_CLIENT .. '[ -n "$client" ] && limi-desktop modal "$client" --pty -w 80% -h 60% "'
-      .. LIMI_PATH .. '/tmux-todoist-pick"')
-  end
-end
-
 -- Hyper + C → Go to nvim, never away from it: surface Limi Desktop, then
 -- focus (or create) the persistent nvim window of the current mux session.
 -- Both halves are no-ops when already there, so repeat presses do nothing.

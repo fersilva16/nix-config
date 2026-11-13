@@ -23,7 +23,6 @@ mkUser {
   ripgrep.enable = true;
   nix-rebuild.enable = true;
   fastfetch.enable = true;
-  todoist.enable = true;
 
   # Dev tools
   git.enable = true;
@@ -31,7 +30,7 @@ mkUser {
   incus.enable = true;
   claude.enable = true;
   "claude-code".enable = true;
-  # Nalum (this host's omo), the mux as `tmux`, and the wt and Todoist tools.
+  # Nalum (this host's omo), the mux as `tmux`, and the wt tools.
   limi-suite.enable = true;
   ollama = {
     enable = true;
