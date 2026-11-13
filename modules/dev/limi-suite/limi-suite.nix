@@ -1,11 +1,12 @@
 # Limi: everything it ships, as one package (limi-suite). Limi owns its
-# tools, its `limi` CLI and the paths a host wires (lib/limiHost.nix); this
+# tools, its `limi` CLI and the paths a host wires (`inputs.limi.lib.host`);
+# this
 # module is only the host glue.
 #
-# The suite lives only in its own Nix profile: Limi is no flake input, so a
-# Limi change never touches nix-config. `limi switch` builds ~/limi into the
-# profile, and `limi switch --host <host>` fills another machine's. An
-# activation only warns while the profile is empty.
+# The suite lives only in its own Nix profile. The Limi input pins module code
+# and host paths, not packages: `limi switch` builds ~/limi into the profile,
+# and `limi switch --host <host>` fills another machine's. An activation only
+# warns while the profile is empty.
 #
 # Limi owns the agent (Nalum is the host's omo, add-ons included), tmux
 # (limi-desktop's mux), the wt/wts family, `lin` and the Slack Later tools;
@@ -17,10 +18,11 @@
   pkgs,
   lib,
   fleetPeers,
+  inputs,
   ...
 }:
 let
-  host = import ../../../lib/limiHost.nix;
+  host = inputs.limi.lib.host;
   homeOf =
     username:
     forPlatform {

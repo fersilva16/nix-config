@@ -108,6 +108,8 @@ darwin.lib.darwinSystem {
   modules = [
     home-manager.darwinModules.home-manager
     nix-homebrew.darwinModules.nix-homebrew
+    # Inert until modules/system/nix.nix enables it.
+    inputs.opnix.darwinModules.default
 
     {
       networking.hostName = hostName;

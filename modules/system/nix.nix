@@ -4,14 +4,39 @@
   pkgs,
   ...
 }:
+let
+  accessTokensFile = "/etc/nix/access-tokens.conf";
+  # Place the Nix vault's service account token here by hand once per machine.
+  # opnix keeps it root:onepassword-secrets 0640 and adds fernando to the group.
+  opnixTokenFile = forPlatform {
+    darwin = "/usr/local/etc/opnix-nix-token";
+    linux = "/etc/opnix-nix-token";
+  };
+in
 mkSystemModule {
   name = "nix";
   config = {
+    services.onepassword-secrets = {
+      enable = true;
+      tokenFile = opnixTokenFile;
+      users = [ "fernando" ];
+      secrets.nixAccessTokens = {
+        reference = "op://Nix/Nix Access Tokens/password";
+        path = accessTokensFile;
+        owner = "fernando";
+        group = "wheel";
+        mode = "0600";
+      };
+    };
+
     nix = {
       package = pkgs.nixVersions.latest;
 
       extraOptions = ''
         experimental-features = nix-command flakes
+        # The first rebuild has no generated file yet. `!include` ignores it,
+        # then every later evaluation can fetch private GitHub flake inputs.
+        !include ${accessTokensFile}
       '';
 
       # crates.io's Fastly edge 403s any User-Agent containing "curl/", which

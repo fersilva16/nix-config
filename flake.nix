@@ -126,6 +126,10 @@
       inputs.flake-utils.follows = "utils";
     };
 
+    # Limi's host paths and the limi-hub NixOS module. Packages still live
+    # only in each machine's Limi profile, which `limi switch` moves.
+    limi.url = "github:fersilva16/limi";
+
     # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
     # ships a few hundred extensions; this exposes the full marketplace so the
     # vscode module can declare extensions like oxc, supermaven, etc.
@@ -143,9 +147,6 @@
       inputs.nixpkgs.follows = "nixpkgs-nixos";
     };
 
-    # Limi is not an input: it lives only in each user's Limi profile, which
-    # `limi switch` fills (modules/dev/limi-suite/, modules/dev/limi-hub.nix).
-    # The paths both sides agree on are in lib/limiHost.nix.
   };
 
   outputs =

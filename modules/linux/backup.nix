@@ -4,8 +4,9 @@
 # to a fleet peer that keeps a store (`store = "<dir>"`), over SFTP. The
 # repository is restic's v2 format: every pack is encrypted and compressed,
 # so the store only ever holds ciphertext. The password lives in 1Password
-# (op://Nalum/restic-<host>/password) and each run reads it with `op read`
-# through a read-only service account, so it is on neither disk, and
+# (op://Nix/<Host> Restic/password) and each run reads it with `op read`
+# through the Nix vault's read-only service account, the one opnix uses
+# (modules/system/nix.nix), so it is on neither disk, and
 # 1Password is how it is recovered when the source is gone. The same
 # repository format takes an S3, B2 or rclone backend, so a cloud copy is one
 # more services.restic.backups entry with the same password.
@@ -30,12 +31,13 @@
 {
   mkSystemModule,
   fleetPeers,
+  inputs,
   lib,
   pkgs,
   ...
 }:
 let
-  host = import ../../lib/limiHost.nix;
+  host = inputs.limi.lib.host;
   storeUser = "backup";
   state = "/var/lib/restic-backup";
   key = "${state}/ssh_id_ed25519";
@@ -81,11 +83,6 @@ mkSystemModule {
       default = [ ];
       description = "restic exclude patterns on top of the module's own.";
     };
-    opTokenFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = "1Password service account token file the run reads the repository password with.";
-    };
     notify = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -120,11 +117,13 @@ mkSystemModule {
       sftpOption = "'sftp.command=${ssh}/bin/ssh ${sshArgs} ${target} -s sftp'";
       restic = "${lib.getExe pkgs.restic} -o ${sftpOption}";
       unit = "restic-backups-${cfg.to}";
+      # altair's item is "Altair Restic".
+      item = "${lib.toUpper (lib.substring 0 1 hostName)}${lib.substring 1 (-1) hostName} Restic";
 
       password = pkgs.writeShellScript "restic-password" ''
-        OP_SERVICE_ACCOUNT_TOKEN=$(< ${lib.escapeShellArg cfg.opTokenFile})
+        OP_SERVICE_ACCOUNT_TOKEN=$(< ${lib.escapeShellArg config.services.onepassword-secrets.tokenFile})
         export OP_SERVICE_ACCOUNT_TOKEN
-        exec ${lib.getExe pkgs._1password-cli} read --no-newline "op://Nalum/restic-${hostName}/password"
+        exec ${lib.getExe pkgs._1password-cli} read --no-newline "op://Nix/${item}/password"
       '';
 
       reach = pkgs.writeShellScript "restic-reach" ''
@@ -214,13 +213,6 @@ mkSystemModule {
     in
     lib.mkMerge [
       (lib.mkIf (cfg.to != null) {
-        assertions = [
-          {
-            assertion = cfg.opTokenFile != null;
-            message = "modules.system.backup.to needs opTokenFile to read the repository password.";
-          }
-        ];
-
         services.restic.backups.${cfg.to} = {
           repository = "sftp:${target}:${fleetPeers.${cfg.to}.backupStore}/${hostName}-restic";
           environmentFile = "${pkgs.writeText "restic-env" "RESTIC_PASSWORD_COMMAND=${password}\n"}";
