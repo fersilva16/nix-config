@@ -101,6 +101,8 @@ nixpkgs.lib.nixosSystem {
     inputs.opnix.nixosModules.default
     # Inert until modules/dev/limi-hub.nix enables it.
     inputs.limi.nixosModules.limi-hub
+    # Inert until modules/dev/limi-metrics.nix enables it.
+    inputs.limi.nixosModules.limi-metrics
 
     {
       networking.hostName = hostName;

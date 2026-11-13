@@ -35,5 +35,5 @@ mkUser {
   adguardhome.enable = true;
 
   # Monitoring
-  metrics.enable = true;
+  limi-metrics.enable = true;
 }
