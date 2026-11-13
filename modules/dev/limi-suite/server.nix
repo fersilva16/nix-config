@@ -26,7 +26,8 @@ in
     fleet.services = [ "limi-host" ];
   }
   // forPlatform {
-    linux.networking.firewall.allowedTCPPorts = [ port ];
+    # Tailnet only: never on the LAN interface.
+    linux.networking.firewall.interfaces.tailscale0.allowedTCPPorts = [ port ];
   };
   home =
     { username, ... }:
