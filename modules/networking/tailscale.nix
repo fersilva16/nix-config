@@ -52,10 +52,6 @@ let
     limi-hub = [ 7377 ];
     limi-host = [ 7377 ];
     ollama = [ 11434 ];
-    metrics = [
-      8428
-      80
-    ];
     dns = [ 3000 ];
   };
   peerPorts = lib.filterAttrs (_: ports: ports != [ ]) (
