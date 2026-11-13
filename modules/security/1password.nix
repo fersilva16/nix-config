@@ -23,6 +23,24 @@ mkUserModule {
         linux = "~/.1password/agent.sock";
       };
       sshPeers = lib.attrNames (lib.filterAttrs (_: peer: lib.elem "ssh" peer.services) fleetPeers);
+      # The agent forwarded in by the latest SSH login (modules/cli/ssh.nix).
+      # While that login lives, it signs and forwards instead of the local
+      # 1Password, so a rebuild started from vega asks on vega, not on a
+      # screen nobody watches. Its socket goes when the login ends.
+      forwarded = "~/.ssh/agent.sock";
+      # exec runs through the user's shell; %d hands it an absolute path.
+      live = ''exec "${pkgs.coreutils}/bin/test -S %d/.ssh/agent.sock"'';
+      forwardedFirst = forPlatform {
+        linux =
+          lib.optionalString (sshPeers != [ ]) ''
+            Match host ${lib.concatStringsSep "," sshPeers} ${live}
+              ForwardAgent ${forwarded}
+          ''
+          + ''
+            Match ${live}
+              IdentityAgent ${forwarded}
+          '';
+      };
     in
     lib.recursiveUpdate
       {
@@ -32,7 +50,8 @@ mkUserModule {
         # mkBefore: ssh takes the first value it reads, and modules/cli/ssh.nix
         # sets `ForwardAgent yes` for the same peers.
         programs.ssh.extraConfig = lib.mkBefore (
-          lib.optionalString (sshPeers != [ ]) ''
+          forwardedFirst
+          + lib.optionalString (sshPeers != [ ]) ''
             Host ${lib.concatStringsSep " " sshPeers}
               ForwardAgent "${agent}"
           ''
