@@ -10,6 +10,8 @@
   path = "libexec/limi/path";
   # Inside the profile, on the hub's machine: limi-hub.
   hub = "bin/limi-hub";
+  # Relative to $HOME, on the hub's machine: the notes vault limi-hub serves.
+  notes = "notes";
   # Inside the profile: the POSIX sh file ~/.profile sources for Nalum's
   # agent PATH in agents/* sessions.
   agentProfile = "share/limi/agent-profile.sh";
