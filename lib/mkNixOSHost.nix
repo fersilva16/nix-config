@@ -99,6 +99,8 @@ nixpkgs.lib.nixosSystem {
     inputs.lanzaboote.nixosModules.lanzaboote
     # Inert until a module sets services.onepassword-secrets.enable.
     inputs.opnix.nixosModules.default
+    # Inert until modules/dev/limi-hub.nix enables it.
+    inputs.limi.nixosModules.limi-hub
 
     {
       networking.hostName = hostName;

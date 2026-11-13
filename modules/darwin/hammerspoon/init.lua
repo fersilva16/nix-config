@@ -192,7 +192,7 @@ end
 -- Limi Desktop is the terminal. Its mux and the tools that drive it live in
 -- limi-path, which only Limi Desktop's own panes have on PATH, so commands run
 -- from here put it first themselves. hammerspoon.nix fills in @limiPath@ from
--- lib/limiHost.nix. Each command runs async in a login shell, so a slow
+-- inputs.limi.lib.host. Each command runs async in a login shell, so a slow
 -- mux/git can't stall the eventtap. With no TMUX set, the shim reaches the
 -- default mux: the one Limi Desktop's windows are clients of.
 local LIMI_DESKTOP = "dev.limi.desktop"

@@ -11,11 +11,12 @@
   mkUserModule,
   forPlatform,
   config,
+  inputs,
   lib,
   ...
 }:
 let
-  host = import ../../lib/limiHost.nix;
+  host = inputs.limi.lib.host;
   port = 8428;
   nodePort = 9100;
   webPort = 80;

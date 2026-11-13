@@ -1,12 +1,13 @@
 {
   mkUserModule,
+  inputs,
   pkgs,
   ...
 }:
 let
   # limi-path (relative to $HOME): the mux's tmux shim and the tools that run
   # on it. init.lua's Hyper bindings for Limi Desktop run them from there.
-  host = import ../../../lib/limiHost.nix;
+  host = inputs.limi.lib.host;
   limiPath = "${host.profile}/${host.path}";
   # Drops the Hyper layer so someone else can use this machine: clears the
   # hidutil map below and quits Hammerspoon. See scripts/guest-mode.sh.
