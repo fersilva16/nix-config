@@ -118,6 +118,14 @@
       inputs.nixpkgs.follows = "nixpkgs-nixos";
     };
 
+    # 1Password secrets as files for NixOS services (modules/dev/limi-hub.nix).
+    # Pinned to a release tag: its module changes the files it touches.
+    opnix = {
+      url = "github:brizzbuzz/opnix/v0.11.0";
+      inputs.nixpkgs.follows = "nixpkgs-nixos";
+      inputs.flake-utils.follows = "utils";
+    };
+
     # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
     # ships a few hundred extensions; this exposes the full marketplace so the
     # vscode module can declare extensions like oxc, supermaven, etc.

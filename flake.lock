@@ -377,6 +377,30 @@
         "type": "github"
       }
     },
+    "opnix": {
+      "inputs": {
+        "flake-utils": [
+          "utils"
+        ],
+        "nixpkgs": [
+          "nixpkgs-nixos"
+        ]
+      },
+      "locked": {
+        "lastModified": 1787059804,
+        "narHash": "sha256-Tz5sPFmT3KGCU7qPpJw0AWHydbxizztvJv3Wdwwl9aI=",
+        "owner": "brizzbuzz",
+        "repo": "opnix",
+        "rev": "0ea3a9e6a94fdd0c444aa7729b98e568a0588222",
+        "type": "github"
+      },
+      "original": {
+        "owner": "brizzbuzz",
+        "ref": "v0.11.0",
+        "repo": "opnix",
+        "type": "github"
+      }
+    },
     "pre-commit": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -417,6 +441,7 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-nixos": "nixpkgs-nixos",
         "noctalia": "noctalia",
+        "opnix": "opnix",
         "utils": "utils"
       }
     },
