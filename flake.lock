@@ -302,16 +302,15 @@
         "wpe-nixpkgs": "wpe-nixpkgs"
       },
       "locked": {
-        "lastModified": 1794582674,
-        "narHash": "sha256-yAhaaYt2LO4gccqYbkeHHKRZ6zlxbCwSvQNxiwwsHxw=",
+        "lastModified": 1794582845,
+        "narHash": "sha256-8qh0DxlBF5uQZXMik8IuGRuxVMklsz7WAnxKDOwcSKk=",
         "owner": "fersilva16",
         "repo": "limi",
-        "rev": "59137ab00914076a082c74e68339e663355cdf66",
+        "rev": "4995cc8c93178fab40d27e5c68b299c5b5981d9a",
         "type": "github"
       },
       "original": {
         "owner": "fersilva16",
-        "ref": "feat/limi-hub-module",
         "repo": "limi",
         "type": "github"
       }
