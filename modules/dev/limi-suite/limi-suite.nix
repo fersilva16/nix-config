@@ -327,6 +327,10 @@ mkUserModule {
                 src="${profile}/${host.chromeExtension}"
                 dst="$HOME/${host.chromeExtensionCopy}"
                 if [ -d "$src" ]; then
+                  # A copy left read-only (store modes) blocks rm -rf.
+                  if [ -e "$dst" ]; then
+                    run chmod -R u+w "$dst"
+                  fi
                   run rm -rf "$dst"
                   run mkdir -p "$(dirname "$dst")"
                   run cp -RL "$src" "$dst"
