@@ -311,7 +311,7 @@ mkUserModule {
           }
           {
             # `wake <host>` (modules/networking/wake-on-lan.nix) brings it back.
-            timeout = 1800;
+            timeout = 900;
             command = lib.getExe suspend-if-idle;
           }
         ];
