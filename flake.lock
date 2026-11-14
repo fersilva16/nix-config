@@ -302,11 +302,11 @@
         "wpe-nixpkgs": "wpe-nixpkgs"
       },
       "locked": {
-        "lastModified": 1794610172,
-        "narHash": "sha256-MJB8ZVepmxsO5gB9Pxwi0Jo5/REt1AygaJ8a9jFJ6FA=",
+        "lastModified": 1794618603,
+        "narHash": "sha256-OC18fU97VyGsn9VpkeTlqayPuI+BzC3HwQuYQg1HE+o=",
         "owner": "fersilva16",
         "repo": "limi",
-        "rev": "571e3e75460204e49c4c08a45217ec5dc07da940",
+        "rev": "506fcf513a45dc3ded11bd7901d939fdeb53e4a1",
         "type": "github"
       },
       "original": {
