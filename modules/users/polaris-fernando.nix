@@ -59,6 +59,7 @@ mkUser {
   heroic.enable = true; # Rocket League (Epic)
   steam.enable = true;
   dualsense.enable = true; # shared with the PS5: `dualsense-pair`
+  sony.enable = true; # PS5 Remote Play (chiaki-ng)
   forza-horizon.enable = true; # FH1 ReImagined (Xbox 360 recomp)
 
   # Networking
