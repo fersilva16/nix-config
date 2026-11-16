@@ -19,7 +19,8 @@
 #
 # `agents` runs Nalum's coding agents as nalum on this host
 # (limi specs/2026_11_16_nalums-coding-agents-run-as-nalum-on-polaris.md):
-# nalum's own Limi profile, mux, git identity and checkouts. limi-hub lets in
+# nalum's own Limi profile, mux and git identity. Nalum clones its checkouts
+# itself once its key is on GitHub. limi-hub lets in
 # every process of one of fernando's tailnet machines with no token, so
 # nftables keeps nalum off the hub's port, and nalum reaches only the hub's
 # sockets for Nalum, through nalum@<hub>. The hub's host lists this one in
@@ -37,6 +38,7 @@ let
   home = "/home/${name}";
   key = "${home}/.ssh/id_ed25519";
   keyFile = host: ../../keys/nalum-${host}.nix;
+  hostKeyFile = host: ../../keys/host-${host}.nix;
 
   limi = inputs.limi.lib.host;
   profile = "${home}/${limi.profile}";
@@ -110,7 +112,7 @@ mkSystemModule {
       };
     };
     agents = {
-      enable = lib.mkEnableOption "Nalum's coding agents as nalum, with its own Limi profile, mux, git identity and checkouts";
+      enable = lib.mkEnableOption "Nalum's coding agents as nalum, with its own Limi profile, mux and git identity";
       profileFrom = lib.mkOption {
         type = lib.types.str;
         description = "The user whose Limi profile nalum runs: each `limi switch` of that user moves nalum's profile too.";
@@ -231,9 +233,41 @@ mkSystemModule {
         };
 
         # GitHub's published host key, so nalum's first clone trusts no
-        # answer it has not seen before.
-        programs.ssh.knownHosts."github.com".publicKey =
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+        # answer it has not seen before. The hub's, under the names the
+        # relay reaches it by (modules/cli/ssh.nix swaps in <hub>.local on
+        # the LAN), so the relay never meets an unknown host.
+        programs.ssh.knownHosts = {
+          "github.com".publicKey =
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl";
+        }
+        // lib.optionalAttrs (hub != null && builtins.pathExists (hostKeyFile hub)) {
+          ${hub} = {
+            hostNames = [
+              hub
+              "${hub}.local"
+            ];
+            publicKey = import (hostKeyFile hub);
+          };
+        };
+        warnings =
+          lib.optional (hub != null && !builtins.pathExists (hostKeyFile hub))
+            "modules.system.nalum.agents: keys/host-${hub}.nix is not committed, so nalum's relay to ${hub} trusts no host key.";
+
+        # limi-host holds logind's sleep lock while an agent works
+        # (systemd-inhibit --what=sleep). nalum's runs from linger, in no
+        # session, so logind asks polkit. Inhibitors only: no
+        # *-ignore-inhibit action.
+        security.polkit = {
+          enable = true;
+          extraConfig = ''
+            polkit.addRule(function (action, subject) {
+              var actions = ["org.freedesktop.login1.inhibit-block-sleep", "org.freedesktop.login1.inhibit-block-idle"];
+              if (actions.indexOf(action.id) >= 0 && subject.isInGroup("${name}")) {
+                return polkit.Result.YES;
+              }
+            });
+          '';
+        };
 
         # The uid nalum never reaches limi-hub's port, whose tailnet trust
         # would answer it as fernando. Its relay goes over ssh instead.
@@ -287,7 +321,9 @@ mkSystemModule {
               fi
               runuser -u ${name} -- env HOME=${home} nix-env --profile ${profile} --set "$src"
               runuser -u ${name} -- env HOME=${home} nix-env --profile ${profile} --delete-generations old
-              # As `limi switch` restarts fernando's: its panes outlive it.
+              # As `limi switch` restarts fernando's: its panes outlive it. A
+              # new build gets a fresh start past the start limit.
+              systemctl --user -M ${name}@ reset-failed limi-host.service || true
               systemctl --user -M ${name}@ restart limi-host.service ||
                 echo "nalum's user manager is not up; its limi-host starts on the new build"
             '';
@@ -295,37 +331,6 @@ mkSystemModule {
           paths.nalum-limi-profile = {
             wantedBy = [ "multi-user.target" ];
             pathConfig.PathChanged = dirOf fromProfile;
-          };
-
-          # The clones nalum's agents work in, as Nalum's GitHub account. A
-          # missing one is cloned at each boot; until that account lists
-          # nalum's key, the clone fails.
-          services.nalum-checkouts = {
-            description = "nalum's checkouts of Limi and nix-config";
-            wantedBy = [ "multi-user.target" ];
-            after = [
-              "network-online.target"
-              "nalum-ssh-key.service"
-            ];
-            wants = [ "network-online.target" ];
-            path = [
-              pkgs.git
-              config.programs.ssh.package
-            ];
-            environment.GIT_SSH_COMMAND = "ssh -o BatchMode=yes";
-            serviceConfig = {
-              Type = "oneshot";
-              User = name;
-              Group = name;
-            };
-            script = ''
-              failed=0
-              for repo in fersilva16/limi fersilva16/nix-config; do
-                dir=$HOME/''${repo##*/}
-                [ -e "$dir" ] || git clone -q "git@github.com:$repo.git" "$dir" || failed=1
-              done
-              exit "$failed"
-            '';
           };
 
           user = {
@@ -338,6 +343,11 @@ mkSystemModule {
                 unitConfig = {
                   ConditionUser = name;
                   ConditionPathExists = "${profile}/${limi.path}/limi-host";
+                  # A build that exits at once fails the unit after five
+                  # tries instead of restarting forever: the default limit
+                  # (5 in 10s) never trips at one start per 4s.
+                  StartLimitIntervalSec = 120;
+                  StartLimitBurst = 5;
                 };
                 environment = {
                   PATH = lib.mkForce "${profile}/${limi.path}:${profile}/bin:/etc/profiles/per-user/${name}/bin:/run/current-system/sw/bin";
@@ -365,7 +375,7 @@ mkSystemModule {
                   description = "A connection to limi-hub's ${s} socket on ${toString hub}";
                   unitConfig.ConditionUser = name;
                   serviceConfig = {
-                    ExecStart = "${config.programs.ssh.package}/bin/ssh -T -o BatchMode=yes -o StrictHostKeyChecking=accept-new ${name}@${toString hub} ${s}";
+                    ExecStart = "${config.programs.ssh.package}/bin/ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes ${name}@${toString hub} ${s}";
                     StandardInput = "socket";
                     StandardOutput = "socket";
                     StandardError = "journal";
