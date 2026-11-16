@@ -37,12 +37,25 @@ mkNixOSHost {
             options rtw89_pci disable_aspm_l1=y disable_aspm_l1ss=y
           '';
         };
-        # Windows 11 on the other disk; `boot-windows` reboots into it.
-        modules.system.boot.windows.enable = true;
-        networking.networkmanager.wifi.powersave = false;
+        modules.system = {
+          # Windows 11 on the other disk; `boot-windows` reboots into it.
+          boot.windows.enable = true;
 
-        # wlp9s0, the RTL8922AE: `wake polaris` from a LAN peer (suspend only).
-        modules.system.wake-on-lan.mac = "f8:3d:c6:c2:b2:16";
+          # wlp9s0, the RTL8922AE: `wake polaris` from a LAN peer (suspend only).
+          wake-on-lan.mac = "f8:3d:c6:c2:b2:16";
+
+          # altair's Nalum logs in here as nalum, and it or fernando can put
+          # polaris to sleep over ssh with no password: `ssh polaris systemctl
+          # suspend`, then `wake polaris` (modules/linux/nalum.nix).
+          nalum = {
+            sshFrom = [ "altair" ];
+            power = {
+              enable = true;
+              users = [ "fernando" ];
+            };
+          };
+        };
+        networking.networkmanager.wifi.powersave = false;
 
         # The RTL8922AE firmware (0.35.80.3) sometimes hangs while arming
         # WoWLAN on suspend ("failed to suspend for wow -1"); that wake is
