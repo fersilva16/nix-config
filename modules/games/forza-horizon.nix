@@ -16,10 +16,10 @@
   ...
 }:
 let
-  version = "0.2.3";
+  version = "0.3.8";
   launcher = pkgs.fetchzip {
     url = "https://github.com/FH1-ReImagined/ForzaHorizon1-ReImagined/releases/download/v${version}/ForzaHorizon1-ReImagined-linux-x86_64.tar.gz";
-    hash = "sha256-hgC9KJgufKNIibMGrt2DGJ2rG7ylzxT+OKjEQYsB7PQ=";
+    hash = "sha256-9jKMnlKxWzC/r4UDdLNynwZNLjczIXZ0v6TRWc8sSdI=";
   };
   fhs =
     (pkgs.steam.override {
