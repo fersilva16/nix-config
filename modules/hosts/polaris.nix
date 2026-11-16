@@ -44,11 +44,16 @@ mkNixOSHost {
           # wlp9s0, the RTL8922AE: `wake polaris` from a LAN peer (suspend only).
           wake-on-lan.mac = "f8:3d:c6:c2:b2:16";
 
-          # altair's Nalum logs in here as nalum, and it or fernando can put
-          # polaris to sleep over ssh with no password: `ssh polaris systemctl
+          # altair's Nalum logs in here as nalum and runs its coding agents
+          # as nalum, on fernando's Limi build. It or fernando can put polaris
+          # to sleep over ssh with no password: `ssh polaris systemctl
           # suspend`, then `wake polaris` (modules/linux/nalum.nix).
           nalum = {
             sshFrom = [ "altair" ];
+            agents = {
+              enable = true;
+              profileFrom = "fernando";
+            };
             power = {
               enable = true;
               users = [ "fernando" ];
