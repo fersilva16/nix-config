@@ -30,14 +30,17 @@ mkUserModule {
       forwarded = "~/.ssh/agent.sock";
       # exec runs through the user's shell; %d hands it an absolute path.
       live = ''exec "${pkgs.coreutils}/bin/test -S %d/.ssh/agent.sock"'';
+      # ssh_config is the host's, but the agents are these users' alone:
+      # another user (nalum) would look for a socket it never has.
+      mine = "localuser ${lib.concatStringsSep "," (builtins.attrNames enabledUsers)}";
       forwardedFirst = forPlatform {
         linux =
           lib.optionalString (sshPeers != [ ]) ''
-            Match host ${lib.concatStringsSep "," sshPeers} ${live}
+            Match ${mine} host ${lib.concatStringsSep "," sshPeers} ${live}
               ForwardAgent ${forwarded}
           ''
           + ''
-            Match ${live}
+            Match ${mine} ${live}
               IdentityAgent ${forwarded}
           '';
       };
@@ -52,11 +55,11 @@ mkUserModule {
         programs.ssh.extraConfig = lib.mkBefore (
           forwardedFirst
           + lib.optionalString (sshPeers != [ ]) ''
-            Host ${lib.concatStringsSep " " sshPeers}
+            Match ${mine} host ${lib.concatStringsSep "," sshPeers}
               ForwardAgent "${agent}"
           ''
           + ''
-            Host *
+            Match ${mine}
               IdentityAgent "${agent}"
           ''
         );
