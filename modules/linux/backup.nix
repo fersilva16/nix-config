@@ -15,8 +15,8 @@
 # changes during the run is never half old and half new. Each snapshot is
 # bind-mounted over its own subvolume inside the backup's mount namespace:
 # the repository records /home, not /home/.backup-snapshot, and a restore
-# lands on the same paths. A snapshot stops at a nested subvolume (~/.cache,
-# snapper's .snapshots, the hub's mirror), so those come out empty.
+# lands on the same paths. A snapshot stops at a nested subvolume (the hub's
+# mirror), so it comes out empty.
 #
 # The source wakes the peer first (`wake`, modules/networking/wake-on-lan.nix)
 # and waits for its SFTP: a desktop store may be asleep, the source never is,
