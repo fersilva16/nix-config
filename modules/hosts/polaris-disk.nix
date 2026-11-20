@@ -12,8 +12,8 @@
 # must not be in a snapshotted subvolume, and @swap is never snapshotted).
 # See the swapDevices block below.
 #
-# Separate subvolumes so snapshots stay per-subvolume: modules/linux/btrfs.nix
-# snapshots @home with snapper and scrubs the filesystem monthly.
+# Separate subvolumes so a backup's snapshots stay per-subvolume.
+# modules/linux/btrfs.nix scrubs the filesystem monthly.
 { inputs, ... }:
 {
   imports = [ inputs.disko.nixosModules.disko ];
