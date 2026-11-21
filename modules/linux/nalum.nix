@@ -22,9 +22,9 @@
 # nalum's own Limi profile, mux and git identity. Nalum clones its checkouts
 # itself once its key is on GitHub. limi-hub lets in
 # every process of one of fernando's tailnet machines with no token, so
-# nftables keeps nalum off the hub's port, and nalum reaches only the hub's
-# sockets for Nalum, through nalum@<hub>. The hub's host lists this one in
-# `relayFrom`, which lets this host's nalum key in for those sockets alone.
+# nftables keeps nalum off the hub's port, and nalum reaches only some of
+# the hub's ops, through nalum@<hub>. The hub's host lists this one in
+# `relayFrom`, which lets this host's nalum key in for that relay alone.
 {
   mkSystemModule,
   lib,
@@ -42,13 +42,13 @@ let
 
   limi = inputs.limi.lib.host;
   profile = "${home}/${limi.profile}";
-  # The hub's sockets for Nalum that nalum on another host reaches: agent
-  # events (triggers), web search and artifacts. limi finds each at
-  # $LIMI_<NAME>_SOCKET.
+  # The hub's ops that nalum on another host may ask: agent events
+  # (triggers), web search, and artifacts with their canvases.
   relayed = [
-    "triggers"
-    "web"
-    "artifacts"
+    "triggers.*"
+    "web.*"
+    "artifact.*"
+    "canvas.*"
   ];
   # limi-hub's HTTP port (limi's limi-hub module).
   hubPort = 7377;
@@ -56,22 +56,14 @@ let
   hub = lib.findFirst (peer: lib.elem "limi-hub" fleetPeers.${peer}.services) null (
     lib.attrNames fleetPeers
   );
-  # The one command a relayed key may run: it joins the ssh channel to the
-  # socket it names, from `relayed` only.
+  # The one command a relayed key runs, whatever command it asks: it joins
+  # the ssh channel to the hub's socket in ${limi.hubSockets}, narrowed to
+  # `relayed` (`limi hub relay`).
   relay = lib.getExe (
     pkgs.writeShellApplication {
       name = "nalum-hub-relay";
-      runtimeInputs = [ pkgs.socat ];
       text = ''
-        case "''${SSH_ORIGINAL_COMMAND:-}" in
-          ${lib.concatStringsSep " | " relayed})
-            exec socat STDIO "UNIX-CONNECT:${limi.hubSockets}/$SSH_ORIGINAL_COMMAND.sock"
-            ;;
-          *)
-            echo "nalum-hub-relay: no socket '$SSH_ORIGINAL_COMMAND'; only ${toString relayed}" >&2
-            exit 1
-            ;;
-        esac
+        exec ${profile}/bin/limi hub relay ${lib.escapeShellArgs relayed}
       '';
     }
   );
@@ -362,9 +354,9 @@ mkSystemModule {
                   # hub link) is fernando's mux's.
                   LIMI_SIDE_MUX = "1";
                 }
-                // lib.listToAttrs (
-                  map (s: lib.nameValuePair "LIMI_${lib.toUpper s}_SOCKET" "%t/limi-hub/${s}.sock") relayed
-                );
+                // {
+                  LIMI_HUB_SOCKET = "%t/limi-hub/server.sock";
+                };
                 serviceConfig = {
                   ExecStart = "${profile}/${limi.path}/limi-host keep";
                   # Only the server stops: its panes' zmx sessions must
@@ -375,38 +367,30 @@ mkSystemModule {
                 };
               };
             }
-            // lib.listToAttrs (
-              map (
-                s:
-                lib.nameValuePair "nalum-hub-${s}@" {
-                  description = "A connection to limi-hub's ${s} socket on ${toString hub}";
-                  unitConfig.ConditionUser = name;
-                  serviceConfig = {
-                    ExecStart = "${config.programs.ssh.package}/bin/ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes ${name}@${toString hub} ${s}";
-                    StandardInput = "socket";
-                    StandardOutput = "socket";
-                    StandardError = "journal";
-                  };
-                }
-              ) relayed
-            );
+            // {
+              "nalum-hub@" = {
+                description = "A connection to limi-hub's socket on ${toString hub}";
+                unitConfig.ConditionUser = name;
+                serviceConfig = {
+                  ExecStart = "${config.programs.ssh.package}/bin/ssh -T -o BatchMode=yes -o StrictHostKeyChecking=yes ${name}@${toString hub} hub";
+                  StandardInput = "socket";
+                  StandardOutput = "socket";
+                  StandardError = "journal";
+                };
+              };
+            };
 
-            sockets = lib.listToAttrs (
-              map (
-                s:
-                lib.nameValuePair "nalum-hub-${s}" {
-                  description = "limi-hub's ${s} socket on ${toString hub}, for nalum";
-                  wantedBy = [ "sockets.target" ];
-                  unitConfig.ConditionUser = name;
-                  socketConfig = {
-                    ListenStream = "%t/limi-hub/${s}.sock";
-                    Accept = true;
-                    SocketMode = "0600";
-                    DirectoryMode = "0700";
-                  };
-                }
-              ) relayed
-            );
+            sockets.nalum-hub = {
+              description = "limi-hub's socket on ${toString hub}, for nalum";
+              wantedBy = [ "sockets.target" ];
+              unitConfig.ConditionUser = name;
+              socketConfig = {
+                ListenStream = "%t/limi-hub/server.sock";
+                Accept = true;
+                SocketMode = "0600";
+                DirectoryMode = "0700";
+              };
+            };
           };
         };
       })
