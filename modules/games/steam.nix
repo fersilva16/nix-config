@@ -1,4 +1,5 @@
 {
+  config,
   mkUserModule,
   forPlatform,
   pkgs,
@@ -24,7 +25,48 @@ mkUserModule {
       # Feral GameMode daemon: raises the CPU governor and priority while a
       # game runs. Per game in Steam: launch options `gamemoderun %command%`;
       # Heroic has a per-game GameMode toggle that uses the same daemon.
-      programs.gamemode.enable = true;
+      programs.gamemode = {
+        enable = true;
+        settings = {
+          # nice -10 for the game's threads. Nice only weighs tasks in the
+          # same cgroup (the game vs Steam's shader compiles), so the work
+          # in other slices yields through game-priority below.
+          general.renice = 10;
+          custom = {
+            start = "${config.systemd.package}/bin/systemctl start game-priority.service";
+            end = "${config.systemd.package}/bin/systemctl stop game-priority.service";
+          };
+        };
+      };
+
+      # Active while any game holds GameMode. Background work yields the
+      # machine to it here; modules that run such work add their own lines
+      # to `script` (yield) and `preStop` (take it back).
+      systemd.services.game-priority = {
+        description = "A game is running: background work yields CPU and GPU";
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        # Under load each slice gets CPU by weight, nice does not cross
+        # them: user.slice (the game) outweighs system.slice (nix builds,
+        # services) 10:1. An empty value restores the default.
+        script = "systemctl set-property --runtime user.slice CPUWeight=1000";
+        preStop = "systemctl set-property --runtime user.slice CPUWeight=";
+      };
+
+      # gamemoded runs as the player, so the gamemode group may start and
+      # stop that one unit with no password.
+      security.polkit.extraConfig = ''
+        polkit.addRule(function (action, subject) {
+          if (action.id == "org.freedesktop.systemd1.manage-units" &&
+              action.lookup("unit") == "game-priority.service" &&
+              ["start", "stop"].indexOf(action.lookup("verb")) >= 0 &&
+              subject.isInGroup("gamemode")) {
+            return polkit.Result.YES;
+          }
+        });
+      '';
     };
   };
   # gamemode's polkit rule only lets the `gamemode` group switch the CPU

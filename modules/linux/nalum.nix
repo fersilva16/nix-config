@@ -333,6 +333,13 @@ mkSystemModule {
             pathConfig.PathChanged = dirOf fromProfile;
           };
 
+          # A running game takes the CPU from the agents
+          # (modules/games/steam.nix): their slice gets only what it leaves.
+          services.game-priority = lib.mkIf config.programs.gamemode.enable {
+            script = "systemctl set-property --runtime user-$(id -u ${name}).slice CPUWeight=idle";
+            preStop = "systemctl set-property --runtime user-$(id -u ${name}).slice CPUWeight=";
+          };
+
           user = {
             # nalum's main mux, as limi-suite's server part runs fernando's;
             # his own unit of this name, from Home Manager, overrides this one.

@@ -31,22 +31,30 @@ let
         p.binutils-unwrapped # ld: the launcher probes with a clean PATH
       ];
     }).run;
-  forza-reimagined = pkgs.writeShellScriptBin "forza-reimagined" ''
-    exec ${fhs}/bin/steam-run ${launcher}/forza-launcher "$@"
-  '';
 in
 mkUserModule {
   name = "forza-horizon";
-  home = {
-    home.packages = forPlatform { linux = [ forza-reimagined ]; };
-    xdg.desktopEntries = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
-      forza-reimagined = {
-        name = "Forza Horizon 1: ReImagined";
-        exec = "${forza-reimagined}/bin/forza-reimagined";
-        icon = "${launcher}/forza-reimagined.png";
-        categories = [ "Game" ];
-        settings.StartupWMClass = "forza-reimagined";
+  home =
+    { userCfg, ... }:
+    let
+      # With steam's GameMode daemon, the game runs in GameMode and takes
+      # the machine (modules/games/steam.nix). gamemoderun goes inside
+      # steam-run, whose sandbox would drop the library path it sets.
+      gamemoderun = lib.optionalString userCfg.steam.enable "${pkgs.gamemode}/bin/gamemoderun ";
+      forza-reimagined = pkgs.writeShellScriptBin "forza-reimagined" ''
+        exec ${fhs}/bin/steam-run ${gamemoderun}${launcher}/forza-launcher "$@"
+      '';
+    in
+    {
+      home.packages = forPlatform { linux = [ forza-reimagined ]; };
+      xdg.desktopEntries = lib.mkIf pkgs.stdenv.hostPlatform.isLinux {
+        forza-reimagined = {
+          name = "Forza Horizon 1: ReImagined";
+          exec = "${forza-reimagined}/bin/forza-reimagined";
+          icon = "${launcher}/forza-reimagined.png";
+          categories = [ "Game" ];
+          settings.StartupWMClass = "forza-reimagined";
+        };
       };
     };
-  };
 }
