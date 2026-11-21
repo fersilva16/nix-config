@@ -126,9 +126,9 @@
       inputs.flake-utils.follows = "utils";
     };
 
-    # Limi's host paths and the limi-hub NixOS module. Packages still live
-    # only in each machine's Limi profile, which `limi switch` moves.
-    limi.url = "github:fersilva16/limi";
+    # Limi's host paths and its NixOS and Home Manager modules. Packages still
+    # live only in each machine's Limi profile, which `limi switch` moves.
+    limi.url = "github:fersilva16/limi/limi-modules";
 
     # VS Code Marketplace + Open VSX extensions as Nix packages. nixpkgs only
     # ships a few hundred extensions; this exposes the full marketplace so the
