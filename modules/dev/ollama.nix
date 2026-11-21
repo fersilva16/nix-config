@@ -25,6 +25,7 @@
 # That cache is declared at the host level (modules/hosts/polaris.nix), not
 # here, so it is already in nix.conf before ollama is first enabled.
 {
+  config,
   mkUserModule,
   forPlatform,
   pkgs,
@@ -110,6 +111,21 @@ mkUserModule {
             # Upstream also wants this at boot, which would start ollama with it.
             # Run it only when ollama starts; it talks to the backend directly.
             ollama-model-loader.wantedBy = lib.mkForce [ "ollama.service" ];
+
+            # A running game takes the GPU (modules/games/steam.nix): ollama
+            # stops and frees all of the VRAM, and its socket stays closed, so
+            # a request fails fast instead of loading a model back mid-game.
+            # The socket opens again when the game exits.
+            game-priority = lib.mkIf config.programs.gamemode.enable {
+              conflicts = [ "ollama-proxy.socket" ];
+              # Started only once ollama is gone, so the game never meets
+              # its VRAM still held.
+              after = [
+                "ollama-proxy.socket"
+                "ollama.service"
+              ];
+              postStop = "systemctl start --no-block ollama-proxy.socket";
+            };
           };
         };
 
