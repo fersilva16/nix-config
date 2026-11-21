@@ -42,18 +42,26 @@ mkUserModule {
       # Active while any game holds GameMode. Background work yields the
       # machine to it here; modules that run such work add their own lines
       # to `script` (yield) and `preStop` (take it back).
-      systemd.services.game-priority = {
-        description = "A game is running: background work yields CPU and GPU";
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
-        # Under load each slice gets CPU by weight, nice does not cross
-        # them: user.slice (the game) outweighs system.slice (nix builds,
-        # services) 10:1. An empty value restores the default.
-        script = "systemctl set-property --runtime user.slice CPUWeight=1000";
-        preStop = "systemctl set-property --runtime user.slice CPUWeight=";
-      };
+      systemd.services.game-priority = lib.mkMerge [
+        {
+          description = "A game is running: background work yields CPU and GPU";
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+          };
+          # Under load each slice gets CPU by weight, nice does not cross
+          # them: user.slice (the game) outweighs system.slice (nix builds,
+          # services) 10:1. An empty value restores the default.
+          script = "systemctl set-property --runtime user.slice CPUWeight=1000";
+          preStop = "systemctl set-property --runtime user.slice CPUWeight=";
+        }
+        # Nalum's coding agents run as nalum, in user.slice too: their slice
+        # gets only what the game leaves.
+        (lib.mkIf config.services.limi-nalum.agents.enable {
+          script = lib.mkAfter "systemctl set-property --runtime user-$(id -u nalum).slice CPUWeight=idle";
+          preStop = lib.mkAfter "systemctl set-property --runtime user-$(id -u nalum).slice CPUWeight=";
+        })
+      ];
 
       # gamemoded runs as the player, so the gamemode group may start and
       # stop that one unit with no password.

@@ -103,6 +103,10 @@ nixpkgs.lib.nixosSystem {
     inputs.limi.nixosModules.limi-hub
     # Inert until modules/dev/limi-metrics.nix enables it.
     inputs.limi.nixosModules.limi-metrics
+    # Inert until modules/dev/limi-suite enables it.
+    inputs.limi.nixosModules.limi-suite
+    # Inert until limi-hub or a host (polaris) enables it.
+    inputs.limi.nixosModules.limi-nalum
 
     {
       networking.hostName = hostName;

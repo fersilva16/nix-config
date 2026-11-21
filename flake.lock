@@ -298,19 +298,19 @@
         "crane": "crane_2",
         "crate2nix": "crate2nix",
         "nixpkgs": "nixpkgs",
-        "terranix": "terranix",
-        "wpe-nixpkgs": "wpe-nixpkgs"
+        "terranix": "terranix"
       },
       "locked": {
-        "lastModified": 1794853321,
-        "narHash": "sha256-hkUI8X/wq7aZfp+SccVrGCabMHBUZUdLUxuqKnjYg5g=",
+        "lastModified": 1795277853,
+        "narHash": "sha256-T4AKawvkDpPwIXzBL3yDA2GcFmfXeuZiiG+Q6Ouv74c=",
         "owner": "fersilva16",
         "repo": "limi",
-        "rev": "225cafe3aed8c2cb76d87f25d681f943eb07ea95",
+        "rev": "60158b3c760c5c082f17829e558d646896b28f07",
         "type": "github"
       },
       "original": {
         "owner": "fersilva16",
+        "ref": "limi-modules",
         "repo": "limi",
         "type": "github"
       }
@@ -643,22 +643,6 @@
       "original": {
         "owner": "numtide",
         "repo": "flake-utils",
-        "type": "github"
-      }
-    },
-    "wpe-nixpkgs": {
-      "locked": {
-        "lastModified": 1791487292,
-        "narHash": "sha256-tqM7xDEsaeK1p6VvRygeZ9LkQRpUUkbRT02BHv6hnTM=",
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixos",
-        "repo": "nixpkgs",
-        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
         "type": "github"
       }
     }
