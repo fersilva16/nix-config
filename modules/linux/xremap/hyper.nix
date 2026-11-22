@@ -27,38 +27,6 @@ let
     ++ args;
   };
 
-  # Hyper+Space — toggle between limi-desktop and VSCode, mirroring the
-  # Hammerspoon binding on darwin. Focuses an existing window via niri IPC,
-  # launches the app when none exists.
-  # ponytail: darwin also opens VSCode at the current tmux session's git
-  # root; port that if plain focus-toggling ever feels lacking.
-  terminal-code-toggle = pkgs.writeShellApplication {
-    name = "niri-terminal-code-toggle";
-    runtimeInputs = [
-      pkgs.jq
-      pkgs.niri
-    ];
-    text = ''
-      focus_or_launch() {
-        re=$1
-        shift
-        id=$(niri msg -j windows | jq -r --arg re "$re" \
-          '[.[] | select((.app_id // "") | test($re; "i"))][0].id // empty')
-        if [ -n "$id" ]; then
-          niri msg action focus-window --id "$id"
-        else
-          niri msg action spawn -- "$@"
-        fi
-      }
-
-      focused=$(niri msg -j focused-window | jq -r '.app_id // ""')
-      case "$focused" in
-        limi-desktop) focus_or_launch '^code' code ;;
-        *) focus_or_launch '^limi-desktop$' limi-desktop ;;
-      esac
-    '';
-  };
-
   windowActions = {
     "${hyper}-t" = action [
       "spawn"
@@ -68,7 +36,6 @@ let
     "${hyper}-f" = action [ "maximize-column" ];
     "${hyper}-tab" = action [ "focus-monitor-next" ];
     "${hyper}-backslash" = action [ "move-column-to-monitor-next" ];
-    "${hyper}-space".launch = [ (lib.getExe terminal-code-toggle) ];
   };
 in
 {
