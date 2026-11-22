@@ -1,8 +1,14 @@
 # Apple Color Emoji as the emoji font on Linux desktops, so every fontconfig
 # client (GTK/Qt apps, browsers, terminals) draws Apple's emoji. The font is
 # samuelngs/apple-emoji-linux's Linux build (CBDT colour bitmaps, which
-# FreeType draws well). Noto Color Emoji stays as the fallback for anything
-# it lacks. darwin ships the font itself, so nothing is set there.
+# FreeType draws well). darwin ships the font itself, so nothing is set there.
+#
+# Noto Color Emoji comes with fonts.enableDefaultPackages (on with any
+# graphical desktop) alongside fonts this host still wants, and fonts.packages
+# can't drop one entry from that list. So fontconfig hides it instead: it is
+# rejected outright, and a request for it by name gets Apple Color Emoji. A
+# fallback alone isn't enough: Chrome's form controls resolve emoji through a
+# different fontconfig query than page text and still landed on Noto.
 {
   mkSystemModule,
   forPlatform,
@@ -44,10 +50,26 @@ mkSystemModule {
   config = forPlatform {
     linux.fonts = {
       packages = [ apple-color-emoji ];
-      fontconfig.defaultFonts.emoji = [
-        "Apple Color Emoji"
-        "Noto Color Emoji"
-      ];
+      fontconfig = {
+        defaultFonts.emoji = [ "Apple Color Emoji" ];
+        localConf = ''
+          <?xml version="1.0"?>
+          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+          <fontconfig>
+            <selectfont>
+              <rejectfont>
+                <pattern>
+                  <patelt name="family"><string>Noto Color Emoji</string></patelt>
+                </pattern>
+              </rejectfont>
+            </selectfont>
+            <match target="pattern">
+              <test name="family"><string>Noto Color Emoji</string></test>
+              <edit name="family" mode="assign" binding="strong"><string>Apple Color Emoji</string></edit>
+            </match>
+          </fontconfig>
+        '';
+      };
     };
   };
 }
