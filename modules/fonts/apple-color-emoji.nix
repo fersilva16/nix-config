@@ -3,12 +3,11 @@
 # samuelngs/apple-emoji-linux's Linux build (CBDT colour bitmaps, which
 # FreeType draws well). darwin ships the font itself, so nothing is set there.
 #
-# Noto Color Emoji comes with fonts.enableDefaultPackages (on with any
-# graphical desktop) alongside fonts this host still wants, and fonts.packages
-# can't drop one entry from that list. So fontconfig hides it instead: it is
-# rejected outright, and a request for it by name gets Apple Color Emoji. A
-# fallback alone isn't enough: Chrome's form controls resolve emoji through a
-# different fontconfig query than page text and still landed on Noto.
+# Apple's is the only colour emoji font: with Noto Color Emoji merely behind it
+# in the emoji list, Chrome's form controls still drew Noto. Noto Color Emoji
+# comes with fonts.enableDefaultPackages (on with any graphical desktop), and
+# fonts.packages can't drop one entry from that list, so the defaults go off
+# and the rest of nixpkgs' list (fonts/packages.nix) is installed here instead.
 {
   mkSystemModule,
   forPlatform,
@@ -49,27 +48,18 @@ mkSystemModule {
   name = "apple-color-emoji";
   config = forPlatform {
     linux.fonts = {
-      packages = [ apple-color-emoji ];
-      fontconfig = {
-        defaultFonts.emoji = [ "Apple Color Emoji" ];
-        localConf = ''
-          <?xml version="1.0"?>
-          <!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
-          <fontconfig>
-            <selectfont>
-              <rejectfont>
-                <pattern>
-                  <patelt name="family"><string>Noto Color Emoji</string></patelt>
-                </pattern>
-              </rejectfont>
-            </selectfont>
-            <match target="pattern">
-              <test name="family"><string>Noto Color Emoji</string></test>
-              <edit name="family" mode="assign" binding="strong"><string>Apple Color Emoji</string></edit>
-            </match>
-          </fontconfig>
-        '';
-      };
+      enableDefaultPackages = false;
+      packages = with pkgs; [
+        apple-color-emoji
+        dejavu_fonts
+        freefont_ttf
+        gyre-fonts
+        liberation_ttf
+        unifont
+        noto-fonts-cjk-sans
+        noto-fonts-cjk-serif
+      ];
+      fontconfig.defaultFonts.emoji = [ "Apple Color Emoji" ];
     };
   };
 }
