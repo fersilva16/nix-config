@@ -27,6 +27,25 @@ let
     ++ args;
   };
 
+  # Hyper+Space: focus limi-desktop via niri IPC, launching it when no
+  # window exists.
+  focus-limi-desktop = pkgs.writeShellApplication {
+    name = "niri-focus-limi-desktop";
+    runtimeInputs = [
+      pkgs.jq
+      pkgs.niri
+    ];
+    text = ''
+      id=$(niri msg -j windows | jq -r \
+        '[.[] | select((.app_id // "") | test("^limi-desktop$"; "i"))][0].id // empty')
+      if [ -n "$id" ]; then
+        niri msg action focus-window --id "$id"
+      else
+        niri msg action spawn -- limi-desktop
+      fi
+    '';
+  };
+
   windowActions = {
     "${hyper}-t" = action [
       "spawn"
@@ -36,6 +55,7 @@ let
     "${hyper}-f" = action [ "maximize-column" ];
     "${hyper}-tab" = action [ "focus-monitor-next" ];
     "${hyper}-backslash" = action [ "move-column-to-monitor-next" ];
+    "${hyper}-space".launch = [ (lib.getExe focus-limi-desktop) ];
   };
 in
 {
