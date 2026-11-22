@@ -62,14 +62,6 @@ mkNixOSHost {
         };
         networking.networkmanager.wifi.powersave = false;
 
-        # Emoji prefer Apple Color Emoji when it is installed by hand in
-        # ~/.local/share/fonts (not redistributable, so never in the store);
-        # fontconfig skips a missing family and falls back to Noto.
-        fonts.fontconfig.defaultFonts.emoji = [
-          "Apple Color Emoji"
-          "Noto Color Emoji"
-        ];
-
         # The RTL8922AE firmware (0.35.80.3) sometimes hangs while arming
         # WoWLAN on suspend ("failed to suspend for wow -1"); that wake is
         # lost and WiFi stays dead after resume until the driver reloads
