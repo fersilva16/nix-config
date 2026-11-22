@@ -1,9 +1,9 @@
 # Apple Color Emoji as the emoji font on Linux desktops, so every fontconfig
 # client (GTK/Qt apps, browsers, terminals) draws Apple's emoji. The font is
-# samuelngs/apple-emoji-linux's Linux build (CBDT colour bitmaps, which
+# samuelngs/apple-emoji-linux's Linux build (CBDT color bitmaps, which
 # FreeType draws well). darwin ships the font itself, so nothing is set there.
 #
-# Apple's is the only colour emoji font: with Noto Color Emoji merely behind it
+# Apple's is the only color emoji font: with Noto Color Emoji merely behind it
 # in the emoji list, Chrome's form controls still drew Noto. Noto Color Emoji
 # comes with fonts.enableDefaultPackages (on with any graphical desktop), and
 # fonts.packages can't drop one entry from that list, so the defaults go off
