@@ -32,12 +32,12 @@ mkNixOSHost {
         # A copy on another machine and disk: polaris's /data. altair is
         # always on, so it pushes and wakes polaris for it.
         backup.to = "polaris";
-
-        # The coding agents that run as nalum on polaris reach limi-hub's
-        # sockets for Nalum through nalum here, and nothing else
-        # (modules/linux/nalum.nix).
-        nalum.relayFrom = [ "polaris" ];
       };
+
+      # The coding agents that run as nalum on polaris reach limi-hub's ops
+      # for Nalum through nalum here, and nothing else. limi-hub turns the
+      # user nalum on (Limi's nixosModules.limi-nalum).
+      services.limi-nalum.relayKeys = import ../../keys/nalum-polaris.nix;
 
       # Names and allowed values: ls /sys/class/firmware-attributes/thinklmi/attributes
       modules.system.bios.settings = {
