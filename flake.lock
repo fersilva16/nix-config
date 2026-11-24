@@ -301,11 +301,11 @@
         "terranix": "terranix"
       },
       "locked": {
-        "lastModified": 1795402186,
-        "narHash": "sha256-W33h5+uws1K/6gZo5UQ6S6xw7i0tJFYGFKyT42F4rEY=",
+        "lastModified": 1795473828,
+        "narHash": "sha256-f7H59wUT7BFGnnbSnTOVMBJDwKTa/m4r99LXgPgy8mc=",
         "owner": "fersilva16",
         "repo": "limi",
-        "rev": "12373c593be35dbafc566f16ef021a9fd60cd435",
+        "rev": "295a055c72d57be191b28a1d58a1166ddb27560f",
         "type": "github"
       },
       "original": {
