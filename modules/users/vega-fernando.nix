@@ -24,7 +24,9 @@ mkUser {
   bat.enable = true;
   ssh = {
     enable = true;
-    authorizedKeys = import ../../keys/fernando.nix;
+    # Nalum on altair reaches vega as fernando (Readwise, Linear, Slack Later,
+    # coding agents while polaris is off).
+    authorizedKeys = import ../../keys/fernando.nix ++ import ../../keys/nalum-altair.nix;
   };
   fish.enable = true;
   starship.enable = true;
